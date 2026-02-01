@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { TextInput } from '@mantine/core';
 
 export default function RoomControls() {
-  const { handleCreateRoom, handleJoinRoom } = useConnections()
+  const { handleCreateRoom, handleJoinRoom, room } = useConnections()
   const [roomToJoin, setRoomToJoin] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [showRoomInput, setShowRoomInput] = useState<"createOrJoin" | "create" | "join">("createOrJoin")
@@ -17,6 +17,7 @@ export default function RoomControls() {
       return
     }
     await handleCreateRoom(playerName.trim())
+    alert(`You've created a room ${JSON.stringify(room)}`)
   }
 
   const joinRoom = async () => {
@@ -29,6 +30,7 @@ export default function RoomControls() {
       return
     }
     await handleJoinRoom(roomToJoin.trim().toUpperCase(), playerName.trim())
+    alert(`You've joined a room with ${JSON.stringify(room)}`)
   }
 
   const createOrJoin = <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">

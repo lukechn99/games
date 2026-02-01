@@ -6,8 +6,8 @@ import { createHash } from 'crypto'
 
 const ConnectionsContext = createContext<{
     supabase: ReturnType<typeof createClient>
-    handleCreateRoom: () => Promise<void>
-    handleFetchRooms: (roomCode: string) => Promise<void>
+    handleCreateRoom: (playerName: string) => Promise<string | undefined>
+    handleJoinRoom: (roomCode: string, playerName: string) => Promise<void>
     room: any
     peerConnections: Map<string, RTCPeerConnection>
     myPeerId: string | null
@@ -157,7 +157,7 @@ export function ConnectionsProvider({
         }
     }
 
-    const handleCreateRoom = async () => {
+    const handleCreateRoom = async (playerName: string) => {
         const roomCode = generateRoomCode()
         const peerId = crypto.randomUUID()
 
@@ -168,19 +168,19 @@ export function ConnectionsProvider({
             .insert({ 
                 room_code: roomCode, 
                 status: 'open',
-                peer_connections: { [peerId]: { isHost: true } }
+                peer_connections: { [peerId]: { isHost: true, playerName: playerName } }
             })
 
         // TODO: we should actually check the database with each generated code before trying to insert
         if (error) {
             console.error('Error creating room:', error)
             if (error.code === '23505') {
-                return handleCreateRoom() // Retry with new code
+                return handleCreateRoom(playerName) // Retry with new code
             }
             return
         }
 
-        setRoom({ room_code: roomCode, peer_connections: { [peerId]: { isHost: true } } })
+        setRoom({ room_code: roomCode, peer_connections: { [peerId]: { isHost: true, playerName: playerName } } })
 
         // Set up real-time subscription
         const roomChannel = supabase
@@ -200,7 +200,7 @@ export function ConnectionsProvider({
         return roomCode
     }
 
-    const handleFetchRooms = async (roomCode: string) => {
+    const handleJoinRoom = async (roomCode: string, playerName: string) => {
         const { data, error } = await supabase
             .from('rooms')
             .select('room_code, peer_connections')
@@ -233,7 +233,7 @@ export function ConnectionsProvider({
 
             // Store my offers
             await updatePeerConnections({
-                [peerId]: { offers }
+                [peerId]: { offers, playerName }
             })
 
             // Set up real-time subscription
@@ -267,7 +267,7 @@ export function ConnectionsProvider({
         <ConnectionsContext.Provider value={{ 
             supabase, 
             handleCreateRoom, 
-            handleFetchRooms, 
+            handleJoinRoom, 
             room, 
             peerConnections,
             myPeerId 

@@ -116,6 +116,7 @@ export function ConnectionsProvider({
             if (data.offers?.[myPeerId]) {
                 let pc = peerConnections.get(peerId)
                 if (!pc) {
+                    console.log("Creating peer connection for", peerId)
                     pc = createPeerConnection(peerId)
                     setPeerConnections(prev => new Map(prev.set(peerId, pc!)))
                 }
@@ -195,6 +196,8 @@ export function ConnectionsProvider({
             .subscribe()
 
         setChannel(roomChannel)
+
+        return roomCode
     }
 
     const handleFetchRooms = async (roomCode: string) => {

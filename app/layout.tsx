@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import '@mantine/core/styles.css';
 import "./globals.css";
-import { ConnectionsProvider } from "@/components/connections-provider";
+import { ConnectionsProvider } from "@/lib/connections-provider";
 import { createTheme, MantineProvider } from '@mantine/core';
 
 

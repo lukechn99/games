@@ -86,18 +86,69 @@ export function ConnectionsProvider({
         return pc
     }
 
-    const updatePeerConnections = async (updates: any) => {
-        if (!room?.room_code) return
+    const mergeNestedRecords = (current?: Record<string, any>, incoming?: Record<string, any>) => {
+        if (!current) return incoming
+        if (!incoming) return current
+        return { ...current, ...incoming }
+    }
 
-        const currentConnections = room.peer_connections || {}
-        const newConnections = { ...currentConnections, ...updates }
+    const mergeIceCandidates = (current?: Record<string, any>, incoming?: Record<string, any>) => {
+        if (!current) return incoming
+        if (!incoming) return current
+
+        const merged = { ...current }
+        for (const [peerId, candidates] of Object.entries(incoming)) {
+            const existing = merged[peerId] || []
+            merged[peerId] = [...existing, ...(candidates as any[])]
+        }
+        return merged
+    }
+
+    const mergePeerConnections = (current: Record<string, any>, updates: Record<string, any>) => {
+        const merged = { ...current }
+        for (const [peerId, update] of Object.entries(updates || {})) {
+            const currentData = current[peerId] || {}
+            const updateData = update as Record<string, any>
+            const offers = mergeNestedRecords(currentData.offers, updateData.offers)
+            const answers = mergeNestedRecords(currentData.answers, updateData.answers)
+            const iceCandidates = mergeIceCandidates(currentData.iceCandidates, updateData.iceCandidates)
+
+            merged[peerId] = {
+                ...currentData,
+                ...updateData,
+                ...(offers ? { offers } : {}),
+                ...(answers ? { answers } : {}),
+                ...(iceCandidates ? { iceCandidates } : {}),
+            }
+        }
+        return merged
+    }
+
+    const updatePeerConnections = async (
+        updates: Record<string, any>,
+        options?: { roomCode?: string; currentConnections?: Record<string, any> }
+    ) => {
+        const roomCode = options?.roomCode ?? room?.room_code
+        if (!roomCode) return null
+
+        const currentConnections = options?.currentConnections ?? room?.peer_connections ?? {}
+        const newConnections = mergePeerConnections(currentConnections, updates)
 
         const { error } = await supabase
             .from('rooms')
             .update({ peer_connections: newConnections })
-            .eq('room_code', room.room_code)
+            .eq('room_code', roomCode)
 
-        if (error) console.error('Error updating peer connections:', error)
+        if (error) {
+            console.error('Error updating peer connections:', error)
+            return null
+        }
+
+        if (room?.room_code === roomCode) {
+            setRoom((prev: any) => (prev ? { ...prev, peer_connections: newConnections } : prev))
+        }
+
+        return newConnections
     }
 
     const handleSignalingUpdate = async (updatedRoom: any) => {
@@ -223,10 +274,9 @@ export function ConnectionsProvider({
             const peerId = crypto.randomUUID()
             setMyPeerId(peerId)
 
-            setRoom(data)
-
             // Create offers to all existing peers
-            const existingPeers = Object.keys(data.peer_connections || {})
+            const existingConnections = data.peer_connections || {}
+            const existingPeers = Object.keys(existingConnections)
             const offers: any = {}
 
             for (const existingPeerId of existingPeers) {
@@ -239,9 +289,16 @@ export function ConnectionsProvider({
             }
 
             // Store my offers
-            await updatePeerConnections({
-                [peerId]: { offers, playerName }
-            })
+            const updatedConnections = await updatePeerConnections(
+                { [peerId]: { offers, playerName } },
+                { roomCode: data.room_code, currentConnections: existingConnections }
+            )
+
+            if (updatedConnections) {
+                setRoom({ ...data, peer_connections: updatedConnections })
+            } else {
+                setRoom(data)
+            }
 
             // Set up real-time subscription
             const roomChannel = supabase

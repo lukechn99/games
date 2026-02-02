@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { createHash } from 'crypto'
 
@@ -18,13 +18,14 @@ export function ConnectionsProvider({
 }: {
     children: React.ReactNode
 }) {
-    const supabase = createClient()
+    const [supabase] = useState(() => createClient())
 
     const [room, setRoom] = useState<any>(null)
     const [peerConnections, setPeerConnections] = useState<Map<string, RTCPeerConnection>>(new Map())
     const [myPeerId, setMyPeerId] = useState<string | null>(null)
     const [channel, setChannel] = useState<any>(null)
     const [iceCandidates, setIceCandidates] = useState<Map<string, RTCIceCandidate[]>>(new Map())
+    const peerConnectionsRef = useRef(peerConnections)
 
     const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
@@ -215,6 +216,39 @@ export function ConnectionsProvider({
         }
     }
 
+    const subscribeToRoom = (roomCode: string) => {
+        const roomChannel = supabase
+            .channel(`room-${roomCode}`)
+            .on('postgres_changes', { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'rooms',
+                filter: `room_code=eq.${roomCode}`
+            }, (payload) => {
+                handleSignalingUpdate(payload.new)
+            })
+            .subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    const { data, error } = await supabase
+                        .from('rooms')
+                        .select('room_code, peer_connections')
+                        .eq('room_code', roomCode)
+                        .maybeSingle()
+
+                    if (error) {
+                        console.error('Error fetching latest room state:', error)
+                        return
+                    }
+
+                    if (data) {
+                        setRoom((prev: any) => (prev ? { ...prev, peer_connections: data.peer_connections } : data))
+                    }
+                }
+            })
+
+        setChannel(roomChannel)
+    }
+
     const handleCreateRoom = async (playerName: string) => {
         const roomCode = generateRoomCode()
         const peerId = crypto.randomUUID()
@@ -241,19 +275,7 @@ export function ConnectionsProvider({
         setRoom({ room_code: roomCode, peer_connections: { [peerId]: { isHost: true, playerName: playerName } } })
 
         // Set up real-time subscription
-        const roomChannel = supabase
-            .channel(`room-${roomCode}`)
-            .on('postgres_changes', { 
-                event: 'UPDATE', 
-                schema: 'public', 
-                table: 'rooms',
-                filter: `room_code=eq.${roomCode}`
-            }, (payload) => {
-                handleSignalingUpdate(payload.new)
-            })
-            .subscribe()
-
-        setChannel(roomChannel)
+        subscribeToRoom(roomCode)
 
         return roomCode
     }
@@ -301,31 +323,23 @@ export function ConnectionsProvider({
             }
 
             // Set up real-time subscription
-            const roomChannel = supabase
-                .channel(`room-${roomCode}`)
-                .on('postgres_changes', { 
-                    event: 'UPDATE', 
-                    schema: 'public', 
-                    table: 'rooms',
-                    filter: `room_code=eq.${roomCode}`
-                }, (payload) => {
-                    handleSignalingUpdate(payload.new)
-                })
-                .subscribe()
-
-            setChannel(roomChannel)
+            subscribeToRoom(roomCode)
         }
     }
 
     // Cleanup on unmount
     useEffect(() => {
+        peerConnectionsRef.current = peerConnections
+    }, [peerConnections])
+
+    useEffect(() => {
         return () => {
             if (channel) {
                 supabase.removeChannel(channel)
             }
-            peerConnections.forEach(pc => pc.close())
+            peerConnectionsRef.current.forEach(pc => pc.close())
         }
-    }, [channel, peerConnections])
+    }, [channel, supabase])
 
     return (
         <ConnectionsContext.Provider value={{ 

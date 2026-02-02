@@ -101,6 +101,12 @@ export function ConnectionsProvider({
     }
 
     const handleSignalingUpdate = async (updatedRoom: any) => {
+        // Update room state to reflect latest peer_connections
+        setRoom((prev: any) => ({
+            ...prev,
+            peer_connections: updatedRoom.peer_connections
+        }))
+
         if (!updatedRoom.peer_connections || !myPeerId) return
 
         const connections = updatedRoom.peer_connections

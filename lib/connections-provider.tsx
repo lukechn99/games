@@ -1,16 +1,22 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { createHash } from 'crypto'
+import { Room } from './room'
+
+export type GameMessageHandler = (fromPeerId: string, msg: unknown) => void
 
 const ConnectionsContext = createContext<{
     supabase: ReturnType<typeof createClient>
     handleCreateRoom: (playerName: string) => Promise<string | undefined>
     handleJoinRoom: (roomCode: string, playerName: string) => Promise<void>
-    room: any
+    room: Room | null
     peerConnections: Map<string, RTCPeerConnection>
     myPeerId: string | null
+    dataChannels: Map<string, RTCDataChannel>
+    sendGameMessage: (peerId: string, msg: object) => void
+    broadcastGameMessage: (msg: object) => void
+    setGameMessageHandler: (handler: GameMessageHandler | null) => void
 } | null>(null)
 
 export function ConnectionsProvider({
@@ -20,30 +26,31 @@ export function ConnectionsProvider({
 }) {
     const supabase = createClient()
 
-    const [room, setRoom] = useState<any>(null)
+    const [room, setRoom] = useState<Room | null>(null)
     const [peerConnections, setPeerConnections] = useState<Map<string, RTCPeerConnection>>(new Map())
+    const [dataChannels, setDataChannels] = useState<Map<string, RTCDataChannel>>(new Map())
     const [myPeerId, setMyPeerId] = useState<string | null>(null)
     const [channel, setChannel] = useState<any>(null)
     const [iceCandidates, setIceCandidates] = useState<Map<string, RTCIceCandidate[]>>(new Map())
+    const gameMessageHandlerRef = useRef<GameMessageHandler | null>(null)
+    const setGameMessageHandler = useCallback((handler: GameMessageHandler | null) => {
+        gameMessageHandlerRef.current = handler
+    }, [])
 
     const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
     function generateRoomCode(): string {
-        const uuid = crypto.randomUUID()
-        const hash = createHash('sha256').update(uuid).digest('hex');
-
-        // 32 bits (8 hex chars) covers ~4.29 billion values, more than enough for 31^6 (~887m)
-        let decimalValue = parseInt(hash.substring(0, 8), 16);
-
-        let code = "";
-        const base = ALPHABET.length;
-
+        const bytes = new Uint8Array(4)
+        crypto.getRandomValues(bytes)
+        let decimalValue = (bytes[0]! << 24) | (bytes[1]! << 16) | (bytes[2]! << 8) | bytes[3]!
+        decimalValue = Math.abs(decimalValue)
+        let code = ''
+        const base = ALPHABET.length
         while (decimalValue > 0 && code.length < 6) {
-            code = ALPHABET[decimalValue % base] + code;
-            decimalValue = Math.floor(decimalValue / base);
+            code = ALPHABET[decimalValue % base] + code
+            decimalValue = Math.floor(decimalValue / base)
         }
-
-        return code.padStart(6, ALPHABET[0]).toUpperCase().slice(-6);
+        return code.padStart(6, ALPHABET[0]).toUpperCase().slice(-6)
     }
 
     const createPeerConnection = (remotePeerId: string): RTCPeerConnection => {
@@ -79,11 +86,43 @@ export function ConnectionsProvider({
         }
 
         pc.ondatachannel = (event) => {
-            console.log(`Data channel from ${remotePeerId}:`, event.channel)
-            // Handle incoming data channels for game communication
+            const dc = event.channel
+            dc.onmessage = (e) => {
+                try {
+                    const msg = JSON.parse(e.data as string)
+                    gameMessageHandlerRef.current?.(remotePeerId, msg)
+                } catch {
+                    gameMessageHandlerRef.current?.(remotePeerId, e.data)
+                }
+            }
+            dc.onopen = () => {
+                setDataChannels((prev) => new Map(prev).set(remotePeerId, dc))
+            }
+            if (dc.readyState === 'open') {
+                setDataChannels((prev) => new Map(prev).set(remotePeerId, dc))
+            }
         }
 
         return pc
+    }
+
+    const setupDataChannel = (pc: RTCPeerConnection, remotePeerId: string) => {
+        const dc = pc.createDataChannel('game', { ordered: true })
+        dc.onmessage = (e) => {
+            try {
+                const msg = JSON.parse(e.data as string)
+                gameMessageHandlerRef.current?.(remotePeerId, msg)
+            } catch {
+                gameMessageHandlerRef.current?.(remotePeerId, e.data)
+            }
+        }
+        dc.onopen = () => {
+            setDataChannels((prev) => new Map(prev).set(remotePeerId, dc))
+        }
+        if (dc.readyState === 'open') {
+            setDataChannels((prev) => new Map(prev).set(remotePeerId, dc))
+        }
+        return dc
     }
 
     const updatePeerConnections = async (updates: any) => {
@@ -168,7 +207,6 @@ export function ConnectionsProvider({
             .from('rooms')
             .insert({ 
                 room_code: roomCode, 
-                status: 'open',
                 peer_connections: { [peerId]: { isHost: true, playerName: playerName } }
             })
 
@@ -192,6 +230,7 @@ export function ConnectionsProvider({
                 table: 'rooms',
                 filter: `room_code=eq.${roomCode}`
             }, (payload) => {
+                setRoom((prev) => (prev ? { ...prev, ...payload.new } as Room : payload.new as Room))
                 handleSignalingUpdate(payload.new)
             })
             .subscribe()
@@ -216,8 +255,7 @@ export function ConnectionsProvider({
         if (data) {
             const peerId = crypto.randomUUID()
             setMyPeerId(peerId)
-
-            setRoom(data)
+            setRoom(data as Room)
 
             // Create offers to all existing peers
             const existingPeers = Object.keys(data.peer_connections || {})
@@ -225,6 +263,7 @@ export function ConnectionsProvider({
 
             for (const existingPeerId of existingPeers) {
                 const pc = createPeerConnection(existingPeerId)
+                setupDataChannel(pc, existingPeerId)
                 setPeerConnections(prev => new Map(prev.set(existingPeerId, pc)))
 
                 const offer = await pc.createOffer()
@@ -246,6 +285,7 @@ export function ConnectionsProvider({
                     table: 'rooms',
                     filter: `room_code=eq.${roomCode}`
                 }, (payload) => {
+                    setRoom((prev) => (prev ? { ...prev, ...payload.new } as Room : payload.new as Room))
                     handleSignalingUpdate(payload.new)
                 })
                 .subscribe()
@@ -253,6 +293,20 @@ export function ConnectionsProvider({
             setChannel(roomChannel)
         }
     }
+
+    const sendGameMessage = useCallback((peerId: string, msg: object) => {
+        const dc = dataChannels.get(peerId)
+        if (dc?.readyState === 'open') {
+            dc.send(JSON.stringify(msg))
+        }
+    }, [dataChannels])
+
+    const broadcastGameMessage = useCallback((msg: object) => {
+        const payload = JSON.stringify(msg)
+        dataChannels.forEach((dc) => {
+            if (dc.readyState === 'open') dc.send(payload)
+        })
+    }, [dataChannels])
 
     // Cleanup on unmount
     useEffect(() => {
@@ -271,7 +325,11 @@ export function ConnectionsProvider({
             handleJoinRoom, 
             room, 
             peerConnections,
-            myPeerId 
+            myPeerId,
+            dataChannels,
+            sendGameMessage,
+            broadcastGameMessage,
+            setGameMessageHandler,
         }}>
             {children}
         </ConnectionsContext.Provider>

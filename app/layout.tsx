@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import '@mantine/core/styles.css';
 import "./globals.css";
 import { ConnectionsProvider } from "@/lib/connections-provider";
+import { GameProvider } from "@/lib/game-context";
 import { createTheme, MantineProvider } from '@mantine/core';
 
 
@@ -37,7 +38,9 @@ export default function RootLayout({
       >
         <MantineProvider theme={theme}>
           <ConnectionsProvider>
-            {children}
+            <GameProvider>
+              {children}
+            </GameProvider>
           </ConnectionsProvider>
         </MantineProvider>
       </body>

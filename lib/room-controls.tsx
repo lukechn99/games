@@ -16,8 +16,8 @@ export default function RoomControls() {
       alert('Please enter your name')
       return
     }
-    await handleCreateRoom(playerName.trim())
-    alert(`You've created a room ${JSON.stringify(room)}`)
+    const roomCode = await handleCreateRoom(playerName.trim())
+    alert(`You've created a room ${roomCode}`)
   }
 
   const joinRoom = async () => {

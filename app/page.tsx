@@ -1,9 +1,9 @@
-import RoomControls from "@/lib/room-controls"
+import App from "@/lib/app"
 
 export default function Home() {
   return (
     <div>
-      <RoomControls />
+      <App />
     </div>
   )
 }

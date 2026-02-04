@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { useConnections } from "./connections-provider";
 import { useState } from 'react';
 import { TextInput } from '@mantine/core';
+import Lobby from "./lobby";
 
 export default function RoomControls() {
   const { handleCreateRoom, handleJoinRoom, room } = useConnections()
@@ -17,7 +18,7 @@ export default function RoomControls() {
       return
     }
     const roomCode = await handleCreateRoom(playerName.trim())
-    alert(`You've created a room ${roomCode}`)
+    if (roomCode) alert(`You've created a room ${roomCode}`)
   }
 
   const joinRoom = async () => {
@@ -30,7 +31,6 @@ export default function RoomControls() {
       return
     }
     await handleJoinRoom(roomToJoin.trim().toUpperCase(), playerName.trim())
-    alert(`You've joined a room with ${JSON.stringify(room)}`)
   }
 
   const createOrJoin = <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
@@ -68,6 +68,15 @@ export default function RoomControls() {
       Create Room
     </Button>
   </div>
+
+  // Show lobby if user is in a room
+  if (room) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <Lobby />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">

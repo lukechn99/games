@@ -66,6 +66,7 @@ export function ConnectionsProvider({
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
+                console.log(`[ice] Local ICE candidate generated for ${remotePeerId}:`, event.candidate.type, event.candidate.address)
                 // Store ICE candidate locally and send to remote peer
                 setIceCandidates(prev => {
                     const current = prev.get(remotePeerId) || []
@@ -77,7 +78,7 @@ export function ConnectionsProvider({
                 // Send ICE candidate to remote peer via database
                 const localPeerId = myPeerIdRef.current
                 if (!localPeerId) {
-                    console.warn('Skipping ICE candidate update: peer id not set yet')
+                    console.warn('[ice] Skipping ICE candidate update: peer id not set yet')
                     return
                 }
                 updatePeerConnections({
@@ -87,11 +88,21 @@ export function ConnectionsProvider({
                         }
                     }
                 })
+            } else {
+                console.log(`[ice] ICE gathering complete for ${remotePeerId}`)
             }
         }
 
+        pc.oniceconnectionstatechange = () => {
+            console.log(`[ice] ICE connection state for ${remotePeerId}: ${pc.iceConnectionState}`)
+        }
+
         pc.onconnectionstatechange = () => {
-            console.log(`Connection to ${remotePeerId}:`, pc.connectionState)
+            console.log(`[rtc] Connection state for ${remotePeerId}: ${pc.connectionState}`)
+        }
+
+        pc.onsignalingstatechange = () => {
+            console.log(`[rtc] Signaling state for ${remotePeerId}: ${pc.signalingState}`)
         }
 
         pc.ondatachannel = (event) => {
@@ -178,10 +189,19 @@ export function ConnectionsProvider({
     ) => {
         const currentRoom = roomRef.current ?? room
         const roomCode = options?.roomCode ?? currentRoom?.room_code
-        if (!roomCode) return null
+        if (!roomCode) {
+            console.warn('[updatePC] No room code available, skipping update')
+            return null
+        }
 
         const currentConnections = options?.currentConnections ?? currentRoom?.peer_connections ?? {}
         const newConnections = mergePeerConnections(currentConnections, updates)
+
+        console.log('[updatePC] Writing to DB:', {
+            roomCode,
+            updateKeys: Object.keys(updates),
+            resultingPeerIds: Object.keys(newConnections),
+        })
 
         const { error } = await supabase
             .from('rooms')
@@ -189,9 +209,11 @@ export function ConnectionsProvider({
             .eq('room_code', roomCode)
 
         if (error) {
-            console.error('Error updating peer connections:', error)
+            console.error('[updatePC] Error updating peer connections:', error)
             return null
         }
+
+        console.log('[updatePC] DB write successful')
 
         if (currentRoom?.room_code === roomCode) {
             setRoom((prev) => (prev ? { ...prev, peer_connections: newConnections } : prev))
@@ -207,10 +229,18 @@ export function ConnectionsProvider({
         const previousPeerIds = new Set(Object.keys(previousConnections))
         const localPeerId = myPeerIdRef.current
 
+        console.log('[signaling] handleSignalingUpdate entered', {
+            localPeerId,
+            previousPeerIds: [...previousPeerIds],
+            incomingPeerIds: Object.keys(incomingConnections),
+            roomRefExists: !!roomRef.current,
+        })
+
         for (const [peerId, peerData] of Object.entries(incomingConnections)) {
             if (peerId === localPeerId) continue
             if (!previousPeerIds.has(peerId)) {
                 const playerName = (peerData as any)?.playerName || 'New player'
+                console.log(`[signaling] New peer detected: ${peerId} (${playerName})`)
                 notifications.show({
                     title: 'Player joined',
                     message: `${playerName} joined the room`,
@@ -227,7 +257,13 @@ export function ConnectionsProvider({
             peer_connections: updatedRoom.peer_connections,
         }
 
-        if (!updatedRoom.peer_connections || !localPeerId) return
+        if (!updatedRoom.peer_connections || !localPeerId) {
+            console.warn('[signaling] Early return — missing peer_connections or localPeerId', {
+                hasPeerConnections: !!updatedRoom.peer_connections,
+                localPeerId,
+            })
+            return
+        }
 
         const connections = updatedRoom.peer_connections
 
@@ -239,9 +275,17 @@ export function ConnectionsProvider({
 
             // Check if there's an offer for me
             if (data.offers?.[localPeerId]) {
+                console.log(`[signaling] Found offer from ${peerId} directed at me (${localPeerId})`)
                 let pc = peerConnections.get(peerId)
+                const pcFromRef = peerConnectionsRef.current.get(peerId)
+                console.log(`[signaling] PeerConnection lookup for ${peerId}:`, {
+                    fromState: !!pc,
+                    fromRef: !!pcFromRef,
+                    stateSize: peerConnections.size,
+                    refSize: peerConnectionsRef.current.size,
+                })
                 if (!pc) {
-                    console.log("Creating peer connection for", peerId)
+                    console.log(`[signaling] Creating new peer connection for ${peerId}`)
                     pc = createPeerConnection(peerId)
                     setPeerConnections(prev => new Map(prev.set(peerId, pc!)))
                 }
@@ -250,6 +294,7 @@ export function ConnectionsProvider({
                 await pc.setRemoteDescription(new RTCSessionDescription(offer))
                 const answer = await pc.createAnswer()
                 await pc.setLocalDescription(answer)
+                console.log(`[signaling] Created answer for ${peerId}, writing to DB...`)
 
                 // Send answer back
                 await updatePeerConnections({
@@ -259,30 +304,53 @@ export function ConnectionsProvider({
                         }
                     }
                 }, { currentConnections: updatedRoom.peer_connections })
+                console.log(`[signaling] Answer for ${peerId} written to DB`)
             }
 
             // Check if there's an answer from someone I offered to
             if (data.answers?.[localPeerId]) {
+                console.log(`[signaling] Found answer from ${peerId} directed at me (${localPeerId})`)
                 const pc = peerConnections.get(peerId)
+                const pcFromRef = peerConnectionsRef.current.get(peerId)
+                console.log(`[signaling] PeerConnection lookup for answer from ${peerId}:`, {
+                    fromState: !!pc,
+                    fromRef: !!pcFromRef,
+                    stateSize: peerConnections.size,
+                    refSize: peerConnectionsRef.current.size,
+                })
                 if (pc) {
                     const answer = JSON.parse(data.answers[localPeerId])
                     await pc.setRemoteDescription(new RTCSessionDescription(answer))
+                    console.log(`[signaling] Set remote description (answer) from ${peerId}`)
+                } else {
+                    console.warn(`[signaling] No PeerConnection found for answer from ${peerId} — answer DROPPED`)
                 }
             }
 
             // Handle ICE candidates
             if (data.iceCandidates?.[localPeerId]) {
                 const pc = peerConnections.get(peerId)
+                const pcFromRef = peerConnectionsRef.current.get(peerId)
+                console.log(`[signaling] Found ICE candidates from ${peerId} directed at me:`, {
+                    count: data.iceCandidates[localPeerId].length,
+                    hasPc: !!pc,
+                    hasPcFromRef: !!pcFromRef,
+                })
                 if (pc) {
                     for (const candidate of data.iceCandidates[localPeerId]) {
                         await pc.addIceCandidate(new RTCIceCandidate(candidate))
                     }
+                    console.log(`[signaling] Added ${data.iceCandidates[localPeerId].length} ICE candidates from ${peerId}`)
+                } else {
+                    console.warn(`[signaling] No PeerConnection found for ICE candidates from ${peerId} — candidates DROPPED`)
                 }
             }
         }
+        console.log('[signaling] handleSignalingUpdate complete')
     }
 
     const subscribeToRoom = (roomCode: string) => {
+        console.log(`[subscribe] Setting up Realtime subscription for room ${roomCode}`)
         const roomChannel = supabase
             .channel(`room-${roomCode}`)
             .on('postgres_changes', { 
@@ -291,10 +359,16 @@ export function ConnectionsProvider({
                 table: 'rooms',
                 filter: `room_code=eq.${roomCode}`
             }, (payload) => {
+                console.log('[subscribe] Received postgres_changes UPDATE event:', {
+                    peerIds: Object.keys(payload.new?.peer_connections || {}),
+                    payloadKeys: Object.keys(payload.new || {}),
+                })
                 handleSignalingUpdate(payload.new)
             })
-            .subscribe(async (status) => {
+            .subscribe(async (status, err) => {
+                console.log(`[subscribe] Subscription status changed: ${status}`, err ? { error: err } : '')
                 if (status === 'SUBSCRIBED') {
+                    console.log(`[subscribe] Successfully subscribed to room ${roomCode}, fetching latest state...`)
                     const { data, error } = await supabase
                         .from('rooms')
                         .select('room_code, peer_connections')
@@ -302,13 +376,24 @@ export function ConnectionsProvider({
                         .maybeSingle()
 
                     if (error) {
-                        console.error('Error fetching latest room state:', error)
+                        console.error('[subscribe] Error fetching latest room state:', error)
                         return
                     }
 
                     if (data) {
+                        console.log('[subscribe] Fetched latest room state:', {
+                            peerIds: Object.keys(data.peer_connections || {}),
+                        })
                         setRoom((prev) => (prev ? { ...prev, peer_connections: data.peer_connections } : (data as Room)))
+                    } else {
+                        console.warn('[subscribe] No room data found after subscribing')
                     }
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error(`[subscribe] Channel error for room ${roomCode}`)
+                } else if (status === 'TIMED_OUT') {
+                    console.error(`[subscribe] Subscription timed out for room ${roomCode}`)
+                } else if (status === 'CLOSED') {
+                    console.warn(`[subscribe] Channel closed for room ${roomCode}`)
                 }
             })
 
@@ -319,6 +404,7 @@ export function ConnectionsProvider({
         const roomCode = generateRoomCode()
         const peerId = crypto.randomUUID()
 
+        console.log(`[create] Creating room ${roomCode} as "${playerName}", peerId: ${peerId}`)
         setMyPeerId(peerId)
         myPeerIdRef.current = peerId
 
@@ -331,12 +417,15 @@ export function ConnectionsProvider({
 
         // TODO: we should actually check the database with each generated code before trying to insert
         if (error) {
-            console.error('Error creating room:', error)
+            console.error('[create] Error creating room:', error)
             if (error.code === '23505') {
+                console.log('[create] Room code collision, retrying...')
                 return handleCreateRoom(playerName) // Retry with new code
             }
             return
         }
+
+        console.log(`[create] Room ${roomCode} created successfully in DB`)
 
         const initialRoom = {
             room_code: roomCode,
@@ -347,12 +436,14 @@ export function ConnectionsProvider({
         roomRef.current = initialRoom
 
         // Set up real-time subscription
+        console.log(`[create] Setting up Realtime subscription for room ${roomCode}...`)
         subscribeToRoom(roomCode)
 
         return roomCode
     }
 
     const handleJoinRoom = async (roomCode: string, playerName: string) => {
+        console.log(`[join] Attempting to join room ${roomCode} as "${playerName}"`)
         const { data, error } = await supabase
             .from('rooms')
             .select('room_code, peer_connections')
@@ -360,49 +451,67 @@ export function ConnectionsProvider({
             .maybeSingle()
 
         if (error) {
-            console.error(error)
+            console.error('[join] Error fetching room:', error)
             return
         }
 
-        if (data) {
-            const peerId = crypto.randomUUID()
-            setMyPeerId(peerId)
-            myPeerIdRef.current = peerId
-
-            // Create offers to all existing peers
-            const existingConnections = data.peer_connections || {}
-            const existingPeers = Object.keys(existingConnections)
-            const offers: any = {}
-
-            for (const existingPeerId of existingPeers) {
-                const pc = createPeerConnection(existingPeerId)
-                setupDataChannel(pc, existingPeerId)
-                setPeerConnections(prev => new Map(prev.set(existingPeerId, pc)))
-
-                const offer = await pc.createOffer()
-                await pc.setLocalDescription(offer)
-                offers[existingPeerId] = JSON.stringify(offer)
-            }
-
-            // Store my offers
-            const updatedConnections = await updatePeerConnections(
-                { [peerId]: { offers, playerName } },
-                { roomCode: data.room_code, currentConnections: existingConnections }
-            )
-
-            if (updatedConnections) {
-                const nextRoom = { ...data, peer_connections: updatedConnections } as Room
-                setRoom(nextRoom)
-                roomRef.current = nextRoom
-            } else {
-                const roomData = data as Room
-                setRoom(roomData)
-                roomRef.current = roomData
-            }
-
-            // Set up real-time subscription
-            subscribeToRoom(roomCode)
+        if (!data) {
+            console.error(`[join] Room ${roomCode} not found`)
+            return
         }
+
+        console.log('[join] Room found:', {
+            roomCode: data.room_code,
+            existingPeerIds: Object.keys(data.peer_connections || {}),
+        })
+
+        const peerId = crypto.randomUUID()
+        console.log(`[join] Generated local peerId: ${peerId}`)
+        setMyPeerId(peerId)
+        myPeerIdRef.current = peerId
+
+        // Create offers to all existing peers
+        const existingConnections = data.peer_connections || {}
+        const existingPeers = Object.keys(existingConnections)
+        const offers: any = {}
+
+        console.log(`[join] Creating offers to ${existingPeers.length} existing peers:`, existingPeers)
+        for (const existingPeerId of existingPeers) {
+            const pc = createPeerConnection(existingPeerId)
+            setupDataChannel(pc, existingPeerId)
+            setPeerConnections(prev => new Map(prev.set(existingPeerId, pc)))
+
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            offers[existingPeerId] = JSON.stringify(offer)
+            console.log(`[join] Created offer for peer ${existingPeerId}`)
+        }
+
+        // Store my offers
+        console.log('[join] Writing offers to DB...')
+        const updatedConnections = await updatePeerConnections(
+            { [peerId]: { offers, playerName } },
+            { roomCode: data.room_code, currentConnections: existingConnections }
+        )
+
+        if (updatedConnections) {
+            console.log('[join] DB write successful, updated peer_connections:', {
+                peerIds: Object.keys(updatedConnections),
+            })
+            const nextRoom = { ...data, peer_connections: updatedConnections } as Room
+            setRoom(nextRoom)
+            roomRef.current = nextRoom
+        } else {
+            console.error('[join] DB write returned null — updatePeerConnections failed')
+            const roomData = data as Room
+            setRoom(roomData)
+            roomRef.current = roomData
+        }
+
+        // Set up real-time subscription
+        console.log('[join] Setting up Realtime subscription...')
+        subscribeToRoom(roomCode)
+        console.log('[join] handleJoinRoom complete')
     }
 
     const sendGameMessage = useCallback((peerId: string, msg: object) => {

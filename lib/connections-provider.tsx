@@ -8,6 +8,56 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 
 export type GameMessageHandler = (fromPeerId: string, msg: unknown) => void
 
+/* ------------------------------------------------------------------ */
+/*  ICE server configuration                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Build the ICE servers list.
+ *
+ * Always includes public STUN servers.  If TURN credentials are provided
+ * via environment variables the TURN relay is added so peers behind
+ * symmetric NATs can still connect.
+ *
+ * Environment variables (all NEXT_PUBLIC_ so they're available client-side):
+ *   NEXT_PUBLIC_TURN_URL       – e.g. "turn:global.relay.metered.ca:443?transport=tcp"
+ *   NEXT_PUBLIC_TURN_USERNAME  – TURN username
+ *   NEXT_PUBLIC_TURN_CREDENTIAL – TURN credential/password
+ */
+function buildIceServers(): RTCIceServer[] {
+    const servers: RTCIceServer[] = [
+        // Multiple public STUN servers for redundancy
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun.relay.metered.ca:80' },
+    ]
+
+    const turnUrl = process.env.NEXT_PUBLIC_TURN_URL
+    const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME
+    const turnCred = process.env.NEXT_PUBLIC_TURN_CREDENTIAL
+
+    if (turnUrl && turnUser && turnCred) {
+        // Support comma-separated URLs (e.g. multiple TURN endpoints)
+        const urls = turnUrl.split(',').map(u => u.trim()).filter(Boolean)
+        servers.push({
+            urls,
+            username: turnUser,
+            credential: turnCred,
+        })
+        console.log('[ice] TURN server configured:', urls)
+    } else {
+        console.warn(
+            '[ice] No TURN server configured — peers behind symmetric NATs will fail to connect. ' +
+            'Set NEXT_PUBLIC_TURN_URL, NEXT_PUBLIC_TURN_USERNAME, and NEXT_PUBLIC_TURN_CREDENTIAL.'
+        )
+    }
+
+    return servers
+}
+
+const iceServers = buildIceServers()
+
 // Broadcast message types for WebRTC signaling
 type SignalMessage =
     | { type: 'offer'; from: string; to: string; sdp: string }
@@ -80,11 +130,7 @@ export function ConnectionsProvider({
     }
 
     const createPeerConnection = (remotePeerId: string): RTCPeerConnection => {
-        const pc = new RTCPeerConnection({
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-            ]
-        })
+        const pc = new RTCPeerConnection({ iceServers })
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
@@ -93,17 +139,35 @@ export function ConnectionsProvider({
                     console.warn('[ice] Skipping ICE candidate: peer id not set yet')
                     return
                 }
+                console.log(`[ice] Sending ${event.candidate.type ?? 'candidate'} (${event.candidate.protocol ?? '?'}/${event.candidate.address ?? '?'}) to ${remotePeerId}`)
                 sendSignal({
                     type: 'ice-candidate',
                     from: localPeerId,
                     to: remotePeerId,
                     candidate: event.candidate.toJSON(),
                 })
+            } else {
+                console.log(`[ice] ICE gathering complete for ${remotePeerId}`)
             }
+        }
+
+        pc.onicegatheringstatechange = () => {
+            console.log(`[ice] Gathering state for ${remotePeerId}: ${pc.iceGatheringState}`)
+        }
+
+        pc.oniceconnectionstatechange = () => {
+            console.log(`[ice] ICE connection state for ${remotePeerId}: ${pc.iceConnectionState}`)
         }
 
         pc.onconnectionstatechange = () => {
             console.log(`[rtc] Connection state for ${remotePeerId}: ${pc.connectionState}`)
+            if (pc.connectionState === 'failed') {
+                console.error(
+                    `[rtc] Connection to ${remotePeerId} FAILED. ` +
+                    'This usually means both peers are behind symmetric NATs and no TURN server is available. ' +
+                    'Configure NEXT_PUBLIC_TURN_URL / NEXT_PUBLIC_TURN_USERNAME / NEXT_PUBLIC_TURN_CREDENTIAL.'
+                )
+            }
         }
 
         pc.ondatachannel = (event) => {
@@ -117,6 +181,7 @@ export function ConnectionsProvider({
                 }
             }
             dc.onopen = () => {
+                console.log(`[rtc] Data channel opened for ${remotePeerId}`)
                 setDataChannels((prev) => new Map(prev).set(remotePeerId, dc))
             }
             if (dc.readyState === 'open') {

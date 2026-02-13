@@ -1,4 +1,4 @@
-export type SpyfallPhase = 'playing' | 'voting' | 'ended'
+export type SpyfallPhase = 'waiting' | 'playing' | 'voting' | 'ended'
 
 export interface SpyfallGameState {
   phase: SpyfallPhase
@@ -13,13 +13,3 @@ export interface SpyfallGameState {
 }
 
 export const SPYFALL_DURATION_MS = 15 * 60 * 1000 // 15 minutes
-
-export interface SpyfallVoteMessage {
-  type: 'spyfall_vote'
-  targetPeerId: string
-}
-
-export interface SpyfallStateMessage {
-  type: 'spyfall_state'
-  state: Partial<SpyfallGameState>
-}

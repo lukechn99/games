@@ -2,7 +2,7 @@
 
 import { useConnections } from './connections-provider'
 import { useGame } from './game-context'
-import { getAllGames } from './game-types'
+import { getAllGames, getGame } from './game-types'
 import type { GameId } from './game-types'
 import { Button } from '@/components/ui/button'
 
@@ -12,11 +12,9 @@ interface PlayerInfo {
 }
 
 export default function Lobby() {
-  const { room, myPeerId } = useConnections()
-  const { chooseGame, chosenGame, startGame, isRoomReady } = useGame()
+  const { room, myPeerId, dataChannels } = useConnections()
+  const { chooseGame, chosenGame, startGame, isRoomReady, isHost } = useGame()
   const games = getAllGames()
-  const hostPeerId = room ? Object.entries(room.peer_connections).find(([, info]) => (info as PlayerInfo).isHost)?.[0] : null
-  const amHost = myPeerId === hostPeerId
 
   if (!room) {
     return (
@@ -33,6 +31,12 @@ export default function Lobby() {
       info: info as PlayerInfo,
     })
   )
+
+  const openChannels = Array.from(dataChannels.values()).filter(
+    (dc) => dc.readyState === 'open'
+  ).length
+
+  const chosenGameDef = chosenGame ? getGame(chosenGame) : null
 
   return (
     <div className="w-full max-w-md mx-auto p-6">
@@ -83,8 +87,26 @@ export default function Lobby() {
           </ul>
         </div>
 
+        {/* WebRTC connection status */}
+        {players.length > 1 && (
+          <div className="mt-4 flex items-center gap-2">
+            <div
+              className={`w-2 h-2 rounded-full ${
+                openChannels >= players.length - 1
+                  ? 'bg-green-500'
+                  : openChannels > 0
+                  ? 'bg-yellow-500'
+                  : 'bg-red-500'
+              }`}
+            />
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {openChannels}/{players.length - 1} peer connections active
+            </span>
+          </div>
+        )}
+
         {/* Host: Choose game and Start */}
-        {amHost && !isRoomReady && (
+        {isHost && !isRoomReady && (
           <div className="mt-6 space-y-3">
             <h3 className="text-sm font-medium text-muted-foreground">Choose a game</h3>
             <div className="flex flex-wrap gap-2">
@@ -107,7 +129,35 @@ export default function Lobby() {
           </div>
         )}
 
-        {/* Waiting Message */}
+        {/* Non-host: show what game is selected */}
+        {!isHost && chosenGame && !isRoomReady && (
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center space-y-2">
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+              Host selected: <strong>{chosenGameDef?.name ?? chosenGame}</strong>
+            </p>
+            <p className="text-xs text-blue-600 dark:text-blue-300">
+              Waiting for host to start the game...
+            </p>
+            <div className="flex justify-center">
+              <div className="animate-pulse flex space-x-1">
+                <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                <div className="w-2 h-2 bg-blue-400 rounded-full animation-delay-200"></div>
+                <div className="w-2 h-2 bg-blue-400 rounded-full animation-delay-400"></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Non-host: no game selected yet */}
+        {!isHost && !chosenGame && !isRoomReady && players.length >= 2 && (
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Waiting for the host to choose a game...
+            </p>
+          </div>
+        )}
+
+        {/* Waiting for players */}
         {players.length < 2 && (
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-500 dark:text-gray-400">

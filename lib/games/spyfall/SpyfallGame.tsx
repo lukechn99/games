@@ -236,7 +236,7 @@ export default function SpyfallGame() {
     const minutes = Math.floor(timeLeftMs / 60000)
     const seconds = Math.floor((timeLeftMs % 60000) / 1000)
     return (
-      <div className="p-6 max-w-md mx-auto space-y-6">
+      <div className="p-6 max-w-lg mx-auto space-y-6">
         <div className="text-center text-2xl font-mono tabular-nums">
           {minutes}:{seconds.toString().padStart(2, '0')}
         </div>
@@ -251,6 +251,27 @@ export default function SpyfallGame() {
         )}
         <div className="text-center text-sm text-muted-foreground">
           {peerIds.length} players in the game
+        </div>
+
+        {/* All possible locations — helps everyone ask/answer questions */}
+        <div className="border border-border rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-muted-foreground mb-3 text-center">
+            Possible Locations
+          </h4>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            {SPYFALL_LOCATIONS.map((loc) => (
+              <span
+                key={loc}
+                className={`text-xs px-2 py-1 rounded text-center ${
+                  !isSpy && loc === gameState.location
+                    ? 'bg-primary/15 text-primary font-semibold'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {loc}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     )

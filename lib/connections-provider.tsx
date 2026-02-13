@@ -43,6 +43,7 @@ export function ConnectionsProvider({
     const setGameMessageHandler = useCallback((handler: GameMessageHandler | null) => {
         gameMessageHandlerRef.current = handler
     }, [])
+    const dataChannelsRef = useRef(dataChannels)
     const peerConnectionsRef = useRef(peerConnections)
     const roomRef = useRef<Room | null>(room)
     const myPeerIdRef = useRef<string | null>(myPeerId)
@@ -406,21 +407,40 @@ export function ConnectionsProvider({
         console.log('[join] handleJoinRoom complete')
     }
 
+    // Read from ref so the function identity is stable and never stale
     const sendGameMessage = useCallback((peerId: string, msg: object) => {
-        const dc = dataChannels.get(peerId)
+        const dc = dataChannelsRef.current.get(peerId)
         if (dc?.readyState === 'open') {
             dc.send(JSON.stringify(msg))
+        } else {
+            console.warn(`[send] Data channel to ${peerId} not open — message dropped`)
         }
-    }, [dataChannels])
+    }, [])
 
     const broadcastGameMessage = useCallback((msg: object) => {
+        const channels = dataChannelsRef.current
+        if (channels.size === 0) {
+            console.warn('[broadcast] No data channels open — message dropped:', (msg as Record<string, unknown>).type)
+            return
+        }
         const payload = JSON.stringify(msg)
-        dataChannels.forEach((dc) => {
-            if (dc.readyState === 'open') dc.send(payload)
+        let sent = 0
+        channels.forEach((dc, peerId) => {
+            if (dc.readyState === 'open') {
+                dc.send(payload)
+                sent++
+            } else {
+                console.warn(`[broadcast] Channel to ${peerId} not open (state: ${dc.readyState})`)
+            }
         })
-    }, [dataChannels])
+        console.log(`[broadcast] Sent ${(msg as Record<string, unknown>).type} to ${sent}/${channels.size} peers`)
+    }, [])
 
     // Keep refs in sync
+    useEffect(() => {
+        dataChannelsRef.current = dataChannels
+    }, [dataChannels])
+
     useEffect(() => {
         peerConnectionsRef.current = peerConnections
     }, [peerConnections])

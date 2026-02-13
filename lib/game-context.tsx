@@ -77,6 +77,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const gameStateRef = useRef<Record<string, unknown> | null>(null)
   const chosenGameRef = useRef<GameId | null>(null)
   const isRoomReadyRef = useRef(false)
+  const broadcastRef = useRef(broadcastGameMessage)
+  const sendMsgRef = useRef(sendGameMessage)
 
   const isHost =
     !!myPeerId &&
@@ -89,6 +91,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useEffect(() => { gameStateRef.current = gameState }, [gameState])
   useEffect(() => { chosenGameRef.current = chosenGame }, [chosenGame])
   useEffect(() => { isRoomReadyRef.current = isRoomReady }, [isRoomReady])
+  useEffect(() => { broadcastRef.current = broadcastGameMessage }, [broadcastGameMessage])
+  useEffect(() => { sendMsgRef.current = sendGameMessage }, [sendGameMessage])
 
   /* ---- handler registration ---- */
   const setPlayerActionHandler = useCallback((handler: PlayerActionHandler | null) => {
@@ -135,31 +139,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const currentCount = dataChannels.size
     // If a new channel appeared, push current state to it
     if (currentCount > prevChannelCountRef.current) {
+      console.log(`[game-ctx] New data channel detected (${prevChannelCountRef.current} → ${currentCount}), re-syncing`)
       const currentGameId = chosenGameRef.current
       const currentReady = isRoomReadyRef.current
       const currentState = gameStateRef.current
 
       // Send room config to all (idempotent)
       if (currentGameId !== null || currentReady) {
-        const payload = JSON.stringify({
+        broadcastRef.current({
           type: 'room_config',
           gameId: currentGameId,
           roomReady: currentReady,
-        })
-        dataChannels.forEach((dc) => {
-          if (dc.readyState === 'open') dc.send(payload)
-        })
+        } as RoomConfigMessage)
       }
       // Send current game state
       if (currentState && currentGameId) {
-        const payload = JSON.stringify({
+        broadcastRef.current({
           type: 'game_state',
           gameId: currentGameId,
           state: currentState,
-        })
-        dataChannels.forEach((dc) => {
-          if (dc.readyState === 'open') dc.send(payload)
-        })
+        } as GameStateMessage)
       }
     }
     prevChannelCountRef.current = currentCount
@@ -169,37 +168,38 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const chooseGame = useCallback(
     (gameId: GameId | null) => {
-      if (!isHost) return
+      if (!isHostRef.current) return
       setChosenGame(gameId)
       setIsRoomReady(false)
       setGameState(null)
-      broadcastGameMessage({ type: 'room_config', gameId, roomReady: false } as RoomConfigMessage)
+      broadcastRef.current({ type: 'room_config', gameId, roomReady: false } as RoomConfigMessage)
     },
-    [isHost, broadcastGameMessage]
+    []
   )
 
   const startGame = useCallback(() => {
-    if (!isHost || !chosenGame) return
-    console.log('[game-ctx] Host starting game:', chosenGame)
+    const game = chosenGameRef.current
+    if (!isHostRef.current || !game) return
+    console.log('[game-ctx] Host starting game:', game)
     setIsRoomReady(true)
-    broadcastGameMessage({
+    broadcastRef.current({
       type: 'room_config',
-      gameId: chosenGame,
+      gameId: game,
       roomReady: true,
     } as RoomConfigMessage)
-  }, [isHost, chosenGame, broadcastGameMessage])
+  }, [])
 
   const exitGame = useCallback(() => {
-    if (!isHost) return
+    if (!isHostRef.current) return
     setChosenGame(null)
     setIsRoomReady(false)
     setGameState(null)
-    broadcastGameMessage({
+    broadcastRef.current({
       type: 'room_config',
       gameId: null,
       roomReady: false,
     } as RoomConfigMessage)
-  }, [isHost, broadcastGameMessage])
+  }, [])
 
   /* ---- Game state management ---- */
 
@@ -211,39 +211,45 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (!gameId) return
       console.log('[game-ctx] Host dispatching game state for', gameId)
       setGameState(state)
-      broadcastGameMessage({
+      broadcastRef.current({
         type: 'game_state',
         gameId,
         state,
       } as GameStateMessage)
     },
-    [broadcastGameMessage]
+    []
   )
 
   /** Any player: send an action to the host */
-  const peerConnections = room?.peer_connections
+  const roomRef = useRef(room)
+  useEffect(() => { roomRef.current = room }, [room])
+  const myPeerIdRef = useRef(myPeerId)
+  useEffect(() => { myPeerIdRef.current = myPeerId }, [myPeerId])
+
   const sendPlayerAction = useCallback(
     (action: Record<string, unknown>) => {
-      if (!peerConnections) return
-      const hostPeerId = Object.entries(peerConnections).find(
+      const currentRoom = roomRef.current
+      if (!currentRoom?.peer_connections) return
+      const hostPeerId = Object.entries(currentRoom.peer_connections).find(
         ([, info]) => (info as { isHost?: boolean }).isHost
       )?.[0]
       if (!hostPeerId) {
         console.warn('[game-ctx] Cannot send player action — no host found')
         return
       }
+      const localPeerId = myPeerIdRef.current
       // If we ARE the host, just call the handler directly
-      if (hostPeerId === myPeerId) {
-        playerActionHandlerRef.current?.(myPeerId, action)
+      if (hostPeerId === localPeerId) {
+        playerActionHandlerRef.current?.(localPeerId!, action)
         return
       }
       console.log('[game-ctx] Sending player_action to host', hostPeerId)
-      sendGameMessage(hostPeerId, {
+      sendMsgRef.current(hostPeerId, {
         type: 'player_action',
         action,
       } as PlayerActionMessage)
     },
-    [peerConnections, myPeerId, sendGameMessage]
+    []
   )
 
   return (

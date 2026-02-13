@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { notifications } from '@mantine/notifications'
 import { Room } from './room'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
@@ -254,11 +253,7 @@ export function ConnectionsProvider({
                     if (peerId === localPeerId) continue
                     if (!previousPeerIds.has(peerId)) {
                         const playerName = (peerData as Record<string, unknown>)?.playerName as string || 'New player'
-                        notifications.show({
-                            title: 'Player joined',
-                            message: `${playerName} joined the room`,
-                            color: 'green',
-                        })
+                        console.log(`[room] ${playerName} joined the room`)
                     }
                 }
 

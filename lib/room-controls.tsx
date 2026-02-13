@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { useConnections } from "./connections-provider";
 import { useState } from 'react';
-import { TextInput } from '@mantine/core';
+import { Input } from '@/components/ui/input';
 import Lobby from "./lobby";
 
 export default function RoomControls() {
@@ -43,12 +43,12 @@ export default function RoomControls() {
   </div>
 
   const joinRoomInput = <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-    <TextInput
+    <Input
       placeholder="Enter player name..."
       value={playerName}
       onChange={(event) => setPlayerName(event.currentTarget.value)}
     />
-    <TextInput
+    <Input
       placeholder="Enter room code..."
       value={roomToJoin}
       onChange={(event) => setRoomToJoin(event.currentTarget.value.toUpperCase())}
@@ -59,7 +59,7 @@ export default function RoomControls() {
   </div>
 
   const createRoomInput = <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-    <TextInput
+    <Input
       placeholder="Enter player name..."
       value={playerName}
       onChange={(event) => setPlayerName(event.currentTarget.value)}

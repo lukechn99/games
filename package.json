@@ -9,10 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@mantine/core": "^8.3.13",
-    "@mantine/hooks": "^8.3.13",
-    "@mantine/notifications": "^8.3.14",
     "@radix-ui/react-slot": "^1.2.4",
+    "pixi.js": "^8.9.2",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.3",
     "class-variance-authority": "^0.7.1",

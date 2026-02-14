@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useCallback } from 'react'
 import { Application, Container, Graphics, Text, TextStyle, FederatedPointerEvent } from 'pixi.js'
-import type { PlacedRoom, Floor, PlayerState, Direction, BetrayalGameState } from './types'
+import type { Floor, PlayerState, Direction, BetrayalGameState } from './types'
 import { ROOM_MAP } from './data/rooms'
 import { CHARACTER_MAP } from './data/characters'
 

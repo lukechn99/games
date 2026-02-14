@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
+import type { ReactNode } from 'react'
 import type { DieFace } from './types'
 
 /* ------------------------------------------------------------------ */
@@ -8,8 +9,7 @@ import type { DieFace } from './types'
 /* ------------------------------------------------------------------ */
 
 function Die({ face, rolling }: { face: DieFace; rolling: boolean }) {
-  // Betrayal dice have faces: blank (0), 1, 2
-  const dots: Record<DieFace, JSX.Element> = {
+  const dots: Record<DieFace, ReactNode> = {
     0: <span className="text-gray-500">&ndash;</span>,
     1: (
       <div className="flex items-center justify-center h-full">
@@ -70,34 +70,33 @@ export default function DiceRoller({
   showTotal = true,
 }: DiceRollerProps) {
   const [rolling, setRolling] = useState(false)
-  const [displayDice, setDisplayDice] = useState<DieFace[]>(
-    result ?? Array(diceCount).fill(0 as DieFace)
+  const [animDice, setAnimDice] = useState<DieFace[]>(() =>
+    Array(diceCount).fill(0 as DieFace)
   )
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  useEffect(() => {
-    if (result) {
-      setDisplayDice(result)
-      setRolling(false)
-    }
-  }, [result])
+  // When rolling, show animDice; otherwise show result prop
+  const displayDice = rolling
+    ? animDice
+    : result ?? Array(diceCount).fill(0 as DieFace) as DieFace[]
 
   const handleRoll = useCallback(() => {
     if (rolling) return
     setRolling(true)
 
-    // Animate for 600ms
-    const interval = setInterval(() => {
-      setDisplayDice(rollDice(diceCount))
+    // Animate random faces for 600ms
+    intervalRef.current = setInterval(() => {
+      setAnimDice(rollDice(diceCount))
     }, 80)
 
     setTimeout(() => {
-      clearInterval(interval)
+      if (intervalRef.current) clearInterval(intervalRef.current)
       setRolling(false)
       onRoll?.()
     }, 600)
   }, [rolling, diceCount, onRoll])
 
-  const total = displayDice.reduce((sum, d) => sum + d, 0)
+  const total = displayDice.reduce<number>((sum, d) => sum + d, 0)
 
   return (
     <div className="flex flex-col items-center gap-3">

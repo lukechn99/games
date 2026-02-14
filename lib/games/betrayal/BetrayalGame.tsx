@@ -19,7 +19,6 @@ import type {
   Floor,
   Direction,
   PlacedRoom,
-  DieFace,
   RoomDef,
   CardDef,
 } from './types'
@@ -102,7 +101,6 @@ function getRoomDoors(placed: PlacedRoom): Direction[] {
 
 /** Find a rotation that makes at least one door face the required direction */
 function findRotation(roomDef: RoomDef, requiredDir: Direction): number {
-  const order: Direction[] = ['north', 'east', 'south', 'west']
   for (let rot = 0; rot < 4; rot++) {
     const rotated = rotateDoors(roomDef.doors, rot)
     if (rotated.includes(requiredDir)) {
@@ -291,14 +289,15 @@ function CharacterSelect({
                 ${taken
                   ? 'opacity-30 cursor-not-allowed'
                   : selected
-                    ? 'ring-2 ring-offset-2 ring-offset-gray-950 cursor-pointer'
+                    ? 'cursor-pointer'
                     : 'hover:scale-[1.02] cursor-pointer'
                 }
               `}
               style={{
                 background: selected ? `${colorHex}20` : 'rgba(255,255,255,0.04)',
                 border: `2px solid ${selected ? colorHex : 'rgba(255,255,255,0.08)'}`,
-                ringColor: selected ? colorHex : undefined,
+                outline: selected ? `2px solid ${colorHex}` : undefined,
+                outlineOffset: selected ? '2px' : undefined,
               }}
             >
               <div className="flex items-center gap-3 mb-3">
@@ -400,7 +399,6 @@ export default function BetrayalGame() {
     [rawGameState]
   )
 
-  const [localDiceResult, setLocalDiceResult] = useState<DieFace[] | null>(null)
   const [showingCard, setShowingCard] = useState<CardDef | null>(null)
   const [showHauntRoll, setShowHauntRoll] = useState(false)
 
@@ -562,7 +560,7 @@ export default function BetrayalGame() {
 
       if (action.action === 'haunt_roll') {
         const diceResult = rollDice(6)
-        const total = diceResult.reduce((s, d) => s + d, 0)
+        const total = diceResult.reduce<number>((s, d) => s + d, 0)
         const hauntTriggered = total < gs.omenCount
 
         pushState((prev) => ({
@@ -644,9 +642,6 @@ export default function BetrayalGame() {
         if (availableRooms.length === 0) return
 
         const randomRoom = availableRooms[Math.floor(Math.random() * availableRooms.length)]!
-        // Find rotation so the room connects back to where the player came from
-        const neededDir = oppositeDir(dir)
-        const rotation = findRotation(randomRoom, neededDir)
 
         pushState((prev) => ({
           ...prev,
@@ -687,9 +682,9 @@ export default function BetrayalGame() {
 
       // Determine if a card should be drawn
       let drawnCardId: string | null = null
-      let newEventDeck = [...gs.eventDeck]
-      let newItemDeck = [...gs.itemDeck]
-      let newOmenDeck = [...gs.omenDeck]
+      const newEventDeck = [...gs.eventDeck]
+      const newItemDeck = [...gs.itemDeck]
+      const newOmenDeck = [...gs.omenDeck]
       let newOmenCount = gs.omenCount
       let needsHauntRoll = false
 

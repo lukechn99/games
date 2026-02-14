@@ -10,16 +10,16 @@ import type { DieFace } from './types'
 
 function Die({ face, rolling }: { face: DieFace; rolling: boolean }) {
   const dots: Record<DieFace, ReactNode> = {
-    0: <span className="text-gray-500">&ndash;</span>,
+    0: <span className="text-gray-600 text-sm">&mdash;</span>,
     1: (
       <div className="flex items-center justify-center h-full">
-        <div className="w-2 h-2 rounded-full bg-white" />
+        <div className="w-2.5 h-2.5 rounded-full bg-amber-200 shadow-sm" style={{ boxShadow: '0 0 4px rgba(251,191,36,0.4)' }} />
       </div>
     ),
     2: (
-      <div className="flex items-center justify-between h-full px-1">
-        <div className="w-2 h-2 rounded-full bg-white" />
-        <div className="w-2 h-2 rounded-full bg-white" />
+      <div className="flex items-center justify-between h-full px-1.5">
+        <div className="w-2.5 h-2.5 rounded-full bg-amber-200 shadow-sm" style={{ boxShadow: '0 0 4px rgba(251,191,36,0.4)' }} />
+        <div className="w-2.5 h-2.5 rounded-full bg-amber-200 shadow-sm" style={{ boxShadow: '0 0 4px rgba(251,191,36,0.4)' }} />
       </div>
     ),
   }
@@ -27,17 +27,21 @@ function Die({ face, rolling }: { face: DieFace; rolling: boolean }) {
   return (
     <div
       className={`
-        w-10 h-10 rounded-lg flex items-center justify-center
+        w-11 h-11 rounded-lg flex items-center justify-center
         text-lg font-bold transition-all duration-300
         ${rolling ? 'animate-bounce' : ''}
       `}
       style={{
-        background: rolling ? '#555' : '#1a1a2e',
-        border: '2px solid rgba(255,255,255,0.3)',
-        boxShadow: rolling ? 'none' : '0 2px 8px rgba(0,0,0,0.4)',
+        background: rolling
+          ? 'linear-gradient(135deg, #444, #555)'
+          : 'linear-gradient(135deg, #1a1a2e, #16162a)',
+        border: `2px solid ${rolling ? 'rgba(255,255,255,0.2)' : 'rgba(201,165,90,0.4)'}`,
+        boxShadow: rolling
+          ? 'none'
+          : '0 3px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
       }}
     >
-      {rolling ? '?' : dots[face]}
+      {rolling ? <span className="text-gray-400 text-sm">?</span> : dots[face]}
     </div>
   )
 }
@@ -101,17 +105,17 @@ export default function DiceRoller({
   return (
     <div className="flex flex-col items-center gap-3">
       {label && (
-        <p className="text-sm text-muted-foreground font-medium">{label}</p>
+        <p className="text-sm text-gray-400 font-medium" style={{ fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif' }}>{label}</p>
       )}
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 flex-wrap justify-center">
         {displayDice.map((face, i) => (
           <Die key={i} face={face} rolling={rolling} />
         ))}
       </div>
 
       {showTotal && result && !rolling && (
-        <p className="text-xl font-bold text-white tabular-nums">
+        <p className="text-xl font-bold text-amber-200 tabular-nums" style={{ fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif' }}>
           Total: {total}
         </p>
       )}
@@ -122,11 +126,11 @@ export default function DiceRoller({
           onClick={handleRoll}
           disabled={rolling}
           className={`
-            px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider
-            transition-all duration-200
+            px-5 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wider
+            transition-all duration-200 border
             ${rolling
-              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              : 'bg-amber-600 hover:bg-amber-500 text-white cursor-pointer shadow-lg hover:shadow-amber-500/25'
+              ? 'bg-gray-700 text-gray-500 cursor-not-allowed border-gray-600'
+              : 'bg-amber-800/60 hover:bg-amber-700/70 text-amber-100 cursor-pointer border-amber-700/40 shadow-lg hover:shadow-amber-700/20'
             }
           `}
         >

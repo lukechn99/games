@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 import { createClient } from '@/utils/supabase/client'
 import { Room } from './room'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+import { saveGameSession, clearGameSession } from './local-storage'
 
 export type GameMessageHandler = (fromPeerId: string, msg: unknown) => void
 
@@ -17,6 +18,7 @@ const ConnectionsContext = createContext<{
     supabase: ReturnType<typeof createClient>
     handleCreateRoom: (playerName: string) => Promise<string | undefined>
     handleJoinRoom: (roomCode: string, playerName: string) => Promise<void>
+    handleLeaveRoom: () => void
     room: Room | null
     peerConnections: Map<string, RTCPeerConnection>
     myPeerId: string | null
@@ -329,6 +331,9 @@ export function ConnectionsProvider({
 
         subscribeToRoom(roomCode)
 
+        // Persist session to localStorage
+        saveGameSession({ roomCode, playerName, peerId })
+
         return roomCode
     }
 
@@ -377,6 +382,9 @@ export function ConnectionsProvider({
             roomRef.current = nextRoom
         }
 
+        // Persist session to localStorage
+        saveGameSession({ roomCode, playerName, peerId })
+
         // Create offers to all existing peers
         const existingPeers = Object.keys(existingConnections)
         console.log(`[join] Creating offers to ${existingPeers.length} existing peers:`, existingPeers)
@@ -401,6 +409,28 @@ export function ConnectionsProvider({
 
         console.log('[join] handleJoinRoom complete')
     }
+
+    const handleLeaveRoom = useCallback(() => {
+        console.log('[leave] Leaving room')
+        // Clear localStorage
+        clearGameSession()
+        // Close all peer connections
+        peerConnectionsRef.current.forEach(pc => pc.close())
+        setPeerConnections(new Map())
+        setDataChannels(new Map())
+        // Unsubscribe from the channel
+        const ch = channelRef.current
+        if (ch) {
+            supabase.removeChannel(ch)
+            channelRef.current = null
+            setChannel(null)
+        }
+        // Clear room state
+        setRoom(null)
+        roomRef.current = null
+        setMyPeerId(null)
+        myPeerIdRef.current = null
+    }, [supabase])
 
     // Read from ref so the function identity is stable and never stale
     const sendGameMessage = useCallback((peerId: string, msg: object) => {
@@ -463,6 +493,7 @@ export function ConnectionsProvider({
             supabase,
             handleCreateRoom,
             handleJoinRoom,
+            handleLeaveRoom,
             room,
             peerConnections,
             myPeerId,

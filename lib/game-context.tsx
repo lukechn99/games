@@ -12,6 +12,7 @@ import {
 import type { GameId } from './game-types'
 import { getGame } from './game-types'
 import { useConnections } from './connections-provider'
+import { clearGameSession } from './local-storage'
 
 /* ------------------------------------------------------------------ */
 /*  Message types that flow over WebRTC data channels                 */
@@ -48,6 +49,7 @@ type GameContextValue = {
   chooseGame: (gameId: GameId | null) => void
   startGame: () => void
   exitGame: () => void
+  leaveRoom: () => void
   isHost: boolean
 
   /* Centralised game state – the host is authoritative */
@@ -67,6 +69,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     sendGameMessage,
     setGameMessageHandler,
     dataChannels,
+    handleLeaveRoom,
   } = useConnections()
 
   const [chosenGame, setChosenGame] = useState<GameId | null>(null)
@@ -194,12 +197,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setChosenGame(null)
     setIsRoomReady(false)
     setGameState(null)
+    clearGameSession()
     broadcastRef.current({
       type: 'room_config',
       gameId: null,
       roomReady: false,
     } as RoomConfigMessage)
   }, [])
+
+  /** Any player: permanently leave the room and clear saved session */
+  const leaveRoom = useCallback(() => {
+    clearGameSession()
+    handleLeaveRoom()
+  }, [handleLeaveRoom])
 
   /* ---- Game state management ---- */
 
@@ -260,6 +270,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         chooseGame,
         startGame,
         exitGame,
+        leaveRoom,
         isHost,
         gameState,
         dispatchGameState,
@@ -281,7 +292,7 @@ export function useGame() {
 }
 
 export function GameCanvas() {
-  const { chosenGame, exitGame, isRoomReady, isHost } = useGame()
+  const { chosenGame, exitGame, leaveRoom, isRoomReady, isHost } = useGame()
   const { room } = useConnections()
 
   if (!room || !isRoomReady || !chosenGame) return null
@@ -297,15 +308,24 @@ export function GameCanvas() {
         <span className="font-medium text-sm text-muted-foreground">
           {gameDef.name}
         </span>
-        {isHost && (
+        <div className="flex items-center gap-3">
+          {isHost && (
+            <button
+              type="button"
+              onClick={exitGame}
+              className="text-sm text-muted-foreground hover:text-foreground underline"
+            >
+              End game for all
+            </button>
+          )}
           <button
             type="button"
-            onClick={exitGame}
-            className="text-sm text-muted-foreground hover:text-foreground underline"
+            onClick={leaveRoom}
+            className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 underline"
           >
-            Exit game
+            Leave room
           </button>
-        )}
+        </div>
       </header>
       <main className="flex-1 min-h-0 overflow-auto">
         <GameComponent />

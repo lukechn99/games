@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useCallback } from 'react'
 import { useConnections } from './connections-provider'
 import { useGame } from './game-context'
 import { getAllGames, getGame } from './game-types'
@@ -13,8 +14,33 @@ interface PlayerInfo {
 
 export default function Lobby() {
   const { room, myPeerId, dataChannels } = useConnections()
-  const { chooseGame, chosenGame, startGame, isRoomReady, isHost } = useGame()
+  const { chooseGame, chosenGame, startGame, isRoomReady, isHost, leaveRoom } = useGame()
   const games = getAllGames()
+  const [copied, setCopied] = useState(false)
+  const [showShareMenu, setShowShareMenu] = useState(false)
+
+  const shareLink = typeof window !== 'undefined' && room
+    ? `${window.location.origin}/join/${room.room_code}`
+    : ''
+
+  const copyLink = useCallback(async () => {
+    if (!shareLink) return
+    try {
+      await navigator.clipboard.writeText(shareLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Fallback for older browsers
+      const input = document.createElement('input')
+      input.value = shareLink
+      document.body.appendChild(input)
+      input.select()
+      document.execCommand('copy')
+      document.body.removeChild(input)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }, [shareLink])
 
   if (!room) {
     return (
@@ -49,6 +75,45 @@ export default function Lobby() {
           <h2 className="text-3xl font-bold tracking-widest text-gray-900 dark:text-white">
             {room.room_code}
           </h2>
+          {/* Share Link */}
+          <div className="mt-3 relative">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowShareMenu(!showShareMenu)}
+            >
+              <svg
+                className="w-4 h-4 mr-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                />
+              </svg>
+              Share Invite Link
+            </Button>
+            {showShareMenu && (
+              <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 break-all">
+                  {shareLink}
+                </p>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full"
+                  onClick={copyLink}
+                >
+                  {copied ? 'Copied!' : 'Copy Link'}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Players List */}
@@ -172,6 +237,17 @@ export default function Lobby() {
             </div>
           </div>
         )}
+
+        {/* Leave Room */}
+        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 text-center">
+          <button
+            type="button"
+            onClick={leaveRoom}
+            className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 underline"
+          >
+            Leave Room
+          </button>
+        </div>
       </div>
     </div>
   )

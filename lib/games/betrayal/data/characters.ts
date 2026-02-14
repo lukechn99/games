@@ -1,7 +1,7 @@
 import type { CharacterDef } from '../types'
 
 /**
- * All 12 explorers from Betrayal at House on the Hill.
+ * All 12 explorers from Betrayal at House on the Hill (3rd Edition).
  * Paired by card colour; each pair shares a physical character card.
  *
  * Trait scales: 8 values (indices 0–7), startIndex marks the initial clip.
@@ -10,12 +10,12 @@ import type { CharacterDef } from '../types'
 export const CHARACTERS: CharacterDef[] = [
   // ── Green pair ────────────────────────────────────────────────────
   {
-    id: 'brandon',
-    name: 'Brandon Jaspers',
-    age: 12,
+    id: 'sammy',
+    name: 'Sammy Angler',
+    age: 9,
     color: 0x4caf50,
     colorName: 'Green',
-    description: 'A quiet kid who\'s always reading about the occult.',
+    description: 'A bright kid obsessed with stage magic since a magician came to his 6th birthday. Looking for mystical stage dressing in the old house.',
     traits: {
       speed:     { values: [3, 4, 4, 4, 5, 6, 7, 8], startIndex: 3 },
       might:     { values: [2, 3, 3, 4, 5, 6, 6, 7], startIndex: 3 },
@@ -24,27 +24,27 @@ export const CHARACTERS: CharacterDef[] = [
     },
   },
   {
-    id: 'peter',
-    name: 'Peter Akimoto',
-    age: 13,
-    color: 0x4caf50,
+    id: 'jaden',
+    name: 'Jaden Jones',
+    age: 11,
+    color: 0x66bb6a,
     colorName: 'Green',
-    description: 'A jock with a brave face and a terrified heart.',
+    description: 'An amateur detective armed with a magnifying glass and evidence case. He\'s documenting everything in the house for posterity.',
     traits: {
       speed:     { values: [3, 3, 3, 4, 6, 6, 7, 7], startIndex: 3 },
       might:     { values: [2, 3, 3, 4, 5, 5, 6, 8], startIndex: 3 },
       sanity:    { values: [3, 4, 4, 4, 5, 6, 6, 7], startIndex: 3 },
-      knowledge: { values: [3, 4, 4, 5, 6, 7, 7, 8], startIndex: 3 },
+      knowledge: { values: [3, 4, 4, 5, 6, 7, 7, 8], startIndex: 4 },
     },
   },
   // ── Red / Orange pair ─────────────────────────────────────────────
   {
-    id: 'flash',
-    name: 'Darrin "Flash" Williams',
-    age: 20,
+    id: 'oliver',
+    name: 'Oliver Swift',
+    age: 33,
     color: 0xf44336,
     colorName: 'Red',
-    description: 'A former track star who still runs from his problems.',
+    description: 'Fast but believes you should never run unless running from something. A philosophy-studying loner who finds people insufferable.',
     traits: {
       speed:     { values: [4, 4, 4, 5, 6, 7, 7, 8], startIndex: 5 },
       might:     { values: [2, 3, 3, 4, 5, 6, 6, 7], startIndex: 3 },
@@ -53,12 +53,12 @@ export const CHARACTERS: CharacterDef[] = [
     },
   },
   {
-    id: 'ox',
-    name: 'Ox Bellows',
-    age: 23,
+    id: 'josef',
+    name: 'Josef "Brosef" Hooper',
+    age: 25,
     color: 0xff5722,
     colorName: 'Orange',
-    description: 'A big guy who\'s stronger than he looks—and he looks strong.',
+    description: 'Taken for a meathead college athlete, but has a softer side when it comes to sticking up for people he cares about.',
     traits: {
       speed:     { values: [2, 2, 2, 3, 4, 5, 5, 6], startIndex: 5 },
       might:     { values: [4, 5, 5, 6, 6, 7, 8, 8], startIndex: 3 },
@@ -68,12 +68,12 @@ export const CHARACTERS: CharacterDef[] = [
   },
   // ── Yellow pair ───────────────────────────────────────────────────
   {
-    id: 'zoe',
-    name: 'Zoe Ingstrom',
-    age: 8,
+    id: 'isa',
+    name: 'Isa Valencia',
+    age: 11,
     color: 0xffeb3b,
     colorName: 'Yellow',
-    description: 'A little girl with a big imagination and an even bigger scream.',
+    description: 'A strange kid with an interest in the paranormal, she watches reruns of Bros vs. Ghosts on late night TV and blogs about it.',
     traits: {
       speed:     { values: [4, 4, 4, 4, 5, 6, 8, 8], startIndex: 4 },
       might:     { values: [2, 2, 3, 3, 4, 4, 6, 7], startIndex: 3 },
@@ -82,12 +82,12 @@ export const CHARACTERS: CharacterDef[] = [
     },
   },
   {
-    id: 'missy',
-    name: 'Missy Dubourde',
-    age: 9,
+    id: 'anita',
+    name: 'Anita Hernandez',
+    age: 12,
     color: 0xffc107,
     colorName: 'Yellow',
-    description: 'A dainty girl who can talk her way out of anything.',
+    description: 'Raised by superstitious parents, she works in their tea shop learning about magical qualities of herbs. Something about the old house gives her the creeps.',
     traits: {
       speed:     { values: [3, 4, 5, 6, 6, 6, 7, 7], startIndex: 3 },
       might:     { values: [2, 3, 3, 3, 4, 5, 6, 7], startIndex: 4 },
@@ -97,12 +97,12 @@ export const CHARACTERS: CharacterDef[] = [
   },
   // ── White pair ────────────────────────────────────────────────────
   {
-    id: 'rhinehardt',
-    name: 'Father Rhinehardt',
-    age: 62,
+    id: 'warren',
+    name: 'Father Warren Leung',
+    age: 71,
     color: 0xeeeeee,
     colorName: 'White',
-    description: 'A man of God who suspects the devil lurks in every shadow.',
+    description: 'A no-nonsense priest with a backbone of steel. Has extensive knowledge of ancient religions and a history of banishing demons.',
     traits: {
       speed:     { values: [2, 3, 3, 4, 5, 6, 7, 7], startIndex: 3 },
       might:     { values: [1, 2, 2, 4, 4, 5, 5, 7], startIndex: 3 },
@@ -111,12 +111,12 @@ export const CHARACTERS: CharacterDef[] = [
     },
   },
   {
-    id: 'longfellow',
-    name: 'Professor Longfellow',
-    age: 57,
+    id: 'dan',
+    name: 'Dan Nguyen, M.D.',
+    age: 60,
     color: 0xbdbdbd,
     colorName: 'White',
-    description: 'An old professor who knows more than he lets on.',
+    description: 'A town doctor for decades who has seen more and more injuries from that creepy old house. He\'s come to get to the bottom of it.',
     traits: {
       speed:     { values: [2, 2, 4, 4, 5, 5, 6, 6], startIndex: 3 },
       might:     { values: [1, 2, 3, 4, 5, 5, 6, 6], startIndex: 3 },
@@ -126,12 +126,12 @@ export const CHARACTERS: CharacterDef[] = [
   },
   // ── Purple pair ───────────────────────────────────────────────────
   {
-    id: 'heather',
-    name: 'Heather Granville',
-    age: 18,
+    id: 'michelle',
+    name: 'Michelle Monroe',
+    age: 19,
     color: 0x9c27b0,
     colorName: 'Purple',
-    description: 'A prom queen who won\'t back down from a dare.',
+    description: 'A lacrosse champion who\'s faced worse than whatever this house throws at her. Used to being the underdog and bringing her team to victory.',
     traits: {
       speed:     { values: [3, 3, 4, 5, 6, 6, 7, 8], startIndex: 3 },
       might:     { values: [3, 3, 3, 4, 5, 6, 7, 8], startIndex: 3 },
@@ -140,12 +140,12 @@ export const CHARACTERS: CharacterDef[] = [
     },
   },
   {
-    id: 'jenny',
-    name: 'Jenny LeClerc',
-    age: 21,
+    id: 'brittani',
+    name: 'Brittani "Beat Box" Bowen',
+    age: 22,
     color: 0xba68c8,
     colorName: 'Purple',
-    description: 'A babysitter with a surprisingly sharp survival instinct.',
+    description: 'A DJ who\'s been throwing house parties since high school. Seeking new and exciting locations to play music — what could be more interesting than an abandoned old house?',
     traits: {
       speed:     { values: [2, 3, 4, 4, 4, 5, 6, 8], startIndex: 4 },
       might:     { values: [3, 4, 4, 4, 4, 5, 6, 8], startIndex: 3 },
@@ -155,12 +155,12 @@ export const CHARACTERS: CharacterDef[] = [
   },
   // ── Blue pair ─────────────────────────────────────────────────────
   {
-    id: 'vivian',
-    name: 'Vivian Lopez',
-    age: 42,
+    id: 'stephanie',
+    name: 'Stephanie Richter',
+    age: 40,
     color: 0x2196f3,
     colorName: 'Blue',
-    description: 'A horror-movie actress who wishes the screaming would stop.',
+    description: 'An amateur filmmaker who uploads short documentaries online. A film about the haunted house would do wonders for her online presence.',
     traits: {
       speed:     { values: [3, 4, 4, 4, 4, 6, 7, 8], startIndex: 4 },
       might:     { values: [2, 2, 2, 4, 4, 5, 6, 6], startIndex: 3 },
@@ -169,12 +169,12 @@ export const CHARACTERS: CharacterDef[] = [
     },
   },
   {
-    id: 'zostra',
-    name: 'Madame Zostra',
-    age: 37,
+    id: 'persephone',
+    name: 'Persephone Puleri',
+    age: 49,
     color: 0x1565c0,
     colorName: 'Blue',
-    description: 'A fortune teller who didn\'t see this coming.',
+    description: 'Runs Blessed Botanicals, a shop specializing in crystals, herbs, and paranormal supplies. The haunted house rumors have been great for business.',
     traits: {
       speed:     { values: [2, 3, 3, 5, 5, 6, 6, 7], startIndex: 3 },
       might:     { values: [2, 3, 3, 4, 5, 5, 5, 6], startIndex: 4 },

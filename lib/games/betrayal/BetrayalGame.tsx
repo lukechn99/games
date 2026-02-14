@@ -25,6 +25,7 @@ import type {
 import PixiBoard from './PixiBoard'
 import CharacterSheet from './CharacterSheet'
 import DiceRoller, { rollDice } from './DiceRoller'
+import GameInstructions, { TurnActions } from './GameInstructions'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -198,12 +199,12 @@ function HauntRollOverlay({
       <div className="max-w-sm w-full rounded-xl bg-gray-900 p-6 text-center space-y-4 border-2 border-purple-500">
         <h3 className="text-xl font-bold text-purple-400">Haunt Roll</h3>
         <p className="text-sm text-gray-300">
-          An Omen has been revealed! Roll 6 dice.
+          An Omen has been revealed! Roll {omenCount} {omenCount === 1 ? 'die' : 'dice'} (one per Omen discovered).
           <br />
-          You must roll <strong className="text-purple-300">{omenCount} or higher</strong> to prevent the haunt.
+          If the result is <strong className="text-purple-300">5 or higher</strong>, the haunt begins!
         </p>
         <p className="text-xs text-gray-500">
-          Omens found so far: {omenCount}
+          Total Omens discovered: {omenCount}
         </p>
         <button
           type="button"
@@ -227,12 +228,14 @@ function CharacterSelect({
   isHost,
   onSelect,
   onStart,
+  onShowRules,
 }: {
   players: Record<string, PlayerState>
   myPeerId: string
   isHost: boolean
   onSelect: (characterId: string) => void
   onStart: () => void
+  onShowRules: () => void
 }) {
   const takenIds = new Set(
     Object.values(players)
@@ -249,6 +252,13 @@ function CharacterSelect({
         <p className="text-sm text-gray-400">
           Each character has unique starting attributes. Choose wisely.
         </p>
+        <button
+          type="button"
+          onClick={onShowRules}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-800/30 hover:bg-amber-700/40 text-amber-300 hover:text-amber-200 text-sm font-medium transition-colors border border-amber-700/30"
+        >
+          <span className="text-base">📖</span> How to Play
+        </button>
       </div>
 
       {/* Player selections */}
@@ -401,6 +411,7 @@ export default function BetrayalGame() {
 
   const [showingCard, setShowingCard] = useState<CardDef | null>(null)
   const [showHauntRoll, setShowHauntRoll] = useState(false)
+  const [showInstructions, setShowInstructions] = useState(false)
 
   const peerIds = useMemo(
     () => (room ? Object.keys(room.peer_connections) : []),
@@ -559,9 +570,11 @@ export default function BetrayalGame() {
       }
 
       if (action.action === 'haunt_roll') {
-        const diceResult = rollDice(6)
+        // 3rd Edition: Roll dice equal to the number of Omens discovered. 5+ triggers the haunt.
+        const diceCount = gs.omenCount
+        const diceResult = rollDice(diceCount)
         const total = diceResult.reduce<number>((s, d) => s + d, 0)
-        const hauntTriggered = total < gs.omenCount
+        const hauntTriggered = total >= 5
 
         pushState((prev) => ({
           ...prev,
@@ -571,7 +584,7 @@ export default function BetrayalGame() {
           hauntTraitorPeerId: hauntTriggered ? fromPeerId : prev.hauntTraitorPeerId,
           log: [
             ...prev.log,
-            `Haunt roll: ${total} (need ${prev.omenCount} to avoid haunt).`,
+            `Haunt roll: ${total} with ${diceCount} dice (5+ triggers haunt).`,
             hauntTriggered
               ? `THE HAUNT BEGINS! ${prev.players[fromPeerId]?.playerName} is the traitor!`
               : 'The haunt is averted... for now.',
@@ -610,6 +623,11 @@ export default function BetrayalGame() {
         const targetDoors = getRoomDoors(targetPlaced)
         if (!targetDoors.includes(oppositeDir(dir))) return // target has no matching door
 
+        // 3rd Edition: Obstacles (barrier tiles, opposing team members after haunt) cost 2 moves to leave
+        const currentRoom = ROOM_MAP[currentPlaced.roomId]
+        const moveCost = currentRoom?.barrier ? 2 : 1
+        if (player.movesRemaining < moveCost) return
+
         pushState((prev) => {
           const p = prev.players[peerId]!
           const roomDef = ROOM_MAP[targetPlaced.roomId]
@@ -626,7 +644,7 @@ export default function BetrayalGame() {
                 ...p,
                 currentRow: target.row,
                 currentCol: target.col,
-                movesRemaining: p.movesRemaining - 1,
+                movesRemaining: p.movesRemaining - moveCost,
               },
             },
             log: newLog,
@@ -634,6 +652,7 @@ export default function BetrayalGame() {
         })
       } else {
         // Discover new room - draw from room stack
+        // 3rd Edition: Draw from stack, skip tiles that don't match the current floor
         const availableRooms = ROOM_STACK.filter((r) =>
           r.floors.includes(player.currentFloor) &&
           !gs.board.some((b) => b.roomId === r.id)
@@ -696,9 +715,17 @@ export default function BetrayalGame() {
         } else if (pending.cardDraw === 'omen' && newOmenDeck.length > 0) {
           drawnCardId = newOmenDeck.shift()!
           newOmenCount++
-          needsHauntRoll = true
+          // 3rd Edition: If you draw the final Omen card, the haunt starts automatically
+          if (newOmenDeck.length === 0) {
+            needsHauntRoll = false // auto-trigger instead
+          } else {
+            needsHauntRoll = true
+          }
         }
       }
+
+      // Check if last omen triggers haunt automatically
+      const autoHaunt = pending.cardDraw === 'omen' && newOmenDeck.length === 0
 
       pushState((prev) => {
         const p = prev.players[peerId]!
@@ -711,6 +738,11 @@ export default function BetrayalGame() {
           logEntries.push(`${p.playerName} drew ${cardDef.type}: ${cardDef.name}.`)
         }
 
+        if (autoHaunt) {
+          logEntries.push('The final Omen has been drawn! The haunt begins automatically!')
+          logEntries.push(`THE HAUNT BEGINS! ${p.playerName} is the traitor!`)
+        }
+
         return {
           ...prev,
           board: [...prev.board, newPlaced],
@@ -720,14 +752,16 @@ export default function BetrayalGame() {
           omenDeck: newOmenDeck,
           omenCount: newOmenCount,
           drawnCard: drawnCardId,
-          phase: needsHauntRoll ? 'haunt_roll' : prev.phase,
+          phase: autoHaunt ? 'haunt' : needsHauntRoll ? 'haunt_roll' : prev.phase,
+          hauntRevealed: autoHaunt || prev.hauntRevealed,
+          hauntTraitorPeerId: autoHaunt ? peerId : prev.hauntTraitorPeerId,
           players: {
             ...prev.players,
             [peerId]: {
               ...p,
               currentRow: row,
               currentCol: col,
-              movesRemaining: 0, // Discovering a room ends movement
+              movesRemaining: 0, // 3rd Edition: Discovering a room ends your turn
               items: newItems,
               omens: newOmens,
             },
@@ -846,13 +880,20 @@ export default function BetrayalGame() {
   // Character selection phase
   if (state.phase === 'character_select') {
     return (
-      <CharacterSelect
-        players={state.players ?? {}}
-        myPeerId={myPeerId ?? ''}
-        isHost={isHost}
-        onSelect={selectCharacter}
-        onStart={startExploration}
-      />
+      <>
+        <CharacterSelect
+          players={state.players ?? {}}
+          myPeerId={myPeerId ?? ''}
+          isHost={isHost}
+          onSelect={selectCharacter}
+          onStart={startExploration}
+          onShowRules={() => setShowInstructions(true)}
+        />
+        <GameInstructions
+          isOpen={showInstructions}
+          onClose={() => setShowInstructions(false)}
+        />
+      </>
     )
   }
 
@@ -977,7 +1018,7 @@ export default function BetrayalGame() {
 
       {/* ── Right panel: Character & controls ── */}
       <div className="w-full lg:w-96 shrink-0 border-t lg:border-t-0 lg:border-l border-white/10 bg-gray-900/50 flex flex-col overflow-hidden">
-        {/* Turn indicator */}
+        {/* Turn indicator & instructions button */}
         <div className="p-3 border-b border-white/10">
           <div className="flex items-center justify-between">
             <div>
@@ -991,11 +1032,21 @@ export default function BetrayalGame() {
                 )}
               </p>
             </div>
-            <div className="text-right">
-              <span className="text-xs text-gray-500">Omens</span>
-              <p className="text-sm font-bold text-purple-400">
-                {fullState.omenCount}/13
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <span className="text-xs text-gray-500">Omens</span>
+                <p className="text-sm font-bold text-purple-400">
+                  {fullState.omenCount}/{OMEN_CARDS.length}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInstructions(true)}
+                className="w-8 h-8 rounded-lg bg-amber-800/30 hover:bg-amber-700/40 text-amber-300 hover:text-amber-200 flex items-center justify-center text-sm font-bold transition-colors border border-amber-700/30"
+                title="How to Play"
+              >
+                ?
+              </button>
             </div>
           </div>
         </div>
@@ -1007,6 +1058,71 @@ export default function BetrayalGame() {
               player={myPlayer}
               isCurrentPlayer={isMyTurn}
             />
+          )}
+
+          {/* Turn Actions Guide */}
+          <TurnActions
+            isMyTurn={isMyTurn}
+            movesRemaining={myPlayer?.movesRemaining ?? 0}
+            hasPendingRoom={!!fullState.pendingRoom}
+            phase={fullState.phase}
+          />
+
+          {/* Movement controls */}
+          {isMyTurn && (
+            <div className="space-y-2">
+              <h4 className="text-xs text-gray-500 uppercase tracking-wider font-bold">
+                Movement
+              </h4>
+              <div className="grid grid-cols-3 gap-1.5 max-w-[180px] mx-auto">
+                <div />
+                <button
+                  type="button"
+                  onClick={() => movePlayer('north')}
+                  disabled={!myPlayer || myPlayer.movesRemaining <= 0}
+                  className="px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/15 text-white text-sm font-bold disabled:opacity-20 disabled:cursor-not-allowed transition-colors border border-white/10"
+                >
+                  &#8593;
+                </button>
+                <div />
+                <button
+                  type="button"
+                  onClick={() => movePlayer('west')}
+                  disabled={!myPlayer || myPlayer.movesRemaining <= 0}
+                  className="px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/15 text-white text-sm font-bold disabled:opacity-20 disabled:cursor-not-allowed transition-colors border border-white/10"
+                >
+                  &#8592;
+                </button>
+                <div className="flex items-center justify-center">
+                  <span className="text-xs text-gray-500 font-mono">{myPlayer?.movesRemaining ?? 0}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => movePlayer('east')}
+                  disabled={!myPlayer || myPlayer.movesRemaining <= 0}
+                  className="px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/15 text-white text-sm font-bold disabled:opacity-20 disabled:cursor-not-allowed transition-colors border border-white/10"
+                >
+                  &#8594;
+                </button>
+                <div />
+                <button
+                  type="button"
+                  onClick={() => movePlayer('south')}
+                  disabled={!myPlayer || myPlayer.movesRemaining <= 0}
+                  className="px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/15 text-white text-sm font-bold disabled:opacity-20 disabled:cursor-not-allowed transition-colors border border-white/10"
+                >
+                  &#8595;
+                </button>
+                <div />
+              </div>
+              <button
+                type="button"
+                onClick={endTurn}
+                className="w-full py-2.5 rounded-lg bg-amber-800/60 hover:bg-amber-700/70 text-amber-100 text-sm font-bold uppercase tracking-wider transition-colors border border-amber-700/40"
+              >
+                End Turn
+              </button>
+            </div>
           )}
 
           {/* Other players (compact) */}
@@ -1024,56 +1140,6 @@ export default function BetrayalGame() {
                 />
               ))}
           </div>
-
-          {/* Action buttons */}
-          {isMyTurn && (
-            <div className="space-y-2">
-              <h4 className="text-xs text-gray-500 uppercase tracking-wider font-bold">
-                Actions
-              </h4>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => movePlayer('north')}
-                  disabled={!myPlayer || myPlayer.movesRemaining <= 0}
-                  className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  &#8593; North
-                </button>
-                <button
-                  type="button"
-                  onClick={() => movePlayer('south')}
-                  disabled={!myPlayer || myPlayer.movesRemaining <= 0}
-                  className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  &#8595; South
-                </button>
-                <button
-                  type="button"
-                  onClick={() => movePlayer('west')}
-                  disabled={!myPlayer || myPlayer.movesRemaining <= 0}
-                  className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  &#8592; West
-                </button>
-                <button
-                  type="button"
-                  onClick={() => movePlayer('east')}
-                  disabled={!myPlayer || myPlayer.movesRemaining <= 0}
-                  className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  &#8594; East
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={endTurn}
-                className="w-full py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-sm font-bold uppercase tracking-wider transition-colors"
-              >
-                End Turn
-              </button>
-            </div>
-          )}
 
           {/* Dice result */}
           {fullState.lastDiceRoll && (
@@ -1106,6 +1172,10 @@ export default function BetrayalGame() {
           onRoll={doHauntRoll}
         />
       )}
+      <GameInstructions
+        isOpen={showInstructions}
+        onClose={() => setShowInstructions(false)}
+      />
     </div>
   )
 }

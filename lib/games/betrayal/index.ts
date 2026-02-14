@@ -1,5 +1,5 @@
 import { registerGame } from '@/lib/game-types'
-import ComingSoon from '../coming-soon'
+import BetrayalGame from './BetrayalGame'
 
 registerGame({
   id: 'betrayal',
@@ -7,5 +7,8 @@ registerGame({
   maxPlayers: 6,
   minPlayers: 3,
   rules: 'Explore a haunted house. One traitor will be revealed—survive the haunt.',
-  component: ComingSoon,
+  component: BetrayalGame,
 })
+
+export { BetrayalGame }
+export type { BetrayalGameState } from './types'

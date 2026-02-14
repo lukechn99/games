@@ -122,57 +122,74 @@ function CardOverlay({
   card: CardDef
   onDismiss: () => void
 }) {
-  const typeColors: Record<string, string> = {
-    event: '#f5c542',
-    item: '#42adf5',
-    omen: '#c842f5',
+  const typeConfig: Record<string, { color: string; icon: string; bgGrad: string }> = {
+    event: { color: '#f5c542', icon: '⚡', bgGrad: 'from-yellow-950/80 to-gray-950' },
+    item: { color: '#42adf5', icon: '🛡', bgGrad: 'from-blue-950/80 to-gray-950' },
+    omen: { color: '#c842f5', icon: '🔮', bgGrad: 'from-purple-950/80 to-gray-950' },
   }
-  const color = typeColors[card.type] ?? '#888'
+  const config = typeConfig[card.type] ?? { color: '#888', icon: '?', bgGrad: 'from-gray-900 to-gray-950' }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div
-        className="max-w-sm w-full rounded-xl overflow-hidden shadow-2xl"
-        style={{ border: `3px solid ${color}` }}
+        className="max-w-sm w-full mx-4 rounded-2xl overflow-hidden shadow-2xl"
+        style={{ border: `2px solid ${config.color}`, boxShadow: `0 0 40px ${config.color}30` }}
       >
-        {/* Header */}
+        {/* Header with icon */}
         <div
-          className="px-5 py-3 text-center"
-          style={{ background: `${color}30` }}
+          className={`px-5 py-4 text-center bg-gradient-to-b ${config.bgGrad}`}
         >
+          <div className="text-3xl mb-1">{config.icon}</div>
           <span
-            className="text-xs font-bold uppercase tracking-widest"
-            style={{ color }}
+            className="text-xs font-bold uppercase tracking-[0.25em]"
+            style={{ color: config.color }}
           >
             {card.type}
           </span>
         </div>
 
+        {/* Decorative divider */}
+        <div className="h-px" style={{ background: `linear-gradient(to right, transparent, ${config.color}60, transparent)` }} />
+
         {/* Body */}
-        <div className="bg-gray-900 px-5 py-6 space-y-4">
-          <h3 className="text-xl font-bold text-white text-center">
+        <div className="bg-gray-950 px-6 py-6 space-y-4">
+          <h3
+            className="text-xl font-bold text-center"
+            style={{ color: config.color, fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif' }}
+          >
             {card.name}
           </h3>
-          <p className="text-sm text-gray-400 italic text-center leading-relaxed">
+          <p className="text-sm text-gray-400 italic text-center leading-relaxed"
+            style={{ fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif' }}
+          >
             &ldquo;{card.flavour}&rdquo;
           </p>
+
+          {/* Decorative divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px" style={{ background: `${config.color}30` }} />
+            <span className="text-xs" style={{ color: `${config.color}80` }}>&#9830;</span>
+            <div className="flex-1 h-px" style={{ background: `${config.color}30` }} />
+          </div>
+
           <div
-            className="text-sm text-gray-200 text-center p-3 rounded-lg"
-            style={{ background: `${color}15`, border: `1px solid ${color}30` }}
+            className="text-sm text-gray-200 text-center p-4 rounded-lg"
+            style={{ background: `${config.color}08`, border: `1px solid ${config.color}25` }}
           >
             {card.effect}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-900 px-5 pb-4">
+        <div className="bg-gray-950 px-6 pb-5">
           <button
             type="button"
             onClick={onDismiss}
-            className="w-full py-2 rounded-lg text-sm font-bold uppercase tracking-wider transition-colors"
+            className="w-full py-2.5 rounded-lg text-sm font-bold uppercase tracking-wider transition-all hover:brightness-110"
             style={{
-              background: color,
+              background: `linear-gradient(to bottom, ${config.color}, ${config.color}cc)`,
               color: '#000',
+              boxShadow: `0 4px 12px ${config.color}40`,
             }}
           >
             Continue
@@ -460,7 +477,7 @@ export default function BetrayalGame() {
       drawnCard: null,
       pendingRoom: null,
       viewingFloor: 'ground',
-      log: ['Welcome to Betrayal at House on the Hill.', 'Choose your explorers to begin.'],
+      log: ['Welcome to Betrayal at House on the Hill (3rd Edition).', 'Choose your explorers to begin.', 'Tip: Click the "?" button for full game rules.'],
     }
 
     dispatchGameState(initial as unknown as Record<string, unknown>)
@@ -539,8 +556,9 @@ export default function BetrayalGame() {
             },
             log: [
               ...prev.log,
-              'The exploration begins!',
-              `${me.playerName}'s turn. (${speed} moves)`,
+              '━━━ The exploration begins! ━━━',
+              'All explorers start in the Entrance Hall on the Ground Floor.',
+              `${me.playerName}'s turn. (Speed ${speed} = ${speed} moves)`,
             ],
           }
         })
@@ -907,15 +925,32 @@ export default function BetrayalGame() {
       : null
 
     return (
-      <div className="h-full flex items-center justify-center bg-gray-950 p-6">
+      <div className="h-full flex items-center justify-center bg-gradient-to-b from-red-950/30 via-gray-950 to-gray-950 p-6 overflow-auto">
         <div className="max-w-lg text-center space-y-6">
-          <h2 className="text-4xl font-bold text-red-500 animate-pulse">
-            THE HAUNT BEGINS
-          </h2>
-          <div className="text-6xl">&#128128;</div>
+          {/* Gothic header */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-3">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent to-red-800/60" />
+              <span className="text-red-700 text-sm">&#9830; &#9830; &#9830;</span>
+              <div className="h-px flex-1 bg-gradient-to-l from-transparent to-red-800/60" />
+            </div>
+            <h2
+              className="text-4xl font-bold text-red-500 animate-pulse"
+              style={{ fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif', letterSpacing: '0.1em' }}
+            >
+              THE HAUNT BEGINS
+            </h2>
+            <div className="flex items-center justify-center gap-3">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent to-red-800/60" />
+              <span className="text-4xl">&#128128;</span>
+              <div className="h-px flex-1 bg-gradient-to-l from-transparent to-red-800/60" />
+            </div>
+          </div>
+
           {traitor && traitorChar && (
-            <div className="space-y-2">
-              <p className="text-xl text-gray-200">
+            <div className="space-y-3 p-4 rounded-xl border border-red-900/40 bg-red-950/20">
+              <p className="text-xl text-gray-200"
+                 style={{ fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif' }}>
                 <strong
                   style={{
                     color: `#${traitorChar.color.toString(16).padStart(6, '0')}`,
@@ -923,29 +958,41 @@ export default function BetrayalGame() {
                 >
                   {traitorChar.name}
                 </strong>{' '}
-                ({traitor.playerName}) is the traitor!
+                ({traitor.playerName}) is the <span className="text-red-400 font-bold">traitor</span>!
               </p>
             </div>
           )}
+
           <p className="text-sm text-gray-500">
-            {state.omenCount} omens were found before the haunt was triggered.
+            {state.omenCount} omen{state.omenCount !== 1 ? 's were' : ' was'} found before the haunt was triggered.
           </p>
-          <div className="text-sm text-gray-400 max-w-md mx-auto">
-            In the full game, a specific haunt scenario would now be revealed
-            based on the omen and room that triggered it. The traitor takes
-            their Traitor&apos;s Tome and the heroes consult the Secrets of Survival.
+
+          <div className="text-sm text-gray-400 max-w-md mx-auto p-4 rounded-lg bg-black/30 border border-white/5 space-y-2">
+            <p className="font-semibold text-amber-300/80">What Happens Now:</p>
+            <p>The traitor takes the <strong className="text-red-300">Traitor&apos;s Tome</strong> to learn their secret objectives.</p>
+            <p>The heroes consult the <strong className="text-blue-300">Secrets of Survival</strong> to learn how to fight back.</p>
+            <p className="text-xs text-gray-500 mt-2">Each side has different win conditions. The first team to complete their objectives wins!</p>
           </div>
 
           {/* Show all character sheets */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8">
-            {Object.values(state.players ?? {}).map((p) => (
-              <CharacterSheet
-                key={p.peerId}
-                player={p}
-                isCurrentPlayer={p.peerId === myPeerId}
-                compact
-              />
-            ))}
+            {Object.values(state.players ?? {}).map((p) => {
+              const isTraitor = p.peerId === state.hauntTraitorPeerId
+              return (
+                <div key={p.peerId} className="relative">
+                  {isTraitor && (
+                    <div className="absolute -top-2 -right-2 z-10 px-2 py-0.5 rounded-full bg-red-900 text-red-300 text-xs font-bold border border-red-700">
+                      Traitor
+                    </div>
+                  )}
+                  <CharacterSheet
+                    player={p}
+                    isCurrentPlayer={p.peerId === myPeerId}
+                    compact
+                  />
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -977,41 +1024,61 @@ export default function BetrayalGame() {
           }}
         />
 
-        {/* Floor tabs */}
+        {/* Floor tabs - gothic style */}
         <div className="absolute top-3 right-3 flex gap-1 z-10">
-          {(['upper', 'ground', 'basement'] as Floor[]).map((f) => (
+          {([
+            { floor: 'upper' as Floor, label: 'Upper Floor', icon: '🏚', color: '#7aabd4' },
+            { floor: 'ground' as Floor, label: 'Ground', icon: '🚪', color: '#c9a55a' },
+            { floor: 'basement' as Floor, label: 'Basement', icon: '⛓', color: '#d45a5a' },
+          ]).map(({ floor: f, label, icon, color }) => (
             <button
               key={f}
               type="button"
               onClick={() => changeFloor(f)}
               className={`
                 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider
-                transition-all duration-200
+                transition-all duration-200 border
                 ${fullState.viewingFloor === f
-                  ? 'bg-white text-black shadow-lg'
-                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  ? 'shadow-lg'
+                  : 'bg-black/60 text-white/50 hover:bg-black/40 border-white/10'
                 }
               `}
+              style={fullState.viewingFloor === f ? {
+                background: `${color}25`,
+                color,
+                borderColor: `${color}60`,
+                boxShadow: `0 2px 12px ${color}30`,
+              } : undefined}
             >
-              {f === 'upper' ? 'Upper' : f === 'ground' ? 'Ground' : 'Basement'}
+              {icon} {label}
             </button>
           ))}
         </div>
 
         {/* Movement hint */}
         {isMyTurn && myPlayer && myPlayer.movesRemaining > 0 && (
-          <div className="absolute bottom-3 left-3 bg-black/70 rounded-lg px-3 py-2 text-xs text-white/80 z-10">
-            Arrow keys / WASD to move &middot; {myPlayer.movesRemaining} moves left
+          <div className="absolute bottom-3 left-3 bg-black/80 rounded-lg px-4 py-2.5 z-10 border border-green-800/30">
+            <p className="text-xs text-green-300 font-medium">
+              &#9654; Arrow keys / WASD to move &middot; <span className="font-bold">{myPlayer.movesRemaining}</span> move{myPlayer.movesRemaining !== 1 ? 's' : ''} remaining
+            </p>
+            <p className="text-[10px] text-gray-500 mt-0.5">
+              Discovering a new room will end your turn
+            </p>
           </div>
         )}
 
         {/* Pending room notice */}
         {fullState.pendingRoom && isMyTurn && (
-          <div className="absolute top-3 left-3 bg-green-900/80 border border-green-500/50 rounded-lg px-4 py-2 z-10">
-            <p className="text-sm text-green-200 font-medium">
-              Place: <strong>{fullState.pendingRoom.name}</strong>
+          <div className="absolute top-3 left-3 bg-black/80 border border-amber-600/50 rounded-xl px-5 py-3 z-10 shadow-lg" style={{ boxShadow: '0 4px 20px rgba(201,165,90,0.15)' }}>
+            <p className="text-xs text-amber-400/70 uppercase tracking-wider font-bold mb-1">Room Discovered</p>
+            <p className="text-sm text-amber-200 font-bold"
+               style={{ fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif' }}>
+              {fullState.pendingRoom.name}
             </p>
-            <p className="text-xs text-green-400/70">Click a highlighted cell on the board</p>
+            {fullState.pendingRoom.effect && (
+              <p className="text-xs text-gray-400 italic mt-1">{fullState.pendingRoom.effect}</p>
+            )}
+            <p className="text-xs text-amber-500/60 mt-2">&#9654; Click a highlighted cell to place this room</p>
           </div>
         )}
       </div>

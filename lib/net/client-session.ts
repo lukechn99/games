@@ -9,6 +9,7 @@ import type { DataConnection, Peer } from 'peerjs'
 import type { PlayerId, RoomAction } from '@/lib/engine/types'
 import { HEARTBEAT_MS, hostPeerId, peerOptions, TIMEOUT_MS } from './config'
 import { isObject, PROTOCOL_VERSION, type ClientMessage, type HostMessage } from './protocol'
+import { startKeepalive, sendBrokerHeartbeat, type Keepalive } from './keepalive'
 import type { Session, SessionEvents } from './session-types'
 
 /**
@@ -17,6 +18,10 @@ import type { Session, SessionEvents } from './session-types'
  * When resuming after a refresh the host may be refreshing too, so wait longer.
  */
 const FIRST_JOIN_BUDGET_MS = 14_000
+/** Once we know the host exists, allow longer: slow networks and relays need time. */
+const FOUND_HOST_BUDGET_MS = 40_000
+/** How long one attempt may take to open a direct connection before we retry. */
+const OPEN_TIMEOUT_MS = 15_000
 const RESUME_JOIN_BUDGET_MS = 60_000
 const RETRY_DELAYS_MS = [1000, 2000, 3000, 5000]
 
@@ -28,11 +33,18 @@ export class ClientSession implements Session {
   private joinedOnce = false
   private failures = 0
   private retryTimer: ReturnType<typeof setTimeout> | null = null
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private keepalive: Keepalive | null = null
   private lastHeard = 0
   private seq = 0
   private clockOffset = 0
   private startedAt = 0
+  /**
+   * Did the broker ever tell us the host isn't there? If not, and we still
+   * failed, we reached the host but couldn't open a direct connection
+   * (a network problem, not a wrong code).
+   */
+  private sawHostMissing = false
+  private sawConnectFailure = false
 
   constructor(
     readonly code: string,
@@ -51,7 +63,7 @@ export class ClientSession implements Session {
   start() {
     this.events.onStatus('connecting')
     this.startedAt = Date.now()
-    this.heartbeatTimer = setInterval(() => this.heartbeat(), HEARTBEAT_MS)
+    this.keepalive = startKeepalive((reason) => this.heartbeat(reason === 'wake'), HEARTBEAT_MS)
     void this.ensurePeer()
   }
 
@@ -77,6 +89,7 @@ export class ClientSession implements Session {
       if (this.destroyed) return
       if (err.type === 'peer-unavailable') {
         // Host isn't registered with the broker: room doesn't exist, or the host is away.
+        this.sawHostMissing = true
         this.retry()
       } else if (err.type === 'browser-incompatible') {
         this.end({ kind: 'error', message: "This browser doesn't support peer-to-peer connections." })
@@ -109,6 +122,7 @@ export class ClientSession implements Session {
     })
     const lost = () => {
       if (conn !== this.conn) return
+      if (!conn.open) this.sawConnectFailure = true
       this.conn = null
       this.retry()
     }
@@ -120,7 +134,7 @@ export class ClientSession implements Session {
     // If the connection never opens (e.g. NAT traversal fails), don't hang forever.
     setTimeout(() => {
       if (conn === this.conn && !conn.open) lost()
-    }, 12_000)
+    }, OPEN_TIMEOUT_MS)
   }
 
   private onMessage(msg: HostMessage) {
@@ -165,8 +179,17 @@ export class ClientSession implements Session {
     }
   }
 
-  private heartbeat() {
-    if (!this.conn?.open) return
+  private heartbeat(woke = false) {
+    if (this.peer?.open) sendBrokerHeartbeat(this.peer)
+    if (!this.conn?.open) {
+      // Coming back to a tab that was stuck mid-retry: try again right away.
+      if (woke && this.retryTimer && !this.destroyed) {
+        clearTimeout(this.retryTimer)
+        this.retryTimer = null
+        void this.ensurePeer()
+      }
+      return
+    }
     if (Date.now() - this.lastHeard > TIMEOUT_MS) {
       // The host went silent (closed laptop, lost Wi-Fi). Start over.
       this.conn = null
@@ -180,9 +203,13 @@ export class ClientSession implements Session {
     if (this.destroyed || this.retryTimer) return
     this.closeConn()
     this.failures++
-    const budget = this.patient ? RESUME_JOIN_BUDGET_MS : FIRST_JOIN_BUDGET_MS
+    const budget = this.patient
+      ? RESUME_JOIN_BUDGET_MS
+      : this.sawConnectFailure && !this.sawHostMissing
+        ? FOUND_HOST_BUDGET_MS
+        : FIRST_JOIN_BUDGET_MS
     if (!this.joinedOnce && Date.now() - this.startedAt >= budget) {
-      this.end({ kind: 'not-found' })
+      this.end({ kind: this.sawConnectFailure && !this.sawHostMissing ? 'unreachable' : 'not-found' })
       return
     }
     this.events.onStatus(this.joinedOnce ? 'host-away' : 'connecting')
@@ -224,7 +251,7 @@ export class ClientSession implements Session {
     if (this.destroyed) return
     this.destroyed = true
     if (this.retryTimer) clearTimeout(this.retryTimer)
-    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer)
+    this.keepalive?.stop()
     this.closeConn()
     this.peer?.destroy()
     this.peer = null

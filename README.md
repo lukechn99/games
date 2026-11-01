@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Game Night
 
-## Getting Started
+Party games played browser to browser. One person creates a room, everyone else joins from their phone with a 5-letter code or a link. No accounts, no installs, and no game server to pay for.
 
-First, run the development server:
+## How it works
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+GitHub Pages ──(static files, once)──▶ every browser
+PeerJS broker ──(introductions only)──▶ every browser
+
+            Player ──┐
+            Player ──┼──▶ Host's browser  (runs the rules, saves the game)
+            Player ──┘
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Static site.** Everything is plain files, so it's hosted free on GitHub Pages.
+- **Star, not mesh.** Each player connects only to the host's browser over WebRTC. The host runs the room and game rules and sends each player just what they're allowed to see, so hidden roles never reach other players' devices.
+- **Matchmaking.** The host registers with the free public [PeerJS](https://peerjs.com) broker under an id built from the room code. Players dial that id. After the handshake the broker is out of the loop.
+- **Rejoining.** Each tab keeps a stable player id, so a refresh drops you back into your seat. If you closed the tab, join again with the same name to reclaim your seat. If the host refreshes or closes the tab, the game is saved in their browser and players reconnect automatically when they come back (or when the host clicks "Reopen room").
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Code map
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Path | What it is |
+| --- | --- |
+| `lib/engine/` | Pure room logic: join, leave, rejoin, kick, start, per-player views. No networking. |
+| `lib/games/<game>/rules.ts` | A game as pure functions: `setup`, `action`, `view`, `tick`, `playerLeft`. |
+| `lib/games/<game>/*View.tsx` | The game's UI. Receives its view and an `act()` function. |
+| `lib/net/` | PeerJS host and client sessions, heartbeats, reconnection, storage. |
+| `lib/session.tsx` | React glue between sessions and the UI. |
+| `components/` | Home, lobby, game shell. |
+| `legacy/` | Secret Hitler, Codenames and Betrayal from the old engine, waiting to be ported. Not built. |
 
-## Learn More
+### Adding a game
 
-To learn more about Next.js, take a look at the following resources:
+1. Write `lib/games/<id>/rules.ts` exporting a `GameModule` (see `lib/engine/types.ts` and `lib/games/spyfall/rules.ts`). Keep it pure: use `ctx.now` and `ctx.random`, never `Date.now()` or `Math.random()`.
+2. Strip anything a player shouldn't see in `view(state, playerId)`.
+3. Write a view component that takes `GameViewProps`.
+4. Register both in `lib/games/modules.ts` and `lib/games/ui.ts`.
+5. Add rule tests next to `tests/room.test.ts`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Development
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm install
+npm run dev        # http://localhost:3000, uses the public PeerJS broker
+npm test           # engine and rules unit tests
+```
 
-## Deploy on Vercel
+Open the site in two or more tabs (or a normal and a private window) to play against yourself. Each tab is its own player.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+To work offline or run the end-to-end test, use the local broker:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run broker &   # PeerJS broker on 127.0.0.1:9000
+NEXT_PUBLIC_PEER_HOST=127.0.0.1 NEXT_PUBLIC_PEER_PORT=9000 NEXT_PUBLIC_PEER_SECURE=false npm run build
+npx serve out -l 3100 &
+APP_URL=http://127.0.0.1:3100/ CHROME=/path/to/chrome npm run test:e2e
+```
+
+The end-to-end test drives five separate Chrome profiles through joining, refreshing, reclaiming a seat, the host refreshing mid-game, voting, kicking and closing the room.
+
+## Deploying
+
+Pushing to `main` builds and deploys to GitHub Pages via `.github/workflows/deploy.yml`. One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+Optional repository variables (**Settings → Secrets and variables → Actions → Variables**):
+
+| Variable | Use |
+| --- | --- |
+| `PEER_HOST`, `PEER_PORT`, `PEER_PATH`, `PEER_SECURE` | Use your own broker (the `peer` npm package, e.g. on Render or Fly.io) instead of the public one. |
+| `TURN_URL`, `TURN_USERNAME`, `TURN_CREDENTIAL` | A TURN relay for players on strict networks, e.g. Metered's free Open Relay. These end up in the public site, so anyone could find them. |
+
+The same build also deploys unchanged to Vercel or Netlify (leave `NEXT_PUBLIC_BASE_PATH` unset there).

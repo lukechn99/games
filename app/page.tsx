@@ -1,9 +1,12 @@
-import App from "@/lib/app"
+'use client'
 
-export default function Home() {
+import App from '@/components/app'
+import { SessionProvider } from '@/lib/session'
+
+export default function Page() {
   return (
-    <div>
+    <SessionProvider>
       <App />
-    </div>
+    </SessionProvider>
   )
 }

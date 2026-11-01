@@ -54,7 +54,9 @@ const END_MESSAGES: Record<EndReason['kind'], string> = {
   left: '',
   kicked: 'The host removed you from the room.',
   closed: 'The host closed the room.',
-  'not-found': "Couldn't reach that room. Check the code, or ask the host if their page is open.",
+  'not-found': "No room with that code is open. Check the code, and make sure the host's page is open and on screen.",
+  unreachable:
+    "Found the room, but your device couldn't connect to the host's. This happens on some cellular and Wi-Fi networks. Try switching networks (for example, Wi-Fi to cellular).",
   denied: '',
   error: '',
 }

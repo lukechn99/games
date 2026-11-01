@@ -20,6 +20,7 @@ import { getGameModule } from '@/lib/games/modules'
 import { generateRoomCode, hostPeerId, HEARTBEAT_MS, peerOptions, TIMEOUT_MS } from './config'
 import { isObject, PROTOCOL_VERSION, type ClientMessage, type HostMessage } from './protocol'
 import type { Session, SessionEvents } from './session-types'
+import { startKeepalive, sendBrokerHeartbeat, type Keepalive } from './keepalive'
 import { clearHostedRoom, saveHostedRoom } from './storage'
 
 interface Link {
@@ -44,7 +45,9 @@ export class HostSession implements Session {
   private room: RoomState
   private peer: Peer | null = null
   private links = new Map<string, Link>() // keyed by conn.connectionId
-  private timers: ReturnType<typeof setInterval>[] = []
+  private keepalive: Keepalive | null = null
+  private lastTick = 0
+  private lastHeartbeat = 0
   private retryTimer: ReturnType<typeof setTimeout> | null = null
   private tries = 0
   private destroyed = false
@@ -78,10 +81,46 @@ export class HostSession implements Session {
 
   start() {
     this.events.onStatus('connecting')
+    // Save right away so a refresh before anyone joins can still resume the room.
+    saveHostedRoom(this.room)
     this.publish()
-    this.timers.push(setInterval(() => this.tick(), 1000))
-    this.timers.push(setInterval(() => this.heartbeat(), HEARTBEAT_MS))
+    // Driven by a worker so a background host tab keeps ticking and keeps
+    // checking in with the broker (see keepalive.ts).
+    this.keepalive = startKeepalive((reason) => this.onKeepalive(reason), 1000)
     void this.register()
+  }
+
+  private onKeepalive(reason: 'timer' | 'wake') {
+    const now = Date.now()
+    if (now - this.lastTick >= 1000) {
+      this.lastTick = now
+      this.tick()
+    }
+    if (reason === 'wake' || now - this.lastHeartbeat >= HEARTBEAT_MS) {
+      this.lastHeartbeat = now
+      this.heartbeat()
+      this.checkBroker()
+    }
+  }
+
+  /** Keep our registration with the broker alive, and repair it if it dropped. */
+  private checkBroker() {
+    const peer = this.peer
+    if (!peer) {
+      // Between registrations; a retry is scheduled or one is about to be.
+      if (!this.retryTimer && this.everOnline) void this.register()
+      return
+    }
+    if (peer.destroyed) {
+      this.peer = null
+      if (!this.retryTimer) void this.register()
+    } else if (peer.disconnected) {
+      if (this.retryTimer) clearTimeout(this.retryTimer)
+      this.retryTimer = null
+      peer.reconnect()
+    } else if (peer.open) {
+      sendBrokerHeartbeat(peer)
+    }
   }
 
   private async register() {
@@ -322,7 +361,7 @@ export class HostSession implements Session {
   destroy() {
     if (this.destroyed) return
     this.destroyed = true
-    this.timers.forEach(clearInterval)
+    this.keepalive?.stop()
     if (this.retryTimer) clearTimeout(this.retryTimer)
     for (const link of this.links.values()) {
       try {

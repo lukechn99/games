@@ -15,6 +15,8 @@ export type EndReason =
   | { kind: 'kicked' }
   | { kind: 'closed' }
   | { kind: 'not-found' }
+  /** The room exists but a direct connection to the host couldn't be opened. */
+  | { kind: 'unreachable' }
   | { kind: 'denied'; message: string }
   | { kind: 'error'; message: string }
 

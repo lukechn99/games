@@ -88,7 +88,7 @@ try {
 
   const stranger = await open('Zed')
   await join(stranger, 'QQQQQ')
-  await stranger.page.getByText("Couldn't reach that room").waitFor({ timeout: 30_000 })
+  await stranger.page.getByText('No room with that code').waitFor({ timeout: 30_000 })
   log('joining a non-existent room fails with a clear message')
   await stranger.context.close()
 

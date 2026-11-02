@@ -5,8 +5,9 @@
 import type { GameModule } from '@/lib/engine/types'
 import type { GameLookup } from '@/lib/engine/room'
 import { spyfall } from './spyfall/rules'
+import { hauntedHouse } from './haunted/rules'
 
-export const GAME_MODULES: GameModule[] = [spyfall as GameModule]
+export const GAME_MODULES: GameModule[] = [spyfall as GameModule, hauntedHouse as GameModule]
 
 const byId = new Map(GAME_MODULES.map((g) => [g.id, g]))
 
@@ -16,5 +17,4 @@ export const getGameModule: GameLookup = (id) => byId.get(id)
 export const COMING_SOON = [
   { name: 'Secret Hitler', players: '5–10' },
   { name: 'Codenames', players: '4–8' },
-  { name: 'Betrayal at House on the Hill', players: '3–6' },
 ]

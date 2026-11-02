@@ -28,9 +28,9 @@ export default function GameShell() {
   return (
     <div className="flex min-h-dvh flex-col">
       <TroubleBanner />
-      <header className="flex items-center gap-3 border-b px-4 py-3">
-        <span className="font-display text-lg font-bold">{mod?.name ?? game.gameId}</span>
-        <span className="rounded bg-ticket px-1.5 py-0.5 font-display text-sm font-bold tracking-widest text-ticket-ink">
+      <header className="flex items-center gap-2 border-b px-3 py-2.5 whitespace-nowrap">
+        <span className="min-w-0 truncate font-display text-lg font-bold">{mod?.name ?? game.gameId}</span>
+        <span className="shrink-0 rounded bg-ticket px-1.5 py-0.5 font-display text-sm font-bold tracking-widest text-ticket-ink">
           {snapshot.code}
         </span>
         <span className="flex-1" />

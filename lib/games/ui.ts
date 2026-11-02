@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import type { PlayerId, RoomSnapshot } from '@/lib/engine/types'
 import SpyfallView from './spyfall/SpyfallView'
+import HauntedView from './haunted/ui/HauntedView'
 
 export interface GameViewProps<V = unknown, A = unknown> {
   view: V
@@ -20,4 +21,5 @@ export interface GameViewProps<V = unknown, A = unknown> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const GAME_VIEWS: Record<string, ComponentType<GameViewProps<any, any>>> = {
   spyfall: SpyfallView,
+  haunted: HauntedView,
 }

@@ -18,6 +18,11 @@ PeerJS broker ──(introductions only)──▶ every browser
 - **Matchmaking.** The host registers with the free public [PeerJS](https://peerjs.com) broker under an id built from the room code. Players dial that id. After the handshake the broker is out of the loop.
 - **Rejoining.** Each tab keeps a stable player id, so a refresh drops you back into your seat. If you closed the tab, join again with the same name to reclaim your seat. If the host refreshes or closes the tab, the game is saved in their browser and players reconnect automatically when they come back (or when the host clicks "Reopen room").
 
+## Games
+
+- **Spyfall** (3–12 players)
+- **Haunted House** (3–6 players): explore a house tile by tile until the haunt begins and one player turns traitor. Plays by Betrayal at House on the Hill 3rd-edition rules, with original names, text and art. Data notes are in `lib/games/haunted/data/`: explorer stats, room tiles, items and the scenario chart match 3rd edition; event cards, omen effects and room doorway layouts are approximations because they couldn't be sourced. Three haunts are built (28, 30, 44); when the chart points to an unbuilt haunt, 28 or 44 is played instead.
+
 ## Code map
 
 | Path | What it is |
@@ -28,7 +33,7 @@ PeerJS broker ──(introductions only)──▶ every browser
 | `lib/net/` | PeerJS host and client sessions, heartbeats, reconnection, storage. |
 | `lib/session.tsx` | React glue between sessions and the UI. |
 | `components/` | Home, lobby, game shell. |
-| `legacy/` | Secret Hitler, Codenames and Betrayal from the old engine, waiting to be ported. Not built. |
+| `legacy/` | Secret Hitler and Codenames from the old engine, waiting to be ported. Not built. |
 
 ### Adding a game
 

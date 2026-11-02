@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import type { PlayerId, RoomSnapshot } from '@/lib/engine/types'
 import SpyfallView from './spyfall/SpyfallView'
 import HauntedView from './haunted/ui/HauntedView'
+import FourView from './fourinarow/FourView'
 
 export interface GameViewProps<V = unknown, A = unknown> {
   view: V
@@ -22,4 +23,5 @@ export interface GameViewProps<V = unknown, A = unknown> {
 export const GAME_VIEWS: Record<string, ComponentType<GameViewProps<any, any>>> = {
   spyfall: SpyfallView,
   haunted: HauntedView,
+  fourinarow: FourView,
 }

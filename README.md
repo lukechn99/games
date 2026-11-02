@@ -21,6 +21,7 @@ PeerJS broker ──(introductions only)──▶ every browser
 ## Games
 
 - **Spyfall** (3–12 players)
+- **Four in a Row** (2 players)
 - **Haunted House** (3–6 players): explore a house tile by tile until the haunt begins and one player turns traitor. Plays by Betrayal at House on the Hill 3rd-edition rules, with original names, text and art. Data notes are in `lib/games/haunted/data/`: explorer stats, room tiles, items and the scenario chart match 3rd edition; event cards, omen effects and room doorway layouts are approximations because they couldn't be sourced. Three haunts are built (28, 30, 44); when the chart points to an unbuilt haunt, 28 or 44 is played instead.
 
 ## Code map

@@ -232,6 +232,8 @@ export const hauntedHouse: GameModule<HauntedState, HauntedAction, HauntedView> 
   },
 
   bot: (view, ctx, level, attempt) => hauntedBot(view, ctx, level, attempt),
+  // Slow enough that people can watch each step land (move animations take ~0.5s).
+  botDelayMs: 1100,
 }
 
 export { dirBetween }

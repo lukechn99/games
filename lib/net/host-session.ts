@@ -337,12 +337,13 @@ export class HostSession implements Session {
   private scheduleBots() {
     if (this.botTimer || this.destroyed) return
     if (!this.room.game || !this.room.players.some((p) => p.bot)) return
+    const delay = getGameModule(this.room.game.gameId)?.botDelayMs ?? BOT_DELAY_MS
     this.botTimer = setTimeout(() => {
       this.botTimer = null
       if (this.destroyed) return
       const next = botStep(this.room, ruleContext(), getGameModule)
       if (next) this.update(next)
-    }, BOT_DELAY_MS)
+    }, delay)
   }
 
   /** Send every connected player their personal snapshot, and update our own UI. */

@@ -56,6 +56,11 @@ export const haunt28: HauntDef = {
       'Feed it explosives (once per turn): in the creature\'s room, make a Might roll, +2 for each explosive you use and +2 if you carry Dynamite. 10+: you win. Otherwise take 2 Physical damage and your turn ends.',
     ],
   },
+  shared: [
+    'Flooded rooms are face down: doors on every side, no symbols and no room effects. Landings never flood.',
+    'The Drowned Thing (Might 8, Speed 2) can\'t be stunned, and can swim between neighboring flooded rooms through walls.',
+    'Explosives are tokens heroes can find and carry.',
+  ],
   traitor: {
     intro:
       'The water poured from the idol and something vast rose out of it. You remember teeth. Now you are inside it, and you are very, very hungry.',

@@ -7,7 +7,8 @@ import { TILE_BY_ID } from '../data/tiles'
 import type { Dir, PlacedTile, Region } from '../types'
 import { DX, DY } from '../types'
 import type { HauntedView } from '../rules'
-import { MonsterToken, Pawn, REGION_STYLE, T, TileArt } from './pieces'
+import { REGION_STYLE, T, TileArt } from './pieces'
+import { ExplorerFigure, MonsterFigure } from './figures'
 
 export interface BoardProps {
   view: HauntedView
@@ -218,7 +219,7 @@ export default function Board(p: BoardProps) {
             const col = i % 3
             const row = Math.floor(i / 3)
             const x = t.x * T + 30 + col * 30
-            const y = t.y * T + 58 + row * 28
+            const y = t.y * T + 62 + row * 30
             const id = o.kind === 'pawn' ? `p:${o.id}` : `m:${o.id}`
             const isActive = p.active === id
             const style = { transform: `translate(${x}px, ${y}px)`, transition: 'transform 0.45s cubic-bezier(.4,0,.2,1)', animation: 'piece-in 0.3s ease-out' }
@@ -229,9 +230,9 @@ export default function Board(p: BoardProps) {
               const ex = p.view.explorers[o.id]!
               const def = EXPLORER_BY_ID.get(ex.explorerId)!
               return (
-                <g key={id} style={style}>
+                <g key={id} style={{ ...style, pointerEvents: 'none' }}>
                   {pulse}
-                  <Pawn x={0} y={0} color={def.color} label={def.name.replace(/^(Dr\.|Father) /, '')[0]!} dead={ex.dead} me={o.id === p.view.me} />
+                  <ExplorerFigure explorerId={def.id} color={def.color} dead={ex.dead} me={o.id === p.view.me} scale={1.15} />
                 </g>
               )
             }
@@ -239,8 +240,7 @@ export default function Board(p: BoardProps) {
             return (
               <g key={id} style={{ ...style, cursor: 'pointer' }} onClick={tap(() => p.onMonster(m.id))}>
                 {pulse}
-                <MonsterToken kind={m.kind} label={m.name.match(/\d+$/)?.[0] ?? m.name[4] ?? 'M'} x={0} y={0}
-                  stunned={m.stunned} selected={p.selectedMonster === m.id} />
+                <MonsterFigure kind={m.kind} number={m.name.match(/\d+$/)?.[0]} stunned={m.stunned} selected={p.selectedMonster === m.id} />
               </g>
             )
           }),

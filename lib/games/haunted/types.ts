@@ -295,11 +295,14 @@ export interface HauntedState {
   buried: string[]
   /** Who plays next, when a rule overrides normal turn order. */
   nextPid: PlayerId | null
+  /** Teaching mode: everyone may read both sides' haunt rules. */
+  openBooks: boolean
 }
 
 export type HauntedAction =
   | { type: 'pickExplorer'; explorerId: string }
   | { type: 'pickScenario'; scenarioId: string }
+  | { type: 'setOpenBooks'; on: boolean }
   | { type: 'begin' }
   | { type: 'move'; dir: Dir }
   | { type: 'moveTo'; tile: string }

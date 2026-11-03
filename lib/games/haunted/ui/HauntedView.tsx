@@ -13,6 +13,7 @@ import { describeWait, Modal, PromptPanel, promptOwner } from './Prompts'
 import { CardChip, CardFace, CharacterSheet } from './Sheet'
 import Setup from './Setup'
 import DiceRolls from './DiceRolls'
+import RoomInfo from './RoomInfo'
 import { Die, REGION_STYLE } from './pieces'
 
 type Pending = { kind: 'special'; id: string; label: string; options: string[] } | { kind: 'map'; card: string } | null
@@ -55,6 +56,7 @@ export default function HauntedView(props: GameViewProps<View, HauntedAction>) {
   const [showLog, setShowLog] = useState(false)
   const [card, setCard] = useState<string | null>(null)
   const [trading, setTrading] = useState(false)
+  const [inspect, setInspect] = useState<string | null>(null)
 
   // Remember which monster moved last, so the camera can follow monster turns.
   const prevMonsterTiles = useRef<Record<string, string>>({})
@@ -128,7 +130,9 @@ export default function HauntedView(props: GameViewProps<View, HauntedAction>) {
       return setPending(null)
     }
     if (monsterTurn && selectedMonster && highlight[uid]) return act({ type: 'monsterMove', monster: selectedMonster, tile: uid })
-    if (myTurn && highlight[uid] === 'move') act({ type: 'moveTo', tile: uid })
+    if (myTurn && highlight[uid] === 'move') return act({ type: 'moveTo', tile: uid })
+    // Not an action: show what's in the room.
+    setInspect(uid)
   }
 
   const prompt = view.prompt
@@ -192,7 +196,11 @@ export default function HauntedView(props: GameViewProps<View, HauntedAction>) {
           selectedMonster={selectedMonster}
           onTile={onTile}
           onExplore={(dir) => act({ type: 'move', dir })}
-          onMonster={(id) => monsterTurn && setSelectedMonster(id)}
+          onMonster={(id) => {
+            if (monsterTurn) return setSelectedMonster(id)
+            const tile = view.monsters.find((m) => m.id === id)?.tile
+            if (tile) onTile(tile)
+          }}
           focus={choosePrompt?.options[0] ?? (pending?.kind === 'special' ? pending.options[0] : undefined) ?? followTile ?? null}
           active={active}
         />
@@ -357,7 +365,28 @@ export default function HauntedView(props: GameViewProps<View, HauntedAction>) {
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/85">
             {brief.rules.map((r) => <li key={r}>{r}</li>)}
           </ul>
-          <p className="mt-3 text-xs text-white/50">Keep this to yourself: the other side has different instructions.</p>
+          {view.haunt.shared.length > 0 && (
+            <>
+              <h3 className="mt-5 font-display text-lg font-bold">What everyone can see</h3>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-white/85">
+                {view.haunt.shared.map((r) => <li key={r}>{r}</li>)}
+              </ul>
+            </>
+          )}
+          {view.haunt.otherBrief ? (
+            <div className="mt-5 rounded-lg border border-white/15 p-3">
+              <h3 className="font-display text-lg font-bold">{myEx?.side === 'traitor' ? "The heroes' rules" : "The traitor's rules"}</h3>
+              <p className="text-xs text-white/50">Shown because teaching mode is on.</p>
+              <p className="mt-2 font-semibold text-[#f6d860]">{view.haunt.otherBrief.goal}</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-white/85">
+                {view.haunt.otherBrief.rules.map((r) => <li key={r}>{r}</li>)}
+              </ul>
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-white/50">
+              Keep your goal to yourself: the other side has different instructions. Watching what they do is part of the game.
+            </p>
+          )}
           {prompt?.kind === 'haunt' ? (
             owner === me || isHost ? (
               <Button className="mt-4 h-11 w-full" onClick={() => act({ type: 'continue' })}>Begin the haunt</Button>
@@ -389,6 +418,11 @@ export default function HauntedView(props: GameViewProps<View, HauntedAction>) {
       {trading && myEx && o && (
         <TradeModal view={view} me={me} partners={o.trade} name={explorerName} onClose={() => setTrading(false)}
           onOffer={(to, give, take) => { act({ type: 'offerTrade', to, give, take }); setTrading(false) }} />
+      )}
+
+      {inspect && view.tiles[inspect] && (
+        <RoomInfo view={view} uid={inspect} name={who} onClose={() => setInspect(null)}
+          onMove={myTurn && highlight[inspect] === 'move' ? () => { act({ type: 'moveTo', tile: inspect }); setInspect(null) } : undefined} />
       )}
 
       {showLog && (

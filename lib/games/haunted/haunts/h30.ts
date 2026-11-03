@@ -45,6 +45,12 @@ export const haunt30: HauntDef = {
       'Perform the ceremony (once per turn): in the altar room with the traitor, make a Sanity roll. 6+: you win.',
     ],
   },
+  shared: [
+    'Heroes keep their omens face down. The traitor only sees omens that have been revealed.',
+    'The altar appears in the last room discovered from the (shortened) room stack.',
+    'Once the traitor enters the altar room, they can\'t leave it.',
+    'Wedding Guest: Might 5, Speed 4.',
+  ],
   traitor: {
     intro:
       'This body will do. Now you need the ring, and then a body for her. Hand in hand, forever, as it should have been.',

@@ -101,6 +101,12 @@ export const haunt44: HauntDef = {
       'After the monsters\' turn, each separate fire spreads to one room next to it (walls don\'t matter). Your side picks where. If none can spread, a landing catches fire.',
     ],
   },
+  shared: [
+    'Burning rooms are face down: doors on every side, no symbols and no room effects.',
+    'A burning landing gets a fire token instead. The three ground-floor starting rooms count as one landing.',
+    'Heroes take 1 General damage when they enter a burning room. The traitor and the Mannequins don\'t.',
+    'Mannequin: Might 7, Speed 6. One that starts its turn in a hero\'s line of sight only rolls 2 dice to move.',
+  ],
   traitor: {
     intro:
       'Such lovely guests, and such lovely skin. Your workshop needs material, and tonight it walked right in through the front door.',

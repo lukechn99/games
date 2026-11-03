@@ -32,7 +32,16 @@ export interface HauntedView extends Omit<HauntedState, 'decks' | 'stack' | 'log
   decks: { event: number; item: number; omen: number }
   stackCount: number
   log: { id: number; text: string }[]
-  haunt: (Omit<NonNullable<HauntedState['haunt']>, 'data'> & { brief: Briefing | null; data: Record<string, unknown> }) | null
+  haunt:
+    | (Omit<NonNullable<HauntedState['haunt']>, 'data'> & {
+        brief: Briefing | null
+        /** Rules both sides know. */
+        shared: string[]
+        /** The other side's book, only in teaching mode. */
+        otherBrief: Briefing | null
+        data: Record<string, unknown>
+      })
+    | null
   options: HauntedOptions | null
 }
 
@@ -159,6 +168,7 @@ function viewFor(s: HauntedState, me: PlayerId | null): HauntedView {
   )
   const hauntDef = s.haunt ? HAUNTS[s.haunt.number] : undefined
   const brief = hauntDef && myEx ? (myEx.side === 'traitor' ? hauntDef.traitor : hauntDef.hero) : null
+  const otherBrief = hauntDef && s.openBooks ? (myEx?.side === 'traitor' ? hauntDef.hero : hauntDef.traitor) : null
   const { decks, stack, log, haunt, queue: _queue, ...rest } = s
   void _queue
   return {
@@ -168,7 +178,7 @@ function viewFor(s: HauntedState, me: PlayerId | null): HauntedView {
     decks: { event: decks.event.length, item: decks.item.length, omen: decks.omen.length },
     stackCount: stack.length,
     log: log.filter((l) => !l.to || (me && l.to.includes(me))).map(({ id, text }) => ({ id, text })),
-    haunt: haunt ? { ...haunt, brief } : null,
+    haunt: haunt ? { ...haunt, brief, shared: hauntDef?.shared ?? [], otherBrief } : null,
     options: me ? optionsFor(s, me) : null,
   }
 }

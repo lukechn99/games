@@ -6,6 +6,7 @@ import { EXPLORERS } from '../data/explorers'
 import { SCENARIOS } from '../data/scenarios'
 import type { HauntedAction } from '../types'
 import type { HauntedView } from '../rules'
+import { ExplorerFigure } from './figures'
 
 export default function Setup({ view, me, isHost, act, nameOf }: GameViewProps<HauntedView, HauntedAction>) {
   const mine = view.picks[me] ?? null
@@ -40,7 +41,9 @@ export default function Setup({ view, me, isHost, act, nameOf }: GameViewProps<H
                   picked ? 'border-[#f6d860] bg-white/10' : 'border-white/10 bg-white/5 hover:border-white/30'
                 } disabled:opacity-40`}
               >
-                <span className="mt-1 size-4 shrink-0 rounded-full" style={{ background: e.color }} aria-hidden="true" />
+                <svg width="40" height="52" viewBox="-17 -28 34 44" className="shrink-0" aria-hidden="true">
+                  <ExplorerFigure explorerId={e.id} color={e.color} />
+                </svg>
                 <span className="flex-1">
                   <span className="flex items-baseline justify-between gap-2">
                     <span className="font-display font-bold">{e.name}</span>
@@ -80,6 +83,24 @@ export default function Setup({ view, me, isHost, act, nameOf }: GameViewProps<H
             </button>
           ))}
         </div>
+      </section>
+
+      <section>
+        <label className={`flex items-start gap-3 rounded-lg border-2 border-white/10 bg-white/5 p-3 ${isHost ? 'cursor-pointer' : ''}`}>
+          <input
+            type="checkbox"
+            className="mt-1 size-5 accent-[#f6d860]"
+            checked={view.openBooks}
+            disabled={!isHost}
+            onChange={(e) => act({ type: 'setOpenBooks', on: e.target.checked })}
+          />
+          <span>
+            <span className="font-display font-bold">Teaching mode</span>
+            <span className="block text-sm text-white/60">
+              Everyone can read both sides&apos; haunt rules. Good for a first game. Normally each side only knows its own goal.
+            </span>
+          </span>
+        </label>
       </section>
 
       <div className="sticky bottom-0 -mx-5 border-t border-white/10 bg-[#120f16]/95 px-5 py-4">

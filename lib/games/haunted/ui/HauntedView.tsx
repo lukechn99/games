@@ -1,7 +1,7 @@
 'use client'
 
 import { BookOpen, ScrollText } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import type { GameViewProps } from '@/lib/games/ui'
 import { CARD_BY_ID } from '../data/cards'
@@ -12,6 +12,7 @@ import Board from './Board'
 import { describeWait, Modal, PromptPanel, promptOwner } from './Prompts'
 import { CardChip, CardFace, CharacterSheet } from './Sheet'
 import Setup from './Setup'
+import DiceRolls from './DiceRolls'
 import { Die, REGION_STYLE } from './pieces'
 
 type Pending = { kind: 'special'; id: string; label: string; options: string[] } | { kind: 'map'; card: string } | null
@@ -55,15 +56,38 @@ export default function HauntedView(props: GameViewProps<View, HauntedAction>) {
   const [card, setCard] = useState<string | null>(null)
   const [trading, setTrading] = useState(false)
 
-  // Which floor to show: follow my explorer (or the selected monster).
-  const followTile = selectedMonster ? view.monsters.find((m) => m.id === selectedMonster)?.tile : myEx?.tile
+  // Remember which monster moved last, so the camera can follow monster turns.
+  const prevMonsterTiles = useRef<Record<string, string>>({})
+  const [lastMonster, setLastMonster] = useState<string | null>(null)
+  useEffect(() => {
+    const moved = view.monsters.find((m) => prevMonsterTiles.current[m.id] && prevMonsterTiles.current[m.id] !== m.tile)
+    prevMonsterTiles.current = Object.fromEntries(view.monsters.map((m) => [m.id, m.tile]))
+    // Tracks game-state changes between renders.
+     
+    if (moved) setLastMonster(moved.id)
+  }, [view.monsters])
+
+  // The piece currently acting: whoever's turn it is, or the monster that just moved.
+  const actingMonster = turn?.actor === 'monsters' ? (selectedMonster ?? lastMonster ?? view.monsters[0]?.id ?? null) : null
+  const active = !turn || view.phase === 'over' ? null : actingMonster ? `m:${actingMonster}` : `p:${turn.pid}`
+  const activeTile = actingMonster
+    ? view.monsters.find((m) => m.id === actingMonster)?.tile
+    : turn && !view.explorers[turn.pid]?.removed
+      ? view.explorers[turn.pid]?.tile
+      : undefined
+
+  // The camera follows the acting piece; on your own turn, your explorer.
+  const followTile = myTurn && !monsterTurn ? myEx?.tile : (activeTile ?? myEx?.tile)
   const followRegion = followTile ? view.tiles[followTile]?.region : undefined
   const [region, setRegion] = useState<Region>('ground')
+  // Tapping a floor tab pins that floor until the turn changes.
+  const [pinnedFor, setPinnedFor] = useState<string | null>(null)
+  const turnKeyNow = `${turn?.pid}:${turn?.actor}`
   useEffect(() => {
-    // Board follows the explorer between floors (external game state).
+    // Board follows the action between floors (external game state).
      
-    if (followRegion) setRegion(followRegion)
-  }, [followRegion])
+    if (followRegion && pinnedFor !== turnKeyNow) setRegion(followRegion)
+  }, [followRegion, pinnedFor, turnKeyNow])
   const choosePrompt = view.prompt?.kind === 'chooseTile' && view.prompt.pid === me ? view.prompt : null
   useEffect(() => {
     const first = choosePrompt?.options[0]
@@ -134,7 +158,7 @@ export default function HauntedView(props: GameViewProps<View, HauntedAction>) {
         {REGION_TABS.map((r) => {
           const here = Object.values(view.explorers).filter((e) => !e.removed && view.tiles[e.tile]?.region === r).length
           return (
-            <button key={r} type="button" onClick={() => setRegion(r)} aria-pressed={region === r}
+            <button key={r} type="button" onClick={() => { setRegion(r); setPinnedFor(turnKeyNow) }} aria-pressed={region === r}
               className={`rounded-md px-3 py-1.5 text-sm ${region === r ? 'bg-white/15 font-semibold' : 'text-white/60'}`}>
               {REGION_STYLE[r].label}
               {here > 0 && <span className="ml-1 text-xs text-white/50">{here}</span>}
@@ -158,7 +182,8 @@ export default function HauntedView(props: GameViewProps<View, HauntedAction>) {
         </p>
       )}
 
-      <div className="min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1">
+        <DiceRolls rolls={view.rolls} />
         <Board
           view={view}
           region={region}
@@ -169,6 +194,7 @@ export default function HauntedView(props: GameViewProps<View, HauntedAction>) {
           onExplore={(dir) => act({ type: 'move', dir })}
           onMonster={(id) => monsterTurn && setSelectedMonster(id)}
           focus={choosePrompt?.options[0] ?? (pending?.kind === 'special' ? pending.options[0] : undefined) ?? followTile ?? null}
+          active={active}
         />
       </div>
 

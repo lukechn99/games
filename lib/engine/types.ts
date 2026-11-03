@@ -65,6 +65,8 @@ export interface GameModule<S = unknown, A = unknown, V = unknown> {
    * bot should fall back to something safe (like ending its turn).
    */
   bot?(view: V, ctx: RuleContext, level: BotLevel, attempt: number): A | null
+  /** Pause before each computer-player action (ms). */
+  botDelayMs?: number
 }
 
 export interface ActiveGame {

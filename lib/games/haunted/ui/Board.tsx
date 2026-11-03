@@ -20,8 +20,10 @@ export interface BoardProps {
   onTile(uid: string): void
   onExplore(dir: Dir): void
   onMonster(id: string): void
-  /** Tile to center on when the board first shows or the region changes. */
+  /** Tile the camera follows (glides to it when it changes). */
   focus: string | null
+  /** The piece currently acting ('p:<pid>' or 'm:<id>'), drawn with a pulse. */
+  active: string | null
 }
 
 const PAD = T
@@ -44,14 +46,43 @@ export default function Board(p: BoardProps) {
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const drag = useRef<{ moved: number; pinch?: number } | null>(null)
 
-  // Center on the focused tile when the floor or focus changes.
+  // Glide the camera to the focused tile when it (or the floor) changes,
+  // unless the player has just panned the board themselves.
   const focusTile = p.focus ? p.view.tiles[p.focus] : undefined
-  const focusKey = `${p.region}:${p.focus ?? 'none'}`
+  const focusKey = `${p.region}:${p.focus ?? 'none'}:${focusTile?.x},${focusTile?.y}`
+  const userPannedAt = useRef(0)
+  const regionRef = useRef(p.region)
+  const anim = useRef<number | null>(null)
   useEffect(() => {
     const t = focusTile?.region === p.region ? focusTile : tiles.find((x) => TILE_BY_ID.get(x.tileId)?.landing)
-    // Camera follows the game state; this is an external sync, not derived render state.
-     
-    if (t) setCam((c) => ({ ...c, x: t.x * T + T / 2, y: t.y * T + T / 2 }))
+    const floorChanged = regionRef.current !== p.region
+    regionRef.current = p.region
+    if (!t) return
+    if (!floorChanged && Date.now() - userPannedAt.current < 6000) return
+    const to = { x: t.x * T + T / 2, y: t.y * T + T / 2 }
+    if (anim.current) cancelAnimationFrame(anim.current)
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (floorChanged || reduce) {
+      // Camera follows game state: an external sync, not derived render state.
+       
+      setCam((c) => ({ ...c, ...to }))
+      return
+    }
+    let from: { x: number; y: number } | null = null
+    const start = performance.now()
+    const stepFrame = (now: number) => {
+      const k = Math.min(1, (now - start) / 450)
+      const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2
+      setCam((c) => {
+        from ??= { x: c.x, y: c.y }
+        return { ...c, x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e }
+      })
+      if (k < 1) anim.current = requestAnimationFrame(stepFrame)
+    }
+    anim.current = requestAnimationFrame(stepFrame)
+    return () => {
+      if (anim.current) cancelAnimationFrame(anim.current)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusKey])
 
@@ -82,6 +113,7 @@ export default function Board(p: BoardProps) {
         const f = d / drag.current.pinch
         setCam((c) => ({ ...c, zoom: Math.min(2.5, Math.max(0.35, c.zoom * f)) }))
       }
+      userPannedAt.current = Date.now()
       drag.current.pinch = d
       drag.current.moved += 10
       return
@@ -90,6 +122,8 @@ export default function Board(p: BoardProps) {
     const dy = cur.y - prev.y
     drag.current.moved += Math.abs(dx) + Math.abs(dy)
     if (drag.current.moved > 6) {
+      userPannedAt.current = Date.now()
+      if (anim.current) cancelAnimationFrame(anim.current)
       if (e.currentTarget.hasPointerCapture?.(e.pointerId) === false) e.currentTarget.setPointerCapture?.(e.pointerId)
       setCam((c) => ({ ...c, x: c.x - toUnits(dx), y: c.y - toUnits(dy) }))
     }
@@ -178,30 +212,44 @@ export default function Board(p: BoardProps) {
               </g>
             )
           })}
-        {tiles.map((t) => {
-          const occ = occupants.get(t.uid) ?? []
-          return occ.map((o, i) => {
+        {/* Pieces glide between rooms: each keeps its key and animates its position. */}
+        {tiles.flatMap((t) =>
+          (occupants.get(t.uid) ?? []).map((o, i) => {
             const col = i % 3
             const row = Math.floor(i / 3)
             const x = t.x * T + 30 + col * 30
             const y = t.y * T + 58 + row * 28
+            const id = o.kind === 'pawn' ? `p:${o.id}` : `m:${o.id}`
+            const isActive = p.active === id
+            const style = { transform: `translate(${x}px, ${y}px)`, transition: 'transform 0.45s cubic-bezier(.4,0,.2,1)', animation: 'piece-in 0.3s ease-out' }
+            const pulse = isActive && (
+              <circle r="21" fill="none" stroke="#f6d860" strokeWidth="3" className="piece-pulse" />
+            )
             if (o.kind === 'pawn') {
               const ex = p.view.explorers[o.id]!
               const def = EXPLORER_BY_ID.get(ex.explorerId)!
               return (
-                <Pawn key={o.id} x={x} y={y} color={def.color} label={def.name.replace(/^(Dr\.|Father) /, '')[0]!}
-                  dead={ex.dead} me={o.id === p.view.me} />
+                <g key={id} style={style}>
+                  {pulse}
+                  <Pawn x={0} y={0} color={def.color} label={def.name.replace(/^(Dr\.|Father) /, '')[0]!} dead={ex.dead} me={o.id === p.view.me} />
+                </g>
               )
             }
             const m = p.view.monsters.find((mm) => mm.id === o.id)!
             return (
-              <g key={o.id} onClick={tap(() => p.onMonster(m.id))} style={{ cursor: 'pointer' }}>
-                <MonsterToken kind={m.kind} label={m.name.match(/\d+$/)?.[0] ?? m.name[4] ?? 'M'} x={x} y={y}
+              <g key={id} style={{ ...style, cursor: 'pointer' }} onClick={tap(() => p.onMonster(m.id))}>
+                {pulse}
+                <MonsterToken kind={m.kind} label={m.name.match(/\d+$/)?.[0] ?? m.name[4] ?? 'M'} x={0} y={0}
                   stunned={m.stunned} selected={p.selectedMonster === m.id} />
               </g>
             )
-          })
-        })}
+          }),
+        ).sort((a, b) => String(a.key).localeCompare(String(b.key)))}
+        <style>{`
+          @keyframes piece-in { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes piece-pulse { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.25; } }
+          .piece-pulse { animation: piece-pulse 1.2s ease-in-out infinite; }
+        `}</style>
       </svg>
       <div className="absolute right-3 top-3 flex flex-col gap-2">
         <button type="button" aria-label="Zoom in" onClick={() => zoomBy(1.25)} className="grid size-9 place-items-center rounded-full bg-black/60 text-white">

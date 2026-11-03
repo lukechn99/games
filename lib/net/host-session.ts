@@ -8,6 +8,7 @@
 import type { DataConnection, Peer } from 'peerjs'
 import {
   applyAction,
+  botStep,
   createRoom,
   joinRoom,
   removePlayer,
@@ -34,6 +35,8 @@ const HELLO_TIMEOUT_MS = 10_000
 const RECLAIM_RETRY_MS = 2500
 const RECLAIM_MAX_TRIES = 24
 const NEW_CODE_MAX_TRIES = 5
+/** Pause before each computer-player action, so people can follow along. */
+const BOT_DELAY_MS = 650
 
 function ruleContext(): RuleContext {
   return { now: Date.now(), random: Math.random }
@@ -46,6 +49,7 @@ export class HostSession implements Session {
   private peer: Peer | null = null
   private links = new Map<string, Link>() // keyed by conn.connectionId
   private keepalive: Keepalive | null = null
+  private botTimer: ReturnType<typeof setTimeout> | null = null
   private lastTick = 0
   private lastHeartbeat = 0
   private retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -66,7 +70,7 @@ export class HostSession implements Session {
       : createRoom(this.code, me, Date.now())
     // Players who were connected before the host left will have to reconnect.
     for (const p of this.room.players) {
-      if (p.id !== this.room.hostId) this.room = setConnected(this.room, p.id, false)
+      if (p.id !== this.room.hostId && !p.bot) this.room = setConnected(this.room, p.id, false)
     }
     this.isRestored = !!restore
   }
@@ -84,6 +88,7 @@ export class HostSession implements Session {
     // Save right away so a refresh before anyone joins can still resume the room.
     saveHostedRoom(this.room)
     this.publish()
+    this.scheduleBots()
     // Driven by a worker so a background host tab keeps ticking and keeps
     // checking in with the broker (see keepalive.ts).
     this.keepalive = startKeepalive((reason) => this.onKeepalive(reason), 1000)
@@ -325,6 +330,19 @@ export class HostSession implements Session {
     this.room = room
     saveHostedRoom(room)
     this.publish()
+    this.scheduleBots()
+  }
+
+  /** Give computer players a turn, one action at a time with a short pause. */
+  private scheduleBots() {
+    if (this.botTimer || this.destroyed) return
+    if (!this.room.game || !this.room.players.some((p) => p.bot)) return
+    this.botTimer = setTimeout(() => {
+      this.botTimer = null
+      if (this.destroyed) return
+      const next = botStep(this.room, ruleContext(), getGameModule)
+      if (next) this.update(next)
+    }, BOT_DELAY_MS)
   }
 
   /** Send every connected player their personal snapshot, and update our own UI. */
@@ -362,6 +380,7 @@ export class HostSession implements Session {
     if (this.destroyed) return
     this.destroyed = true
     this.keepalive?.stop()
+    if (this.botTimer) clearTimeout(this.botTimer)
     if (this.retryTimer) clearTimeout(this.retryTimer)
     for (const link of this.links.values()) {
       try {

@@ -15,6 +15,8 @@ import type {
 } from './types'
 
 export const MAX_ROOM_PLAYERS = 16
+
+const BOT_NAMES = ['Robo Rita', 'Clank', 'Beep Boop', 'Sprocket', 'Widget', 'Gizmo']
 export const MAX_NAME_LENGTH = 20
 
 export type GameLookup = (gameId: string) => GameModule | undefined
@@ -138,9 +140,9 @@ export function removePlayer(
   return bump(room, { players: room.players.filter((p) => p.id !== playerId), game })
 }
 
-function seatedPlayers(room: RoomState): PlayerId[] {
+function seatedPlayers(room: RoomState, mod: GameModule): PlayerId[] {
   return [...room.players]
-    .filter((p) => p.connected)
+    .filter((p) => p.connected && (!p.bot || !!mod.bot))
     .sort((a, b) => a.joinedAt - b.joinedAt)
     .map((p) => p.id)
 }
@@ -151,7 +153,7 @@ function startRound(
   ctx: RuleContext,
   round: number,
 ): RuleResult<RoomState> {
-  const seats = seatedPlayers(room)
+  const seats = seatedPlayers(room, mod)
   if (seats.length < mod.minPlayers) {
     return { error: `${mod.name} needs at least ${mod.minPlayers} connected players.` }
   }
@@ -207,6 +209,27 @@ export function applyAction(
       if (action.playerId === room.hostId) return { error: "You can't kick yourself." }
       return { state: removePlayer(room, action.playerId, ctx, games) }
     }
+    case 'addBot': {
+      if (!isHost) return hostOnly()
+      if (room.players.length >= MAX_ROOM_PLAYERS) return { error: 'This room is full.' }
+      const names = BOT_NAMES.filter((n) => !room.players.some((p) => p.name === n))
+      const name = names[0] ?? `Bot ${room.players.length + 1}`
+      const id = `bot-${room.version}-${Math.floor(ctx.random() * 1e6)}`
+      const level = (['easy', 'medium', 'hard'] as const).includes(action.level) ? action.level : 'medium'
+      const bot: Player = { id, name, connected: true, joinedAt: ctx.now, bot: { level } }
+      return { state: bump(room, { players: [...room.players, bot] }) }
+    }
+    case 'setBotLevel': {
+      if (!isHost) return hostOnly()
+      const target = room.players.find((p) => p.id === action.playerId)
+      if (!target?.bot) return { error: 'That is not a computer player.' }
+      if (!(['easy', 'medium', 'hard'] as const).includes(action.level)) return { error: 'Unknown level.' }
+      return {
+        state: bump(room, {
+          players: room.players.map((p) => (p.id === target.id ? { ...p, bot: { level: action.level } } : p)),
+        }),
+      }
+    }
     case 'rename': {
       const name = uniqueName(room.players, cleanName(action.name), playerId)
       return {
@@ -239,6 +262,36 @@ export function tickRoom(room: RoomState, ctx: RuleContext, games: GameLookup): 
   const state = mod.tick(game.state, ctx)
   if (state === game.state) return room
   return bump(room, { game: { ...game, state } })
+}
+
+/**
+ * Let one computer player take one action, if any wants to. Returns the new
+ * room, or null if no bot has anything to do. The host calls this on a timer
+ * so bots move at a human-ish pace.
+ */
+export function botStep(room: RoomState, ctx: RuleContext, games: GameLookup): RoomState | null {
+  const game = room.game
+  if (!game) return null
+  const mod = games(game.gameId)
+  if (!mod?.bot || mod.isOver?.(game.state)) return null
+  for (const p of room.players) {
+    if (!p.bot || !game.seats.includes(p.id)) continue
+    const view = mod.view(game.state, p.id)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      let action: unknown = null
+      try {
+        action = mod.bot(view, ctx, p.bot.level, attempt)
+      } catch (err) {
+        console.warn('[bot] crashed', err)
+        continue
+      }
+      if (action === null || action === undefined) break
+      const result = applyAction(room, p.id, { type: 'game', action }, ctx, games)
+      if (!('error' in result)) return result.state
+      console.warn('[bot] action rejected', action, result.error)
+    }
+  }
+  return null
 }
 
 /** Build the personalised snapshot a single player is allowed to see. */

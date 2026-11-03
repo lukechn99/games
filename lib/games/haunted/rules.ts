@@ -10,6 +10,7 @@ import { def, dirBetween, hasDoor, inSight, neighbors, tileAt } from './engine/b
 import { alive, env, hasCard } from './engine/core'
 import { isOpponent, monstersOn } from './engine/haunt'
 import { act, initialState, settle } from './engine/play'
+import { hauntedBot } from './bot'
 import type { Dir, HauntedAction, HauntedState, PlacedTile } from './types'
 import { DIRS, DX, DY } from './types'
 
@@ -229,6 +230,8 @@ export const hauntedHouse: GameModule<HauntedState, HauntedAction, HauntedView> 
   isOver(state) {
     return state.phase === 'over'
   },
+
+  bot: (view, ctx, level, attempt) => hauntedBot(view, ctx, level, attempt),
 }
 
 export { dirBetween }

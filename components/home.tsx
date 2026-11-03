@@ -6,6 +6,7 @@ import { COMING_SOON, GAME_MODULES } from '@/lib/games/modules'
 import { CODE_LENGTH, isValidCode, normalizeCode } from '@/lib/net/config'
 import { clearHostedRoom, getResumableHostedRoom, getSavedName } from '@/lib/net/storage'
 import { useSession } from '@/lib/session'
+import { playerRange } from '@/lib/utils'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 
@@ -13,7 +14,8 @@ export default function Home() {
   const { createRoom, joinRoom, resumeHosting, linkCode } = useSession()
   const [name, setName] = useState('')
   const [code, setCode] = useState(linkCode ?? '')
-  const [error, setError] = useState<string | null>(null)
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [codeError, setCodeError] = useState<string | null>(null)
   const [resumable, setResumable] = useState<RoomState | null>(null)
 
   useEffect(() => {
@@ -26,19 +28,17 @@ export default function Home() {
   const trimmed = name.trim()
 
   function requireName(): boolean {
-    if (!trimmed) {
-      setError('Enter your name so others know who joined.')
-      document.getElementById('name')?.focus()
-      return false
-    }
-    return true
+    if (trimmed) return true
+    setNameError('Enter your name first.')
+    document.getElementById('name')?.focus()
+    return false
   }
 
   function onJoin(e: FormEvent) {
     e.preventDefault()
     if (!requireName()) return
     if (!isValidCode(code)) {
-      setError(`Room codes are ${CODE_LENGTH} letters and numbers.`)
+      setCodeError(`Room codes are ${CODE_LENGTH} letters and numbers.`)
       document.getElementById('code')?.focus()
       return
     }
@@ -57,28 +57,48 @@ export default function Home() {
         Party games for the people in the room. Everyone joins from their own phone.
       </p>
 
-      <form onSubmit={onJoin} className="mt-10 flex flex-col gap-5" noValidate>
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium">Your name</span>
-          <Input
-            id="name"
-            value={name}
-            autoComplete="nickname"
-            maxLength={20}
-            placeholder="e.g. Sam"
-            onChange={(e) => {
-              setName(e.target.value)
-              setError(null)
-            }}
-            className="h-12 text-base"
-          />
-        </label>
+      <label className="mt-10 flex flex-col gap-2">
+        <span className="font-display text-lg font-bold">Your name</span>
+        <Input
+          id="name"
+          value={name}
+          autoComplete="nickname"
+          maxLength={20}
+          placeholder="e.g. Sam"
+          aria-invalid={!!nameError}
+          onChange={(e) => {
+            setName(e.target.value)
+            setNameError(null)
+          }}
+          className="h-12 text-base"
+        />
+        {nameError && (
+          <span className="text-sm text-destructive" role="alert">
+            {nameError}
+          </span>
+        )}
+      </label>
 
-        <div className="flex flex-col gap-2">
-          <label htmlFor="code" className="text-sm font-medium">
-            Room code
-          </label>
-          <div className="flex gap-2">
+      <div className="mt-8 flex flex-col gap-4">
+        {linkCode ? null : (
+          <section className="rounded-xl border bg-card p-5">
+            <h2 className="font-display text-lg font-bold">Host a game</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Get a room code to share with everyone else.</p>
+            <Button size="lg" className="mt-4 h-12 w-full text-base" onClick={onCreate}>
+              Create a room
+            </Button>
+          </section>
+        )}
+
+        <form onSubmit={onJoin} noValidate className="rounded-xl border bg-card p-5">
+          <h2 className="font-display text-lg font-bold">{linkCode ? `Join room ${linkCode}` : 'Join a friend'}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {linkCode ? 'You were invited. Check your name above, then join.' : 'Type the code from the host’s screen.'}
+          </p>
+          <div className="mt-4 flex gap-2">
+            <label htmlFor="code" className="sr-only">
+              Room code
+            </label>
             <Input
               id="code"
               value={code}
@@ -87,34 +107,30 @@ export default function Home() {
               autoComplete="off"
               spellCheck={false}
               placeholder="ABCDE"
+              aria-invalid={!!codeError}
               onChange={(e) => {
                 setCode(normalizeCode(e.target.value))
-                setError(null)
+                setCodeError(null)
               }}
               className="h-12 flex-1 font-display text-xl font-bold uppercase tracking-[0.2em]"
             />
-            <Button type="submit" size="lg" className="h-12 px-6">
+            <Button type="submit" size="lg" variant={linkCode ? 'default' : 'outline'} className="h-12 px-6">
               Join
             </Button>
           </div>
-        </div>
+          {codeError && (
+            <p className="mt-2 text-sm text-destructive" role="alert">
+              {codeError}
+            </p>
+          )}
+        </form>
 
-        {error && (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
+        {linkCode && (
+          <button type="button" onClick={onCreate} className="self-center text-sm text-muted-foreground underline-offset-4 hover:underline">
+            Host a new room instead
+          </button>
         )}
-      </form>
-
-      <div className="my-8 flex items-center gap-3 text-sm text-muted-foreground">
-        <span className="h-px flex-1 bg-border" />
-        or start your own
-        <span className="h-px flex-1 bg-border" />
       </div>
-
-      <Button variant="outline" size="lg" className="h-12 text-base" onClick={onCreate}>
-        Create a room
-      </Button>
 
       {resumable && (
         <div className="mt-6 rounded-lg border p-4">
@@ -146,9 +162,7 @@ export default function Home() {
           {GAME_MODULES.map((g) => (
             <li key={g.id} className="flex justify-between">
               <span className="font-medium">{g.name}</span>
-              <span className="text-muted-foreground">
-                {g.minPlayers}–{g.maxPlayers} players
-              </span>
+              <span className="text-muted-foreground">{playerRange(g.minPlayers, g.maxPlayers)}</span>
             </li>
           ))}
           {COMING_SOON.map((g) => (

@@ -15,7 +15,11 @@ export interface Player {
   connected: boolean
   /** When the player first joined (host clock, ms). Used for ordering. */
   joinedAt: number
+  /** Set for computer players, which the host plays. */
+  bot?: { level: BotLevel }
 }
+
+export type BotLevel = 'easy' | 'medium' | 'hard'
 
 /** Context the engine hands to game rules. Keeps rules pure and testable. */
 export interface RuleContext {
@@ -54,6 +58,13 @@ export interface GameModule<S = unknown, A = unknown, V = unknown> {
   playerLeft?(state: S, playerId: PlayerId, ctx: RuleContext): S
   /** True once the game has finished (used for "play again"). */
   isOver?(state: S): boolean
+  /**
+   * Computer player: given exactly what this seat can see, return the next
+   * action, or null to wait. Games without this can't seat bots. If the
+   * action is rejected the host asks again with a higher `attempt`, and the
+   * bot should fall back to something safe (like ending its turn).
+   */
+  bot?(view: V, ctx: RuleContext, level: BotLevel, attempt: number): A | null
 }
 
 export interface ActiveGame {
@@ -103,5 +114,7 @@ export type RoomAction =
   | { type: 'endGame' }
   | { type: 'playAgain' }
   | { type: 'kick'; playerId: PlayerId }
+  | { type: 'addBot'; level: BotLevel }
+  | { type: 'setBotLevel'; playerId: PlayerId; level: BotLevel }
   | { type: 'rename'; name: string }
   | { type: 'game'; action: unknown }

@@ -313,3 +313,27 @@ describe('fuzz', () => {
     expect(results.haunts.size).toBe(3)
   }, 120_000)
 })
+
+describe('rules visibility', () => {
+  it('shares public haunt rules with everyone, and the other book only in teaching mode', () => {
+    const { s } = forceHaunt(5, 'missingFriend', 'omenMask')
+    const hero = s.haunt!.revealer
+    const traitor = s.haunt!.traitor!
+    const hv = hauntedHouse.view(s, hero) as HauntedView
+    const tv = hauntedHouse.view(s, traitor) as HauntedView
+    expect(hv.haunt!.shared.length).toBeGreaterThan(0)
+    expect(tv.haunt!.shared).toEqual(hv.haunt!.shared)
+    expect(tv.haunt!.otherBrief).toBeNull()
+    s.openBooks = true
+    const tv2 = hauntedHouse.view(s, traitor) as HauntedView
+    expect(tv2.haunt!.otherBrief!.goal).toMatch(/Burn the whole house/)
+  })
+
+  it('only the host can turn on teaching mode', () => {
+    const rnd = seeded(3)
+    const s = hauntedHouse.setup(['a', 'b', 'c'], ctxFor(rnd))
+    expect(hauntedHouse.action(s, 'b', { type: 'setOpenBooks', on: true }, ctxFor(rnd))).toEqual({ error: 'The host chooses this.' })
+    const r = hauntedHouse.action(s, 'a', { type: 'setOpenBooks', on: true }, ctxFor(rnd))
+    expect('state' in r && r.state.openBooks).toBe(true)
+  })
+})

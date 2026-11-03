@@ -87,6 +87,7 @@ export function initialState(seats: PlayerId[]): HauntedState {
     seq: 0,
     buried: [],
     nextPid: null,
+    openBooks: false,
   }
 }
 
@@ -883,6 +884,11 @@ function setupAction(s: HauntedState, pid: PlayerId, a: HauntedAction): string |
   if (a.type === 'pickScenario') {
     if (pid !== s.seats[0]) return 'The host picks the scenario.'
     s.scenario = a.scenarioId
+    return null
+  }
+  if (a.type === 'setOpenBooks') {
+    if (pid !== s.seats[0]) return 'The host chooses this.'
+    s.openBooks = !!a.on
     return null
   }
   if (a.type === 'begin') {

@@ -30,6 +30,8 @@ export interface HauntDef {
   traitorRule: TraitorRule
   hero: Briefing
   traitor: Briefing
+  /** Rules both books share: room states, tokens, monster stats. Shown to everyone. */
+  shared: string[]
   /** 'instead': the traitor's turn is a monster turn. 'after': monsters go after the traitor. */
   monsterTurn: 'instead' | 'after' | 'none'
   /** Runs once the traitor is known. */

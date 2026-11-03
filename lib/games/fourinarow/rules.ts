@@ -1,4 +1,5 @@
 import type { GameModule, PlayerId, RuleResult } from '@/lib/engine/types'
+import { fourBot } from './bot'
 
 export const COLS = 7
 export const ROWS = 6
@@ -99,4 +100,6 @@ export const fourInARow: GameModule<FourState, FourAction, FourView> = {
     const i = pid ? s.players.indexOf(pid) : -1
     return { ...s, me: i < 0 ? null : (i as 0 | 1) }
   },
+
+  bot: (view, ctx, level, attempt) => (attempt > 0 ? null : fourBot(view, ctx, level)),
 }

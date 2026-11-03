@@ -1,6 +1,7 @@
 'use client'
 
 import { COMING_SOON, GAME_MODULES, getGameModule } from '@/lib/games/modules'
+import { playerRange } from '@/lib/utils'
 import { useSession } from '@/lib/session'
 import PlayerList from './player-list'
 import { StatusPill, TroubleBanner } from './status'
@@ -13,13 +14,16 @@ export default function Lobby() {
   const isHost = room!.role === 'host'
   const selected = snapshot.selectedGameId ? getGameModule(snapshot.selectedGameId) : undefined
   const connected = snapshot.players.filter((p) => p.connected).length
+  // Bots only count for games that have a computer player.
+  const seatable = snapshot.players.filter((p) => p.connected && (!p.bot || !!selected?.bot)).length
+  const botsIgnored = !!selected && !selected.bot && snapshot.players.some((p) => p.bot)
 
   let startBlocker: string | null = null
   if (!selected) startBlocker = 'Pick a game to start'
-  else if (connected < selected.minPlayers) {
-    const need = selected.minPlayers - connected
+  else if (seatable < selected.minPlayers) {
+    const need = selected.minPlayers - seatable
     startBlocker = `Waiting for ${need} more player${need === 1 ? '' : 's'}`
-  } else if (connected > selected.maxPlayers) {
+  } else if (seatable > selected.maxPlayers) {
     startBlocker = `${selected.name} allows at most ${selected.maxPlayers} players`
   }
 
@@ -50,7 +54,16 @@ export default function Lobby() {
                   }
                 : undefined
             }
+            onBotLevel={isHost ? (p, level) => act({ type: 'setBotLevel', playerId: p.id, level }) : undefined}
           />
+          {isHost && (
+            <Button variant="outline" className="mt-3 w-full" onClick={() => act({ type: 'addBot', level: 'medium' })}>
+              Add a computer player
+            </Button>
+          )}
+          {botsIgnored && (
+            <p className="mt-2 text-sm text-muted-foreground">{selected!.name} has no computer player, so bots will sit this one out.</p>
+          )}
         </section>
 
         <section aria-labelledby="game-heading">
@@ -75,7 +88,7 @@ export default function Lobby() {
                     <span className="flex items-baseline justify-between gap-2">
                       <span className="font-display text-lg font-bold">{g.name}</span>
                       <span className="text-sm text-muted-foreground">
-                        {g.minPlayers}–{g.maxPlayers} players
+                        {playerRange(g.minPlayers, g.maxPlayers)}
                       </span>
                     </span>
                     <span className="mt-1 block text-sm text-muted-foreground">{g.description}</span>

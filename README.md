@@ -34,7 +34,7 @@ PeerJS broker ──(introductions only)──▶ every browser
 | `lib/net/` | PeerJS host and client sessions, heartbeats, reconnection, storage. |
 | `lib/session.tsx` | React glue between sessions and the UI. |
 | `components/` | Home, lobby, game shell. |
-| `legacy/` | Secret Hitler and Codenames from the old engine, waiting to be ported. Not built. |
+| `legacy/` | Codenames (and the old Secret Hitler) from the old engine. Not built. |
 
 ### Adding a game
 

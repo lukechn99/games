@@ -31,7 +31,7 @@ export default function GameShell() {
       <TroubleBanner />
       <header className="flex items-center gap-2 border-b px-3 py-2.5 whitespace-nowrap">
         <span className="min-w-0 truncate font-display text-lg font-bold">{mod?.name ?? game.gameId}</span>
-        <span className="shrink-0 rounded bg-ticket px-1.5 py-0.5 font-display text-sm font-bold tracking-widest text-ticket-ink">
+        <span className="hidden shrink-0 rounded bg-ticket px-1.5 py-0.5 font-display text-sm font-bold tracking-widest text-ticket-ink min-[430px]:inline">
           {snapshot.code}
         </span>
         <span className="flex-1" />

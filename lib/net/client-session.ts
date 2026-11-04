@@ -79,7 +79,10 @@ export class ClientSession implements Session {
     if (this.destroyed) return
     const peer = new Peer(peerOptions())
     this.peer = peer
-    peer.on('open', () => this.dial())
+    peer.on('open', () => {
+      this.events.onPeer?.(peer)
+      this.dial()
+    })
     peer.on('disconnected', () => {
       // Lost the broker. If we're still connected to the host that's fine;
       // we only need the broker to (re)dial.

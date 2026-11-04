@@ -26,6 +26,8 @@ export interface SessionEvents {
   /** A short message to show the user, e.g. an action that was rejected. */
   onNotice(message: string): void
   onEnded(reason: EndReason): void
+  /** Our PeerJS peer is ready (or gone). The video call rides on it. */
+  onPeer?(peer: import('peerjs').Peer | null): void
 }
 
 export interface Session {

@@ -117,7 +117,8 @@ export function setConnected(room: RoomState, playerId: PlayerId, connected: boo
   const player = room.players.find((p) => p.id === playerId)
   if (!player || player.connected === connected) return room
   return bump(room, {
-    players: room.players.map((p) => (p.id === playerId ? { ...p, connected } : p)),
+    // Dropping out of the room also drops you out of the call.
+    players: room.players.map((p) => (p.id === playerId ? { ...p, connected, call: connected ? p.call : undefined } : p)),
   })
 }
 
@@ -227,6 +228,17 @@ export function applyAction(
       return {
         state: bump(room, {
           players: room.players.map((p) => (p.id === target.id ? { ...p, bot: { level: action.level } } : p)),
+        }),
+      }
+    }
+    case 'call': {
+      const peer = action.peer
+      if (peer !== null && (typeof peer !== 'string' || !peer || peer.length > 100)) return { error: 'Invalid call address.' }
+      return {
+        state: bump(room, {
+          players: room.players.map((p) =>
+            p.id === playerId ? { ...p, call: peer ? { peer, video: action.video !== false } : undefined } : p,
+          ),
         }),
       }
     }

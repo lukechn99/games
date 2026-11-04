@@ -5,6 +5,7 @@ import GameShell from './game-shell'
 import Home from './home'
 import Lobby from './lobby'
 import Notices from './notices'
+import { CallDock } from './call'
 import { ConnectingScreen } from './status'
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
   return (
     <>
       {screen}
+      {room?.snapshot && <CallDock />}
       <Notices />
     </>
   )

@@ -4,7 +4,8 @@
  * React glue: owns the current HostSession / ClientSession and exposes the
  * latest snapshot plus a few actions to the UI.
  */
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { CallManager, type CallSnapshot } from '@/lib/net/call'
 import type { RoomAction, RoomSnapshot, RoomState } from '@/lib/engine/types'
 import { ClientSession } from '@/lib/net/client-session'
 import { isValidCode, normalizeCode } from '@/lib/net/config'
@@ -46,6 +47,14 @@ interface SessionContextValue {
   act(action: RoomAction): void
   leave(): void
   hostNow(): number
+  /** Video call */
+  call: CallSnapshot
+  /** Who's in the call, by peer id → player name. */
+  callNames: Map<string, string>
+  joinCall(video: boolean): void
+  leaveCall(): void
+  setMic(on: boolean): void
+  setCam(on: boolean): void
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null)
@@ -74,6 +83,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [linkCode, setLinkCode] = useState<string | null>(null)
   const [notices, setNotices] = useState<Notice[]>([])
   const sessionRef = useRef<Session | null>(null)
+  // Video call: the manager lives as long as the provider; React gets snapshots.
+  const [call, setCall] = useState<CallSnapshot>(() => ({
+    inCall: false, joining: false, video: true, micOn: true, camOn: true, local: null, remotes: new Map(), error: null,
+  }))
+  const [callManager] = useState(() => {
+    const m: CallManager = new CallManager(() => setCall(m.snapshot()))
+    return m
+  })
   const noticeId = useRef(0)
 
   const notify = useCallback((text: string) => {
@@ -105,8 +122,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setRoom((r) => (r ? { ...r, status } : r))
         },
         onNotice: notify,
+        onPeer: (peer) => {
+          if (sessionRef.current !== current) return
+          callManager.setPeer(peer)
+          // A new peer address (after a reconnect) must be re-announced.
+          const snap = callManager.snapshot()
+          if (snap.inCall && peer) current!.act({ type: 'call', peer: peer.id, video: snap.video })
+        },
         onEnded: (reason) => {
           if (sessionRef.current !== current) return
+          callManager.leave()
+          callManager.setPeer(null)
           sessionRef.current = null
           setActiveSession(null)
           setRoomParam(null)
@@ -122,7 +148,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setActiveSession({ code: current.code, role: current.role })
       current.start()
     },
-    [notify],
+    [notify, callManager],
   )
 
   const startHost = useCallback(
@@ -177,6 +203,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const hostNow = useCallback(() => sessionRef.current?.hostNow() ?? Date.now(), [])
 
+  const snapshot = room?.snapshot
+  const participants = useMemo(
+    () => (snapshot?.players ?? []).filter((p) => p.call && p.connected).map((p) => [p.call!.peer, p.name] as const),
+    [snapshot?.players],
+  )
+  useEffect(() => {
+    callManager.sync(participants.map(([peer]) => peer))
+  }, [participants, callManager])
+  const callNames = useMemo(() => new Map(participants), [participants])
+  useEffect(() => {
+    if (call.error) notify(call.error)
+  }, [call.error, notify])
+
   const value: SessionContextValue = {
     ready,
     room,
@@ -193,8 +232,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       startClient(normalizeCode(code), name, false)
     },
     act: (action) => sessionRef.current?.act(action),
-    leave: () => sessionRef.current?.leave(),
+    leave: () => {
+      callManager.leave()
+      sessionRef.current?.leave()
+    },
     hostNow,
+    call,
+    callNames,
+    joinCall: (video) => {
+      void callManager.join(video).then((ok) => {
+        const peer = callManager.peerId
+        if (ok && peer) sessionRef.current?.act({ type: 'call', peer, video })
+      })
+    },
+    leaveCall: () => {
+      callManager.leave()
+      sessionRef.current?.act({ type: 'call', peer: null })
+    },
+    setMic: (on) => callManager.setMic(on),
+    setCam: (on) => callManager.setCam(on),
   }
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

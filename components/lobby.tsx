@@ -4,7 +4,7 @@ import { COMING_SOON, GAME_MODULES, getGameModule } from '@/lib/games/modules'
 import { playerRange } from '@/lib/utils'
 import { useSession } from '@/lib/session'
 import PlayerList from './player-list'
-import { CallCard } from './call'
+import { CallButton } from './call'
 import { StatusPill, TroubleBanner } from './status'
 import Ticket from './ticket'
 import { Button } from './ui/button'
@@ -36,7 +36,10 @@ export default function Lobby() {
   return (
     <div className="min-h-dvh pb-28">
       <TroubleBanner />
-      <main className="mx-auto flex max-w-md flex-col gap-8 px-6 pt-8">
+      <div className="mx-auto flex max-w-md justify-end px-4 pt-3">
+        <CallButton />
+      </div>
+      <main className="mx-auto flex max-w-md flex-col gap-8 px-6 pt-2">
         <div className="flex flex-col items-center gap-3">
           <Ticket code={snapshot.code} />
           <StatusPill />
@@ -66,8 +69,6 @@ export default function Lobby() {
             <p className="mt-2 text-sm text-muted-foreground">{selected!.name} has no computer player, so bots will sit this one out.</p>
           )}
         </section>
-
-        <CallCard />
 
         <section aria-labelledby="game-heading">
           <h2 id="game-heading" className="mb-3 font-display text-xl font-bold">

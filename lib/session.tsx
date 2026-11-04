@@ -53,6 +53,9 @@ interface SessionContextValue {
   callNames: Map<string, string>
   joinCall(video: boolean): void
   leaveCall(): void
+  /** Whether the floating video tiles are shown (vs. just the controls). */
+  callTilesOpen: boolean
+  setCallTilesOpen(open: boolean): void
   setMic(on: boolean): void
   setCam(on: boolean): void
 }
@@ -212,6 +215,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     callManager.sync(participants.map(([peer]) => peer))
   }, [participants, callManager])
   const callNames = useMemo(() => new Map(participants), [participants])
+  // If the room forgot we're in the call (the host reloaded), tell it again.
+  const me = snapshot?.players.find((p) => p.id === snapshot.you)
+  const forgotten = call.inCall && !!me && !me.call
+  useEffect(() => {
+    const peer = callManager.peerId
+    if (forgotten && peer) sessionRef.current?.act({ type: 'call', peer, video: callManager.snapshot().video })
+  }, [forgotten, snapshot?.version, callManager])
+  const [callTilesOpen, setCallTilesOpen] = useState(true)
   useEffect(() => {
     if (call.error) notify(call.error)
   }, [call.error, notify])
@@ -251,6 +262,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     setMic: (on) => callManager.setMic(on),
     setCam: (on) => callManager.setCam(on),
+    callTilesOpen,
+    setCallTilesOpen,
   }
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

@@ -4,6 +4,7 @@ import { getGameModule } from '@/lib/games/modules'
 import { GAME_VIEWS } from '@/lib/games/ui'
 import { useSession } from '@/lib/session'
 import { TroubleBanner } from './status'
+import { CallButton } from './call'
 
 export default function GameShell() {
   const { room, act, leave, hostNow } = useSession()
@@ -34,6 +35,7 @@ export default function GameShell() {
           {snapshot.code}
         </span>
         <span className="flex-1" />
+        <CallButton />
         {isHost && (
           <button
             type="button"

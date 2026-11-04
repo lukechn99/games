@@ -17,6 +17,8 @@ export interface Player {
   joinedAt: number
   /** Set for computer players, which the host plays. */
   bot?: { level: BotLevel }
+  /** Set while the player is in the video call: their media peer address. */
+  call?: { peer: string; video: boolean }
 }
 
 export type BotLevel = 'easy' | 'medium' | 'hard'
@@ -119,4 +121,6 @@ export type RoomAction =
   | { type: 'addBot'; level: BotLevel }
   | { type: 'setBotLevel'; playerId: PlayerId; level: BotLevel }
   | { type: 'rename'; name: string }
+  /** Join (peer set) or leave (peer null) the room's video call. */
+  | { type: 'call'; peer: string | null; video?: boolean }
   | { type: 'game'; action: unknown }

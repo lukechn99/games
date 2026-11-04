@@ -194,3 +194,16 @@ describe('spyfall', () => {
     expect(sf(room).result?.winner).toBe('none')
   })
 })
+
+describe('video call membership', () => {
+  it('tracks who is in the call and drops people who disconnect', () => {
+    let room = roomWith(3)
+    room = ok(applyAction(room, 'p1', { type: 'call', peer: 'peer-1', video: true }, ctx(), getGameModule))
+    room = ok(applyAction(room, 'p2', { type: 'call', peer: 'peer-2', video: false }, ctx(), getGameModule))
+    expect(room.players.find((p) => p.id === 'p2')!.call).toEqual({ peer: 'peer-2', video: false })
+    room = ok(applyAction(room, 'p1', { type: 'call', peer: null }, ctx(), getGameModule))
+    expect(room.players.find((p) => p.id === 'p1')!.call).toBeUndefined()
+    room = setConnected(room, 'p2', false)
+    expect(room.players.find((p) => p.id === 'p2')!.call).toBeUndefined()
+  })
+})

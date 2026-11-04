@@ -4,6 +4,7 @@ import { COMING_SOON, GAME_MODULES, getGameModule } from '@/lib/games/modules'
 import { playerRange } from '@/lib/utils'
 import { useSession } from '@/lib/session'
 import PlayerList from './player-list'
+import { CallCard } from './call'
 import { StatusPill, TroubleBanner } from './status'
 import Ticket from './ticket'
 import { Button } from './ui/button'
@@ -65,6 +66,8 @@ export default function Lobby() {
             <p className="mt-2 text-sm text-muted-foreground">{selected!.name} has no computer player, so bots will sit this one out.</p>
           )}
         </section>
+
+        <CallCard />
 
         <section aria-labelledby="game-heading">
           <h2 id="game-heading" className="mb-3 font-display text-xl font-bold">

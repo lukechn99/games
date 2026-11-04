@@ -66,7 +66,7 @@ export class HostSession implements Session {
   ) {
     this.code = restore?.code ?? code ?? generateRoomCode()
     this.room = restore
-      ? setConnected(restore, restore.hostId, true)
+      ? setConnected({ ...restore, players: restore.players.map((p) => ({ ...p, call: undefined })) }, restore.hostId, true)
       : createRoom(this.code, me, Date.now())
     // Players who were connected before the host left will have to reconnect.
     for (const p of this.room.players) {
@@ -137,6 +137,7 @@ export class HostSession implements Session {
     this.peer = peer
 
     peer.on('open', () => {
+      this.events.onPeer?.(peer)
       this.tries = 0
       this.everOnline = true
       this.events.onStatus('online')

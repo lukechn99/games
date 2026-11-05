@@ -78,6 +78,8 @@ async function botPass(): Promise<string | null> {
       widget.id = api.render(el, {
         sitekey: TURNSTILE_SITE_KEY,
         appearance: 'interaction-only',
+        retry: 'never', // one try per refresh; failing just means no relay
+        'refresh-expired': 'manual',
         callback: (t: string) => widget?.waiting?.(t),
         'error-callback': () => widget?.waiting?.(null),
         'expired-callback': () => undefined,
@@ -90,6 +92,22 @@ async function botPass(): Promise<string | null> {
   return token
 }
 let started = false
+
+/** What happened on the last attempt, for the ?relay badge. */
+export type RelayStatus = 'off' | 'checking' | 'ready' | 'bot-check-failed' | 'unavailable' | string
+let status: RelayStatus = TURN_WORKER_URL ? 'checking' : 'off'
+const listeners = new Set<(s: RelayStatus) => void>()
+function setStatus(s: RelayStatus) {
+  status = s
+  for (const l of listeners) l(s)
+}
+export function relayStatus() {
+  return status
+}
+export function onRelayStatus(l: (s: RelayStatus) => void) {
+  listeners.add(l)
+  return () => void listeners.delete(l)
+}
 let inflight: Promise<void> | null = null
 
 function setServers(extra: RTCIceServer[]) {
@@ -103,7 +121,10 @@ export function refreshTurn(): Promise<void> {
     let timer: ReturnType<typeof setTimeout> | undefined
     try {
       const pass = await botPass().catch(() => null)
-      if (TURNSTILE_SITE_KEY && !pass) throw new Error('no bot-check pass')
+      if (TURNSTILE_SITE_KEY && !pass) {
+        setStatus('bot-check-failed')
+        throw new Error('no bot-check pass')
+      }
       const url = new URL(TURN_WORKER_URL)
       if (pass) url.searchParams.set('pass', pass)
       timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
@@ -111,10 +132,12 @@ export function refreshTurn(): Promise<void> {
       const data = (await r.json()) as { iceServers?: RTCIceServer[]; reason?: string }
       const extra = (data.iceServers ?? []).filter((s) => s && s.urls)
       setServers(extra)
+      setStatus(extra.some((x) => String(x.urls).includes('turn')) ? 'ready' : data.reason || 'unavailable')
       if (!extra.length && data.reason) console.info('[turn] no relay:', data.reason)
     } catch (err) {
       // Keep whatever we had; credentials last 3 hours and we refresh hourly, so an older set still works.
       console.info('[turn] relay credentials unavailable', err)
+      if (status === 'checking') setStatus('unavailable')
     } finally {
       clearTimeout(timer)
       inflight = null

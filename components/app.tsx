@@ -6,6 +6,7 @@ import Home from './home'
 import Lobby from './lobby'
 import Notices from './notices'
 import { CallDock } from './call'
+import RelayBadge from './relay-badge'
 import { ConnectingScreen } from './status'
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
     <>
       {screen}
       {room?.snapshot && <CallDock />}
+      <RelayBadge />
       <Notices />
     </>
   )

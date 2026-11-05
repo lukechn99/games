@@ -22,7 +22,7 @@ function mockCloudflare(usedBytes: number | 'error', todayBytes = 0, pass: { suc
       expect((init.body as FormData).get('response')).toBe('good-pass')
       return new Response(JSON.stringify(pass ?? { success: false }))
     }
-    expect(JSON.parse(String(init.body))).toEqual({ ttl: 8 * 3600 })
+    expect(JSON.parse(String(init.body))).toEqual({ ttl: 3 * 3600 })
     return new Response(
       JSON.stringify({
         iceServers: [

@@ -113,7 +113,7 @@ export function refreshTurn(): Promise<void> {
       setServers(extra)
       if (!extra.length && data.reason) console.info('[turn] no relay:', data.reason)
     } catch (err) {
-      // Keep whatever we had; credentials last 8 hours, so an older set still works.
+      // Keep whatever we had; credentials last 3 hours and we refresh hourly, so an older set still works.
       console.info('[turn] relay credentials unavailable', err)
     } finally {
       clearTimeout(timer)

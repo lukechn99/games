@@ -31,7 +31,10 @@
 // Origin header, which is why the usage cap below is the real protection.
 const SITE_ORIGINS = ['https://lukechn99.github.io']
 const SITE_HOSTNAME = 'lukechn99.github.io'
-const TTL_SECONDS = 8 * 60 * 60 // long enough that a game night never drops mid-call
+// Relayed connections are cut when credentials expire; the games reconnect
+// on their own (they refresh credentials hourly), so a relayed player sees a
+// short blip about every 3 hours.
+const TTL_SECONDS = 3 * 60 * 60
 const USAGE_CACHE_MS = 5 * 60 * 1000
 const GB = 1e9
 

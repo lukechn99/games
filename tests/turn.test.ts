@@ -7,7 +7,7 @@ type Mod = any
 const env = { TURN_KEY_ID: 'key1', TURN_KEY_API_TOKEN: 'tok', ACCOUNT_ID: 'acct', ANALYTICS_TOKEN: 'ana', CAP_GB: '900' }
 const ORIGIN = 'https://lukechn99.github.io'
 
-function mockCloudflare(usedBytes: number | 'error') {
+function mockCloudflare(usedBytes: number | 'error', todayBytes = 0, pass: { success: boolean; hostname: string } | null = null) {
   const calls: string[] = []
   vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
     calls.push(url)
@@ -15,7 +15,12 @@ function mockCloudflare(usedBytes: number | 'error') {
       expect(String(init.body)).toContain('callsTurnUsageAdaptiveGroups')
       expect(String(init.body)).toContain('keyId: \\"key1\\"')
       if (usedBytes === 'error') return new Response(JSON.stringify({ errors: [{ message: 'no' }] }), { status: 200 })
-      return new Response(JSON.stringify({ data: { viewer: { accounts: [{ callsTurnUsageAdaptiveGroups: [{ sum: { egressBytes: usedBytes } }] }] } } }))
+      const row = (b: number) => [{ sum: { egressBytes: b } }]
+      return new Response(JSON.stringify({ data: { viewer: { accounts: [{ month: row(usedBytes), today: row(todayBytes) }] } } }))
+    }
+    if (url.includes('siteverify')) {
+      expect((init.body as FormData).get('response')).toBe('good-pass')
+      return new Response(JSON.stringify(pass ?? { success: false }))
     }
     expect(JSON.parse(String(init.body))).toEqual({ ttl: 8 * 3600 })
     return new Response(
@@ -31,9 +36,9 @@ function mockCloudflare(usedBytes: number | 'error') {
   return calls
 }
 
-async function call(mod: Mod, path = '/', origin: string | null = ORIGIN) {
+async function call(mod: Mod, path = '/', origin: string | null = ORIGIN, e: Record<string, string> = env) {
   const headers = origin ? { Origin: origin } : undefined
-  const r: Response = await mod.default.fetch(new Request(`https://w.example${path}`, { headers }), env)
+  const r: Response = await mod.default.fetch(new Request(`https://w.example${path}`, { headers }), e)
   return { status: r.status, body: await r.json(), cors: r.headers.get('Access-Control-Allow-Origin') }
 }
 
@@ -77,7 +82,27 @@ describe('TURN worker', () => {
     mod._resetUsageCache()
     mockCloudflare(1.5e9)
     const r = await call(mod, '/status', null)
-    expect(r.body).toMatchObject({ ok: true, usedGBLast30Days: 1.5, capGB: 900, handingOutCredentials: true, missingSettings: [] })
+    expect(r.body).toMatchObject({ ok: true, usedGBLast30Days: 1.5, capGB: 900, dailyCapGB: 50, handingOutCredentials: true, missingSettings: [] })
+  })
+
+  it('stops for the day at the daily cap', async () => {
+    const mod: Mod = await import(workerPath)
+    mod._resetUsageCache()
+    mockCloudflare(100e9, 50e9)
+    expect((await call(mod)).body).toEqual({ iceServers: [], reason: 'daily-cap-reached' })
+  })
+
+  it('with a Turnstile secret, requires a valid pass for this site', async () => {
+    const strict = { ...env, TURNSTILE_SECRET: 'ts' }
+    const mod: Mod = await import(workerPath)
+    mod._resetUsageCache()
+    mockCloudflare(1e9, 0, { success: true, hostname: 'lukechn99.github.io' })
+    expect((await call(mod, '/', ORIGIN, strict)).status).toBe(403) // no pass
+    expect((await call(mod, '/?pass=good-pass', ORIGIN, strict)).body.iceServers.length).toBeGreaterThan(0)
+    mockCloudflare(1e9, 0, { success: true, hostname: 'evil.example' })
+    expect((await call(mod, '/?pass=good-pass', ORIGIN, strict)).status).toBe(403)
+    mockCloudflare(1e9, 0, { success: false, hostname: 'lukechn99.github.io' })
+    expect((await call(mod, '/?pass=good-pass', ORIGIN, strict)).status).toBe(403)
   })
 })
 

@@ -11,22 +11,31 @@
  *   TURN_KEY_API_TOKEN   (secret) the API token shown with it
  *   ACCOUNT_ID           (text)   your Cloudflare account ID
  *   ANALYTICS_TOKEN      (secret) an API token with "Account Analytics: Read"
- *   CAP_GB               (text, optional) monthly cap in GB, default 900
+ *   CAP_GB               (text, optional) cap over the last 30 days in GB, default 900
+ *   DAILY_CAP_GB         (text, optional) cap for today (UTC) in GB, default 50
+ *   TURNSTILE_SECRET     (secret, optional) Turnstile widget secret. When set,
+ *                        every request must carry a fresh bot-check pass from
+ *                        the games page, so scripts can't get credentials.
  *   EXTRA_ORIGINS        (text, optional) comma-separated extra sites to allow,
  *                        e.g. http://localhost:3000 while testing. Remove after.
  *
  * Visit <worker url>/status in a browser to see usage and check the setup.
+ *
+ * What protects the allowance: the bot check (stops scripts), the site
+ * check (stops other websites), the daily and 30-day caps (limit the damage
+ * from anything that gets through) and 8-hour credential expiry.
  */
 
 // Only the live games site. Note that this stops other *websites* from using
 // the Worker through their visitors' browsers; a script can still fake the
 // Origin header, which is why the usage cap below is the real protection.
 const SITE_ORIGINS = ['https://lukechn99.github.io']
+const SITE_HOSTNAME = 'lukechn99.github.io'
 const TTL_SECONDS = 8 * 60 * 60 // long enough that a game night never drops mid-call
 const USAGE_CACHE_MS = 5 * 60 * 1000
 const GB = 1e9
 
-let usageCache = { bytes: null, at: 0 }
+let usageCache = { value: null, at: 0 }
 
 function json(body, status, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -39,14 +48,22 @@ function day(offsetDays) {
   return new Date(Date.now() + offsetDays * 86400000).toISOString().slice(0, 10)
 }
 
-/** TURN bytes sent to devices (what Cloudflare bills) over the last 30 days, or null if unknown. */
-export async function usageBytes(env, now = Date.now()) {
-  if (usageCache.bytes !== null && now - usageCache.at < USAGE_CACHE_MS) return usageCache.bytes
+/**
+ * TURN bytes sent to devices (what Cloudflare bills) over the last 30 days
+ * and today (UTC), or null if unknown.
+ */
+export async function usage(env, now = Date.now()) {
+  if (usageCache.value !== null && now - usageCache.at < USAGE_CACHE_MS) return usageCache.value
+  const key = JSON.stringify(env.TURN_KEY_ID)
   const query = `query {
     viewer {
       accounts(filter: { accountTag: ${JSON.stringify(env.ACCOUNT_ID)} }) {
-        callsTurnUsageAdaptiveGroups(
-          filter: { date_geq: ${JSON.stringify(day(-29))}, date_leq: ${JSON.stringify(day(0))}, keyId: ${JSON.stringify(env.TURN_KEY_ID)} }
+        month: callsTurnUsageAdaptiveGroups(
+          filter: { date_geq: ${JSON.stringify(day(-29))}, date_leq: ${JSON.stringify(day(0))}, keyId: ${key} }
+          limit: 1
+        ) { sum { egressBytes } }
+        today: callsTurnUsageAdaptiveGroups(
+          filter: { date_geq: ${JSON.stringify(day(0))}, date_leq: ${JSON.stringify(day(0))}, keyId: ${key} }
           limit: 1
         ) { sum { egressBytes } }
       }
@@ -60,14 +77,32 @@ export async function usageBytes(env, now = Date.now()) {
     })
     const data = await r.json()
     if (!r.ok || data.errors?.length) throw new Error(JSON.stringify(data.errors ?? r.status))
-    const rows = data.data?.viewer?.accounts?.[0]?.callsTurnUsageAdaptiveGroups ?? []
-    const bytes = rows.reduce((n, row) => n + (row.sum?.egressBytes ?? 0), 0)
-    usageCache = { bytes, at: now }
-    return bytes
+    const acct = data.data?.viewer?.accounts?.[0] ?? {}
+    const total = (rows) => (rows ?? []).reduce((n, row) => n + (row.sum?.egressBytes ?? 0), 0)
+    const value = { month: total(acct.month), today: total(acct.today) }
+    usageCache = { value, at: now }
+    return value
   } catch (err) {
     console.error('usage check failed', err)
     // A recent reading (within the hour) is good enough; otherwise refuse to guess.
-    return usageCache.bytes !== null && now - usageCache.at < 60 * 60 * 1000 ? usageCache.bytes : null
+    return usageCache.value !== null && now - usageCache.at < 60 * 60 * 1000 ? usageCache.value : null
+  }
+}
+
+/** Check a Turnstile pass from the games page. */
+async function passedBotCheck(env, token, ip) {
+  if (!token) return false
+  try {
+    const form = new FormData()
+    form.append('secret', env.TURNSTILE_SECRET)
+    form.append('response', token)
+    if (ip) form.append('remoteip', ip)
+    const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form })
+    const out = await r.json()
+    return out.success === true && out.hostname === SITE_HOSTNAME
+  } catch (err) {
+    console.error('bot check failed', err)
+    return false
   }
 }
 
@@ -92,7 +127,6 @@ async function credentials(env) {
 const worker = {
   async fetch(req, env) {
     const url = new URL(req.url)
-    const capGB = Number(env.CAP_GB || 900)
     const origin = req.headers.get('Origin') || ''
     const ALLOWED_ORIGINS = [
       ...SITE_ORIGINS,
@@ -105,26 +139,38 @@ const worker = {
     }
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
 
+    const capGB = Number(env.CAP_GB || 900)
+    const dailyGB = Number(env.DAILY_CAP_GB || 50)
+
     if (url.pathname === '/status') {
       const missing = ['TURN_KEY_ID', 'TURN_KEY_API_TOKEN', 'ACCOUNT_ID', 'ANALYTICS_TOKEN'].filter((k) => !env[k])
-      const bytes = missing.length ? null : await usageBytes(env)
+      const used = missing.length ? null : await usage(env)
+      const gb = (b) => +(b / GB).toFixed(3)
       return json(
         {
-          ok: !missing.length && bytes !== null,
+          ok: !missing.length && used !== null,
           missingSettings: missing,
-          usedGBLast30Days: bytes === null ? 'unknown (check ACCOUNT_ID and ANALYTICS_TOKEN)' : +(bytes / GB).toFixed(3),
+          usedGBLast30Days: used === null ? 'unknown (check ACCOUNT_ID and ANALYTICS_TOKEN)' : gb(used.month),
+          usedGBToday: used === null ? 'unknown' : gb(used.today),
           capGB,
-          handingOutCredentials: bytes !== null && bytes < capGB * GB,
+          dailyCapGB: dailyGB,
+          botCheck: env.TURNSTILE_SECRET ? 'on' : 'off (add TURNSTILE_SECRET to turn it on)',
+          handingOutCredentials: used !== null && used.month < capGB * GB && used.today < dailyGB * GB,
         },
         200,
       )
     }
 
     if (!ALLOWED_ORIGINS.includes(origin)) return json({ error: 'Not allowed from this site.' }, 403, cors)
+    if (env.TURNSTILE_SECRET) {
+      const ok = await passedBotCheck(env, url.searchParams.get('pass'), req.headers.get('CF-Connecting-IP'))
+      if (!ok) return json({ iceServers: [], reason: 'bot-check-failed' }, 403, cors)
+    }
 
-    const bytes = await usageBytes(env)
-    if (bytes === null) return json({ iceServers: [], reason: 'usage-unknown' }, 200, cors)
-    if (bytes >= capGB * GB) return json({ iceServers: [], reason: 'cap-reached' }, 200, cors)
+    const used = await usage(env)
+    if (used === null) return json({ iceServers: [], reason: 'usage-unknown' }, 200, cors)
+    if (used.month >= capGB * GB) return json({ iceServers: [], reason: 'cap-reached' }, 200, cors)
+    if (used.today >= dailyGB * GB) return json({ iceServers: [], reason: 'daily-cap-reached' }, 200, cors)
     try {
       return json({ iceServers: await credentials(env), ttl: TTL_SECONDS }, 200, cors)
     } catch (err) {
@@ -138,5 +184,5 @@ export default worker
 
 /** For tests. */
 export function _resetUsageCache() {
-  usageCache = { bytes: null, at: 0 }
+  usageCache = { value: null, at: 0 }
 }

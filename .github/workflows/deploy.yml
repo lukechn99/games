@@ -39,6 +39,7 @@ jobs:
           NEXT_PUBLIC_TURN_USERNAME: ${{ vars.TURN_USERNAME }}
           NEXT_PUBLIC_TURN_CREDENTIAL: ${{ vars.TURN_CREDENTIAL }}
           NEXT_PUBLIC_TURN_WORKER: ${{ vars.TURN_WORKER }}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
       - run: touch out/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

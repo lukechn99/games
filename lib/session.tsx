@@ -11,6 +11,7 @@ import { MAX_VIDEO, VIDEO_FULL_MESSAGE } from '@/lib/engine/room'
 import { ClientSession } from '@/lib/net/client-session'
 import { isValidCode, normalizeCode } from '@/lib/net/config'
 import { HostSession } from '@/lib/net/host-session'
+import { startTurn } from '@/lib/net/turn'
 import type { EndReason, Session, SessionEvents, SessionStatus } from '@/lib/net/session-types'
 import {
   getActiveSession,
@@ -190,14 +191,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const active = getActiveSession()
     const name = getSavedName()
 
+    // Fetch relay credentials right away. Resuming waits for them (3s at most)
+    // so the first connection can use the relay if it needs to.
+    const turn = startTurn()
+    let cancelled = false
     if (active && (!fromLink || fromLink === active.code)) {
-      if (active.role === 'host') {
-        const saved = loadHostedRoom(active.code)
-        if (saved) startHost(name || 'Host', saved)
-        else setActiveSession(null)
-      } else if (name) {
-        startClient(active.code, name, true)
-      }
+      void turn.then(() => {
+        if (cancelled) return
+        if (active.role === 'host') {
+          const saved = loadHostedRoom(active.code)
+          if (saved) startHost(name || 'Host', saved)
+          else setActiveSession(null)
+        } else if (name) {
+          startClient(active.code, name, true)
+        }
+      })
     } else if (isValidCode(fromLink)) {
       setLinkCode(fromLink)
     }
@@ -207,6 +215,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const onHide = () => sessionRef.current?.destroy()
     window.addEventListener('pagehide', onHide)
     return () => {
+      cancelled = true
       window.removeEventListener('pagehide', onHide)
       sessionRef.current?.destroy()
       sessionRef.current = null

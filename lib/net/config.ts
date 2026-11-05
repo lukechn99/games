@@ -1,4 +1,5 @@
 import type { PeerOptions } from 'peerjs'
+import { iceServers } from './turn'
 
 /**
  * Prefix for broker ids. The public PeerJS broker is shared by everyone who
@@ -39,21 +40,9 @@ export function isValidCode(code: string): boolean {
  *   NEXT_PUBLIC_TURN_URL=turn:turn.example.com:3478
  *   NEXT_PUBLIC_TURN_USERNAME=...
  *   NEXT_PUBLIC_TURN_CREDENTIAL=...
+ *   NEXT_PUBLIC_TURN_WORKER=https://games-turn.you.workers.dev  (Cloudflare relay, see worker/)
  */
 export function peerOptions(): PeerOptions {
-  const iceServers: RTCIceServer[] = [
-    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
-    { urls: 'stun:stun.cloudflare.com:3478' },
-  ]
-  const turnUrl = process.env.NEXT_PUBLIC_TURN_URL
-  if (turnUrl) {
-    iceServers.push({
-      urls: turnUrl.split(',').map((u) => u.trim()),
-      username: process.env.NEXT_PUBLIC_TURN_USERNAME,
-      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
-    })
-  }
-
   const options: PeerOptions = { config: { iceServers }, debug: 1 }
   const host = process.env.NEXT_PUBLIC_PEER_HOST
   if (host) {

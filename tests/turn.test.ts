@@ -69,6 +69,7 @@ describe('TURN worker', () => {
     expect((await call(mod)).body).toEqual({ iceServers: [], reason: 'usage-unknown' })
     expect((await call(mod, '/', 'https://evil.example')).status).toBe(403)
     expect((await call(mod, '/', null)).status).toBe(403)
+    expect((await call(mod, '/', 'http://localhost:3000')).status).toBe(403)
   })
 
   it('reports setup on /status', async () => {

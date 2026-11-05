@@ -12,11 +12,16 @@
  *   ACCOUNT_ID           (text)   your Cloudflare account ID
  *   ANALYTICS_TOKEN      (secret) an API token with "Account Analytics: Read"
  *   CAP_GB               (text, optional) monthly cap in GB, default 900
+ *   EXTRA_ORIGINS        (text, optional) comma-separated extra sites to allow,
+ *                        e.g. http://localhost:3000 while testing. Remove after.
  *
  * Visit <worker url>/status in a browser to see usage and check the setup.
  */
 
-const ALLOWED_ORIGINS = ['https://lukechn99.github.io', 'http://localhost:3000', 'http://127.0.0.1:3100']
+// Only the live games site. Note that this stops other *websites* from using
+// the Worker through their visitors' browsers; a script can still fake the
+// Origin header, which is why the usage cap below is the real protection.
+const SITE_ORIGINS = ['https://lukechn99.github.io']
 const TTL_SECONDS = 8 * 60 * 60 // long enough that a game night never drops mid-call
 const USAGE_CACHE_MS = 5 * 60 * 1000
 const GB = 1e9
@@ -89,6 +94,10 @@ const worker = {
     const url = new URL(req.url)
     const capGB = Number(env.CAP_GB || 900)
     const origin = req.headers.get('Origin') || ''
+    const ALLOWED_ORIGINS = [
+      ...SITE_ORIGINS,
+      ...String(env.EXTRA_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean),
+    ]
     const cors = {
       'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
       'Access-Control-Allow-Methods': 'GET, OPTIONS',

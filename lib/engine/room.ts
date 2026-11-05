@@ -18,6 +18,9 @@ export const MAX_ROOM_PLAYERS = 16
 
 const BOT_NAMES = ['Robo Rita', 'Clank', 'Beep Boop', 'Sprocket', 'Widget', 'Gizmo']
 export const MAX_NAME_LENGTH = 20
+/** Cameras allowed in the call at once. Everyone past this is audio only. */
+export const MAX_VIDEO = 4
+export const VIDEO_FULL_MESSAGE = `Video is full (${MAX_VIDEO}/${MAX_VIDEO}). You can turn on your camera once someone turns theirs off.`
 
 export type GameLookup = (gameId: string) => GameModule | undefined
 
@@ -234,11 +237,20 @@ export function applyAction(
     case 'call': {
       const peer = action.peer
       if (peer !== null && (typeof peer !== 'string' || !peer || peer.length > 100)) return { error: 'Invalid call address.' }
+      const self = room.players.find((p) => p.id === playerId)!
+      let video = peer !== null && action.video !== false
+      if (video && !self.call?.video) {
+        const cams = room.players.filter((p) => p.id !== playerId && p.connected && p.call?.video).length
+        if (cams >= MAX_VIDEO) {
+          // Joining (or re-joining) when cameras are full: come in on audio.
+          // Turning a camera on mid-call is refused instead.
+          if (self.call) return { error: VIDEO_FULL_MESSAGE }
+          video = false
+        }
+      }
       return {
         state: bump(room, {
-          players: room.players.map((p) =>
-            p.id === playerId ? { ...p, call: peer ? { peer, video: action.video !== false } : undefined } : p,
-          ),
+          players: room.players.map((p) => (p.id === playerId ? { ...p, call: peer ? { peer, video } : undefined } : p)),
         }),
       }
     }

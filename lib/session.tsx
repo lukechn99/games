@@ -7,6 +7,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CallManager, type CallSnapshot } from '@/lib/net/call'
 import type { RoomAction, RoomSnapshot, RoomState } from '@/lib/engine/types'
+import { MAX_VIDEO, VIDEO_FULL_MESSAGE } from '@/lib/engine/room'
 import { ClientSession } from '@/lib/net/client-session'
 import { isValidCode, normalizeCode } from '@/lib/net/config'
 import { HostSession } from '@/lib/net/host-session'
@@ -27,6 +28,13 @@ interface RoomView {
   status: SessionStatus
   snapshot: RoomSnapshot | null
 }
+
+export interface CallPerson {
+  id: string
+  name: string
+  video: boolean
+}
+export type CallView = 'panel' | 'min' | 'full'
 
 interface Notice {
   id: number
@@ -49,15 +57,17 @@ interface SessionContextValue {
   hostNow(): number
   /** Video call */
   call: CallSnapshot
-  /** Who's in the call, by peer id → player name. */
-  callNames: Map<string, string>
+  /** Who's in the call, by peer id. `video` = holds a camera slot. */
+  callPeople: Map<string, CallPerson>
+  /** All camera slots are taken by other people. */
+  videoFull: boolean
   joinCall(video: boolean): void
   leaveCall(): void
-  /** Whether the floating video tiles are shown (vs. just the controls). */
-  callTilesOpen: boolean
-  setCallTilesOpen(open: boolean): void
+  /** How the call is shown: floating panel, minimized into the Call button, or full screen. */
+  callView: CallView
+  setCallView(view: CallView): void
   setMic(on: boolean): void
-  setCam(on: boolean): void
+  toggleCamera(): void
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null)
@@ -88,7 +98,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const sessionRef = useRef<Session | null>(null)
   // Video call: the manager lives as long as the provider; React gets snapshots.
   const [call, setCall] = useState<CallSnapshot>(() => ({
-    inCall: false, joining: false, video: true, micOn: true, camOn: true, local: null, remotes: new Map(), error: null,
+    inCall: false, joining: false, video: false, switching: false, micOn: true, local: null, remotes: new Map(), error: null,
   }))
   const [callManager] = useState(() => {
     const m: CallManager = new CallManager(() => setCall(m.snapshot()))
@@ -207,22 +217,42 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const hostNow = useCallback(() => sessionRef.current?.hostNow() ?? Date.now(), [])
 
   const snapshot = room?.snapshot
-  const participants = useMemo(
-    () => (snapshot?.players ?? []).filter((p) => p.call && p.connected).map((p) => [p.call!.peer, p.name] as const),
-    [snapshot?.players],
+  const players = snapshot?.players
+  const callPeople = useMemo(
+    () =>
+      new Map(
+        (players ?? [])
+          .filter((p) => p.call && p.connected)
+          .map((p) => [p.call!.peer, { id: p.id, name: p.name, video: p.call!.video }] as const),
+      ),
+    [players],
   )
+  const peerList = useMemo(() => [...callPeople.keys()], [callPeople])
   useEffect(() => {
-    callManager.sync(participants.map(([peer]) => peer))
-  }, [participants, callManager])
-  const callNames = useMemo(() => new Map(participants), [participants])
-  // If the room forgot we're in the call (the host reloaded), tell it again.
+    callManager.sync(peerList)
+  }, [peerList, callManager])
   const me = snapshot?.players.find((p) => p.id === snapshot.you)
+  const otherCams = (snapshot?.players ?? []).filter((p) => p.id !== snapshot?.you && p.connected && p.call?.video).length
+  const videoFull = otherCams >= MAX_VIDEO && !me?.call?.video
+  const [callView, setCallView] = useState<CallView>('panel')
+
+  // If the room forgot we're in the call (the host reloaded), tell it again.
   const forgotten = call.inCall && !!me && !me.call
   useEffect(() => {
     const peer = callManager.peerId
     if (forgotten && peer) sessionRef.current?.act({ type: 'call', peer, video: callManager.snapshot().video })
   }, [forgotten, snapshot?.version, callManager])
-  const [callTilesOpen, setCallTilesOpen] = useState(true)
+
+  // The room decides who holds a camera slot; our camera follows it.
+  const slot = !!me?.call?.video
+  useEffect(() => {
+    if (!call.inCall || call.switching || !me?.call || call.video === slot) return
+    void callManager.setVideo(slot).then((ok) => {
+      const peer = callManager.peerId
+      if (!ok && peer) sessionRef.current?.act({ type: 'call', peer, video: false })
+    })
+  }, [slot, call.inCall, call.switching, call.video, me?.call, callManager])
+
   useEffect(() => {
     if (call.error) notify(call.error)
   }, [call.error, notify])
@@ -249,11 +279,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     hostNow,
     call,
-    callNames,
+    callPeople,
+    videoFull,
     joinCall: (video) => {
-      void callManager.join(video).then((ok) => {
+      const cam = video && !videoFull
+      if (video && videoFull) notify(`${VIDEO_FULL_MESSAGE} You're joining on audio.`)
+      setCallView('panel')
+      void callManager.join(cam).then((ok) => {
         const peer = callManager.peerId
-        if (ok && peer) sessionRef.current?.act({ type: 'call', peer, video })
+        if (ok && peer) sessionRef.current?.act({ type: 'call', peer, video: callManager.snapshot().video })
       })
     },
     leaveCall: () => {
@@ -261,9 +295,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       sessionRef.current?.act({ type: 'call', peer: null })
     },
     setMic: (on) => callManager.setMic(on),
-    setCam: (on) => callManager.setCam(on),
-    callTilesOpen,
-    setCallTilesOpen,
+    toggleCamera: () => {
+      const peer = callManager.peerId
+      if (!peer || call.switching) return
+      if (!slot && videoFull) return notify(VIDEO_FULL_MESSAGE)
+      sessionRef.current?.act({ type: 'call', peer, video: !slot })
+    },
+    callView,
+    setCallView,
   }
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

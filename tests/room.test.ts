@@ -206,4 +206,19 @@ describe('video call membership', () => {
     room = setConnected(room, 'p2', false)
     expect(room.players.find((p) => p.id === 'p2')!.call).toBeUndefined()
   })
+
+  it('allows four cameras; later joiners come in on audio and can turn video on once a slot frees', () => {
+    let room = roomWith(6)
+    const call = (id: string, video: boolean, peer: string | null = `peer-${id}`) =>
+      applyAction(room, id, { type: 'call', peer, video }, ctx(), getGameModule)
+    for (const id of ['p1', 'p2', 'p3', 'p4']) room = ok(call(id, true))
+    room = ok(call('p5', true))
+    expect(room.players.find((p) => p.id === 'p5')!.call).toEqual({ peer: 'peer-p5', video: false })
+    expect(call('p5', true)).toHaveProperty('error')
+    room = ok(call('p2', false))
+    room = ok(call('p5', true))
+    expect(room.players.filter((p) => p.call?.video).map((p) => p.id).sort()).toEqual(['p1', 'p3', 'p4', 'p5'])
+    // Re-announcing an existing camera is always fine.
+    room = ok(call('p1', true))
+  })
 })

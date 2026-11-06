@@ -570,9 +570,9 @@ static func _cave(t: Track, d0: float, d1: float) -> void:
 	for u in [0.52, 0.56]:
 		var f := t.branch_frame(lerpf(Track.BRANCH[0], Track.BRANCH[1], u))
 		var sx := -1.0 if u < 0.54 else 1.0
-		var p := f.origin + f.basis.x * sx * 4.4
+		var p := f.origin + f.basis.x * sx * 5.3  # near the walls, so the racing line stays open
 		_box(pillars, Transform3D(Basis().rotated(Vector3.UP, 0.4), p + Vector3.UP * 2.5), Vector3(1.3, 5.0, 1.3), neon[0] if sx < 0 else neon[1])
-		_solid_cylinder(t, p, 0.85, 5.0)
+		_solid_cylinder(t, p, 0.8, 5.0)
 	_commit(t, pillars, gm)
 
 

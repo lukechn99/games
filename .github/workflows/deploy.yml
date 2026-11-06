@@ -14,6 +14,9 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  GODOT_VERSION: 4.4.1
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,6 +29,37 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+
+      # Kart racer (Godot): run its physics tests, then export it into
+      # public/racing so the site build below publishes it at /racing/.
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-web
+      - name: Install Godot and the web export templates
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          mkdir -p ~/godot
+          curl -sSL -o /tmp/godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+          curl -sSL -o /tmp/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$dest"
+          unzip -qj /tmp/templates.tpz 'templates/web_*' 'templates/version.txt' -d "$dest"
+      - name: Test and export the kart racer
+        run: |
+          ~/godot/godot --headless --path racing --import
+          ~/godot/godot --headless --path racing --fixed-fps 60 -s tests/run_tests.gd
+          mkdir -p public/racing
+          ~/godot/godot --headless --path racing --export-release "Web" "$PWD/public/racing/index.html"
+          test -f public/racing/index.wasm
+          cp racing/web/tilt.js public/racing/
       - run: npm run build
         env:
           # Project sites live at https://<user>.github.io/<repo>/

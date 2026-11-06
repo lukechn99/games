@@ -1,0 +1,268 @@
+extends SceneTree
+## Headless physics tests for the kart (design doc 7). Run with:
+##   godot --headless --path racing --fixed-fps 60 -s tests/run_tests.gd
+## Each test drives a kart with scripted inputs and checks how it behaves.
+
+var failures := 0
+var passes := 0
+var _world: Node3D
+
+
+func _initialize() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
+	await _test_settles()
+	await _test_top_speed_and_accel()
+	await _test_turning_by_chassis()
+	await _test_ice_grip_by_tires()
+	await _test_drift_boost()
+	await _test_wall_crash_signal()
+	await _test_flip_recovery()
+	await _test_slalom_stays_upright()
+	_test_tilt_mapping()
+	await _test_bots_lap_the_track()
+	print("\n%d passed, %d failed" % [passes, failures])
+	quit(1 if failures > 0 else 0)
+
+
+func check(ok: bool, name: String, detail := "") -> void:
+	if ok:
+		passes += 1
+		print("  ok   ", name, "  ", detail)
+	else:
+		failures += 1
+		print("  FAIL ", name, "  ", detail)
+
+
+# --- helpers ---------------------------------------------------------------
+
+func _pad(surface := "asphalt") -> void:
+	if _world:
+		_world.free()
+	_world = Node3D.new()
+	root.add_child(_world)
+	var b := StaticBody3D.new()
+	b.set_meta("surface", surface)
+	var c := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(4000, 2, 4000)
+	c.shape = box
+	c.position = Vector3(0, -1, 0)
+	b.add_child(c)
+	_world.add_child(b)
+
+
+func _kart(chassis := "frame", tires := "slicks", driver := "fox", at := Vector3(0, 0.6, 0)) -> Kart:
+	var k := Kart.new()
+	k.configure(chassis, tires, driver)
+	_world.add_child(k)
+	k.global_position = at
+	return k
+
+
+func _ticks(n: int) -> void:
+	for i in n:
+		await physics_frame
+
+
+func _drive(k: Kart, seconds: float, steer := 0.0, throttle := 1.0, brake := 0.0, drift := false) -> void:
+	k.input = {"steer": steer, "throttle": throttle, "brake": brake, "drift": drift}
+	await _ticks(int(seconds * 60.0))
+
+
+# --- tests -----------------------------------------------------------------
+
+func _test_settles() -> void:
+	print("settling")
+	_pad()
+	for id in Parts.CHASSIS:
+		var k := _kart(id, "slicks")
+		await _drive(k, 2.0, 0.0, 0.0)
+		var still := k.linear_velocity.length() < 0.15 and k.angular_velocity.length() < 0.15
+		check(k.grounded_wheels == 4 and still and k.global_transform.basis.y.dot(Vector3.UP) > 0.99, "%s comes to rest on four wheels" % id,
+			"wheels %d, v %.2f" % [k.grounded_wheels, k.linear_velocity.length()])
+		k.free()
+
+
+func _test_top_speed_and_accel() -> void:
+	print("speed")
+	for id in Parts.CHASSIS:
+		_pad()
+		var k := _kart(id, "slicks")
+		await _drive(k, 0.5, 0.0, 0.0)
+		var t := 0.0
+		var t20 := -1.0
+		k.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+		while t < 12.0:
+			await physics_frame
+			t += 1.0 / 60.0
+			if t20 < 0.0 and k.speed >= 20.0:
+				t20 = t
+		var top := k.top_speed()
+		check(k.speed > top * 0.88 and k.speed < top * 1.03, "%s reaches its top speed" % id, "%.1f of %.1f m/s" % [k.speed, top])
+		check(t20 > 1.2 and t20 < 4.5, "%s gets to 72 km/h in a fair time" % id, "%.2f s" % t20)
+
+
+func _turn_radius(chassis: String, tires: String, surface: String, speed: float) -> float:
+	_pad(surface)
+	var k := _kart(chassis, tires)
+	await _drive(k, 0.4, 0.0, 0.0)
+	# Get up to speed, then hold full steering at a steady speed.
+	k.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+	while k.speed < speed:
+		await physics_frame
+	var samples := 0.0
+	var acc := 0.0
+	for i in 240:
+		var th := 1.0 if k.speed < speed else 0.0
+		k.input = {"steer": 1.0, "throttle": th, "brake": 0.0, "drift": false}
+		await physics_frame
+		if i > 120:
+			var w := absf(k.angular_velocity.y)
+			if w > 0.01:
+				acc += k.linear_velocity.length() / w
+				samples += 1.0
+	return acc / maxf(samples, 1.0)
+
+
+func _test_turning_by_chassis() -> void:
+	print("turning (chassis sets turn radius)")
+	var r := {}
+	for id in Parts.CHASSIS:
+		r[id] = await _turn_radius(id, "slicks", "asphalt", 9.0)
+	check(r["soapbox"] < r["frame"] and r["frame"] < r["hauler"] and r["frame"] < r["racer"], "soapbox turns tightest, hauler and racer widest",
+		", ".join(r.keys().map(func(k): return "%s %.1f m" % [k, r[k]])))
+
+
+func _test_ice_grip_by_tires() -> void:
+	print("grip (tires by surface)")
+	var slicks_ice: float = await _turn_radius("frame", "slicks", "ice", 14.0)
+	var studs_ice: float = await _turn_radius("frame", "studded", "ice", 14.0)
+	var slicks_tar: float = await _turn_radius("frame", "slicks", "asphalt", 14.0)
+	check(studs_ice < slicks_ice * 0.75, "studded tires hold a tighter line on ice than slicks", "studded %.1f m, slicks %.1f m" % [studs_ice, slicks_ice])
+	check(slicks_tar < slicks_ice * 0.75, "slicks grip far better on asphalt than ice", "asphalt %.1f m, ice %.1f m" % [slicks_tar, slicks_ice])
+
+
+func _test_drift_boost() -> void:
+	print("drift")
+	_pad()
+	var k := _kart()
+	await _drive(k, 0.4, 0.0, 0.0)
+	await _drive(k, 3.0, 0.0, 1.0)
+	await _drive(k, 0.1, 0.6, 1.0, 0.0, false)
+	await _drive(k, 2.6, 0.6, 1.0, 0.0, true)
+	check(k.drifting and k.drift_stage() >= 2, "holding drift through a turn charges boost", "stage %d" % k.drift_stage())
+	var before := k.speed
+	await _drive(k, 0.05, 0.0, 1.0, 0.0, false)
+	check(k.boost_time > 0.8, "releasing fires a boost", "%.2f s of boost" % k.boost_time)
+	await _drive(k, 0.8, 0.0, 1.0)
+	check(k.speed > before + 1.0, "the boost speeds the kart up", "%.1f → %.1f m/s" % [before, k.speed])
+
+
+func _test_wall_crash_signal() -> void:
+	print("crashes")
+	_pad()
+	var wall := StaticBody3D.new()
+	var c := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(30, 3, 1)
+	c.shape = box
+	wall.add_child(c)
+	wall.position = Vector3(0, 1.5, -70)
+	_world.add_child(wall)
+	var k := _kart()
+	var hits: Array[float] = []
+	k.crashed.connect(func(s): hits.append(s))
+	await _drive(k, 0.4, 0.0, 0.0)
+	await _drive(k, 5.0, 0.0, 1.0)
+	var biggest: float = hits.max() if not hits.is_empty() else 0.0
+	check(biggest > 0.4, "driving into a wall flags a big crash (for screen shake)", "strength %.2f" % biggest)
+	var k2 := _kart("frame", "slicks", "fox", Vector3(10, 0.6, 0))
+	var soft: Array[float] = []
+	k2.crashed.connect(func(s): soft.append(s))
+	await _drive(k2, 4.0, 0.3, 1.0)
+	check(soft.is_empty(), "ordinary driving and cornering doesn't shake the screen", "%d false crashes" % soft.size())
+
+
+func _test_flip_recovery() -> void:
+	print("recovery")
+	_pad()
+	var k := _kart("frame", "slicks", "fox", Vector3(0, 1.5, 0))
+	k.rotation = Vector3(0, 0, PI)
+	var got := [false]
+	k.respawned.connect(func(): got[0] = true)
+	await _drive(k, 3.0, 0.0, 0.0)
+	check(got[0] and k.global_transform.basis.y.dot(Vector3.UP) > 0.9, "an upside-down kart is put back on its wheels")
+
+
+func _test_slalom_stays_upright() -> void:
+	print("stability")
+	for id in Parts.CHASSIS:
+		_pad()
+		var k := _kart(id, "slicks")
+		await _drive(k, 0.3, 0.0, 0.0)
+		await _drive(k, 3.0, 0.0, 1.0)
+		var worst := 1.0
+		for i in 12:
+			var s := 1.0 if i % 2 == 0 else -1.0
+			k.input = {"steer": s, "throttle": 1.0, "brake": 0.0, "drift": false}
+			for j in 50:
+				await physics_frame
+				worst = minf(worst, k.global_transform.basis.y.dot(Vector3.UP))
+		check(worst > 0.8, "%s stays upright through a flat-out slalom" % id, "lowest uprightness %.2f" % worst)
+
+
+func _test_tilt_mapping() -> void:
+	print("tilt")
+	var c: Node = root.get_node("/root/Controls")
+	var big := 1.0
+	check(is_equal_approx(c.steer_from_degrees(2.0, big), 0.0), "inside the dead zone, level is straight ahead")
+	c.steer_from_degrees(0.0, big)
+	check(c.steer_from_degrees(40.0, big) > 0.99, "tilting past full lock is full right")
+	c.steer_from_degrees(0.0, big)
+	check(c.steer_from_degrees(-16.5, big) < -0.45 and c.steer_from_degrees(-16.5, big) > -0.55, "halfway to full lock is half steering", "%.2f" % c.steer_from_degrees(-16.5, big))
+
+
+func _test_bots_lap_the_track() -> void:
+	print("bots on the test track")
+	if _world:
+		_world.free()
+	_world = Node3D.new()
+	root.add_child(_world)
+	var track := Track.new()
+	_world.add_child(track)
+	var bots: Array[Kart] = []
+	var builds := [["frame", "slicks", "hard"], ["hauler", "knobby", "medium"], ["soapbox", "balloon", "easy"], ["racer", "studded", "hard"]]
+	for i in builds.size():
+		var k := Kart.new()
+		k.configure(builds[i][0], builds[i][1], "fox")
+		k.track = track
+		_world.add_child(k)
+		k.global_transform = track.grid_transform(i)
+		var d := BotDriver.new(k, track, builds[i][2], i)
+		_world.add_child(d)
+		bots.append(k)
+	var respawns := [0, 0, 0, 0]
+	for i in bots.size():
+		var idx := i
+		bots[i].respawned.connect(func(): respawns[idx] += 1)
+	var lap_time := [0.0, 0.0, 0.0, 0.0]
+	var t := 0.0
+	var limit := 180.0
+	while t < limit:
+		await physics_frame
+		t += 1.0 / 60.0
+		for i in bots.size():
+			if bots[i].lap >= 1 and lap_time[i] == 0.0:
+				lap_time[i] = -t  # crossed the start line: lap timing starts
+			elif bots[i].lap >= 2 and lap_time[i] < 0.0:
+				lap_time[i] = t + lap_time[i]
+		if lap_time.all(func(x): return x > 0.0):
+			break
+	for i in bots.size():
+		var avg := track.length / maxf(lap_time[i], 0.01)
+		check(lap_time[i] > 0.0 and avg > 13.0, "%s bot (%s, %s) laps at a racing pace" % [builds[i][2], builds[i][0], builds[i][1]],
+			"lap %.1f s, avg %.1f m/s, %d respawns" % [lap_time[i], avg, respawns[i]])
+	print("  lap length %.0f m" % track.length)

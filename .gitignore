@@ -42,3 +42,5 @@ next-env.d.ts
 
 # supabase
 .env.local
+# kart racer web export (built in CI)
+/public/racing/

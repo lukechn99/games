@@ -449,13 +449,37 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 
 | | Milestone | Done when |
 |---|---|---|
-| M0 | Kart feel | One kart on a test track feels fun with keyboard, touch and tilt; chassis and tires noticeably change handling. |
+| M0 | Kart feel | One kart on a test track feels fun with keyboard, touch and tilt; chassis and tires noticeably change handling. **Built: playable at /games/racing/, waiting on the feel review.** |
 | M1 | First track | Meadow Loop with laps, checkpoints, respawn, HUD and screen shake; a race against bots. |
 | M2 | Kart builder | Drivers, chassis, tires and stats, with the build saved on your phone. |
 | M3 | Inside Game Night | The web export runs in the game screen, the bridge and tilt steering work, and it builds in CI. |
 | M4 | Multiplayer | 2–8 karts with smooth remote karts, a synced countdown, results, reconnecting and spectators. |
 | M5 | Items | The launch set of items, synced across phones. |
 | M6 | Second track and polish | The second terrain, audio, effects and performance tuning. |
+
+## 16a. Implementation notes (from building M0)
+
+Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/run_tests.gd`, and the tilt reader in `racing/web/tilt.js`. The deploy runs the tests and exports the game to `/games/racing/`.
+
+- **Parts are data.** `scripts/kart/parts.gd` holds every chassis, tire, driver and surface as numbers. The garage panel swaps parts live while tuning.
+- **Drifting is arcade, not physical.** Real tire grip can't hold a tight drift at speed. During a drift the kart's nose points about 28° into the corner, the momentum is steered to follow it round, and sideways tire friction is mostly switched off, so drifts keep their speed. Coming out, grip blends back in over 0.35 seconds while the momentum straightens. Holding a drift charges three boost stages (0.7, 1.5 and 2.4 seconds).
+- **No hidden drag.** Godot adds default damping to rigid bodies; karts replace it, so all drag comes from surfaces and rolling resistance.
+- **Crashes for screen shake** are detected from sudden changes in velocity, scaled 0–1. A test checks that ordinary cornering never triggers a shake.
+- **Tilt (10.1).** `tilt.js` turns gravity into "degrees the long edge is from level". It multiplies the long-edge reading by the sign of the short-edge reading. That cancels both which way the phone is rotated and the iOS/Android sign difference, so nothing needs calibrating. iOS permission is asked from inside the real tap, by hit-testing the game's "Steer by tilting" button in JavaScript.
+- **Bots** drive through the same `input` as players: they aim ahead on the racing line, slow for corners from the line's curvature and the tire grip on the current surface, and drift sharp bends on medium and hard.
+- **Track M0** is a test loop built from the racing line, about 987 m: a guardrailed highway straight, an ice patch, a dirt stretch, a boost pad, a jump, solid trees and rocks near the road, and Kenney props.
+- **Download:** about 9.5 MB compressed, almost all of it the Godot engine; the game data is under 0.3 MB.
+
+**Automated tests (32), run on every deploy:**
+- All four chassis settle on four wheels.
+- Each reaches its top speed, and 72 km/h in a fair time.
+- The soapbox turns tightest and the hauler and racer widest.
+- Studded tires out-grip slicks on ice, and slicks grip far better on asphalt than on ice.
+- A drift charges and fires a boost, and the boost speeds the kart up.
+- A wall hit flags a big crash, while normal driving flags none.
+- A flipped kart recovers, and every chassis stays upright through a flat-out slalom.
+- Tilt maps to steering correctly.
+- Bots of every level lap the test track at racing pace.
 
 ## 17. Open questions
 1. Working title (1).

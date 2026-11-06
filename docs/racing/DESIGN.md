@@ -114,14 +114,24 @@ Tires set **grip, handling and drift**, and how much grip they keep **on each su
 | Balloon | Fine | Good | Excellent | Fine | Bouncy; lands jumps softly |
 | Studded | Fine | Fine | Poor | Excellent | Built for ice and snow |
 
-### 5.4 Drivers: animals (Decided: animal characters)
-**Proposed:** drivers are mostly about looks and personality, with a light weight class (small, medium or large) so your choice matters a little. A roster with clear, different silhouettes (**Open**, pick or replace):
+### 5.4 Drivers: animals (Decided: one shared base body with animal features)
+**Decided:** drivers don't need to be anatomically correct. Every driver is built on **the same simple, rounded base body**: a soft bean or teddy shape with a big head, stubby arms and legs, in the spirit of Among Us or the Teletubbies. Each animal is recognised by a few **defining features** and its **colours**:
 
-| Small | Medium | Large |
+| Driver | Defining features | Colours |
 |---|---|---|
-| Frog, red panda, hedgehog | Corgi, otter, raccoon | Capybara, bear |
+| Fox | Tall pointed ears, a bushy white-tipped tail | Orange with white |
+| Frog | Bulging eyes on top of the head, a wide smile | Bright green |
+| Red panda | Round ears, a striped ringed tail, a white face mask | Rust red with cream |
+| Hedgehog | A crown of soft spikes on the back of the head | Brown with tan |
+| Corgi | Big triangle ears, a stubby tail | Orange and white |
+| Otter | Small round ears, whiskers, a thick tapering tail | Chocolate brown |
+| Raccoon | A black eye mask, a ringed tail | Grey and black |
+| Rhino | A nose horn, small ears | Slate grey |
+| Deer | Antlers, white spots on the back | Fawn |
+| Capybara | A blunt square snout, tiny ears, a calm face | Sandy brown |
+| Bear | Round ears, a muzzle patch | Dark brown |
 
-Each driver gets a few short animations: idle, steering lean, getting hit, celebrating and a "tilt" taunt.
+**Proposed:** launch with 8 of these. If one turns out hard to make readable, swap it for another (**Decided**: the roster can change). Features are separate small parts that attach to standard points on the base body (head top, face, back, tail). So a new animal is mostly new features, new colours and a name. Each driver has a light weight class (small, medium or large). It changes the base body's scale a little and adds weight to the kart.
 
 ### 5.5 Every combination works and looks good (Decided)
 Any chassis with any wheels and any driver has to drive properly and look right. **Proposed** rules that guarantee it:
@@ -245,7 +255,7 @@ Every track has three layers:
 | **Bayou Boardwalk** | Mud and wooden planks | Swinging lanterns, mud pits, logs rolling across | Balloon |
 | **Kitchen Counter** | Countertop, a tablecloth | Toy-scale race past rolling fruit and a spinning lazy Susan | Any |
 
-**Open:** the second launch track, **Canyon Run** or **Frosty Pass**. Frosty Pass is the only one where the launch snowball item would appear; Canyon Run suits the tumbleweed and the knobby and balloon tires.
+**Decided launch tracks:** **Meadow Loop** (asphalt and grass, highway guardrails, tumbleweeds) and **Frosty Pass** (snow and ice, where the growing snowball appears and studded tires shine). The rest stay on the list for later.
 
 ## 9. Characters and art style
 
@@ -274,14 +284,21 @@ Drivers have to look alive: body parts move believably and react to what the kar
 | Reactions | Looking at a kart overtaking or an incoming item; flinching at crashes; looking back when holding the look-back button | Game events |
 | Speed and boost | Fur and ears pushed back at high speed, an excited face during boosts | Speed, the boost state |
 
-**Proposed rig:** one shared seated skeleton for all animals (spine, neck, head, two arms with hands, legs, plus tail and ear chains). That's about 30–40 bones, so animations and the rules above work for every driver, and every driver fits every chassis (5.5). Scaling the head, ears and tail gives each animal its own silhouette. Animation and spring-bone updates for faraway karts run less often, to save phone power.
+**Proposed rig:** the shared base body (5.4) has one seated skeleton: spine, neck, head, two arms with hands, legs, plus chains for tails and long ears. That's about 25–35 bones. Because every driver uses the same body, animations and the rules above work for every animal, and every driver fits every chassis (5.5). Feature parts that should move (ears, tails, antlers wobbling slightly) attach to spring bones. Animation and spring-bone updates for faraway karts run less often, to save phone power. A rounded body is also easier to animate convincingly than a realistic one: squash and stretch, leaning and bouncing read well on a simple shape.
 
 ### 9.3 Where the 3D models come from (Open)
 Free packs (CC0: free for any use, no credit required) exist from two well-known makers:
 - **Quaternius** (quaternius.com and itch.io): low-poly animated animals (farm animals, a pug, a llama, dinosaurs, monsters) and nature packs (trees, rocks, plants). Clean, flat-coloured style.
 - **Kenney** (kenney.nl): a Toy Car Kit, a Car Kit and a Racing Kit (track pieces, barriers and props), plus nature and city kits. A chunky, toy-like style.
 
-**Proposed: a mix.** Use the free packs for **scenery and track props**, restyled to our palette; they're a great fit there. Build the **karts and drivers ourselves**. The packs' animals are four-legged walkers with walking animations, not seated drivers with arms. The packs' cars are single models, not interchangeable chassis and wheels with standard mounting points. Our builder (5.5) and our animation (9.2) depend on both. **Open:** who makes the custom karts and drivers (made in code with Blender scripts, modelled by hand, or commissioned).
+**Decided: a mix.**
+- **Karts and drivers: built by us** in code, with scripts for Blender (the 3D modelling program), so every part follows the standard mounting points and the shared body. Consistent, easy to change, and no outside dependency.
+- **Environment: free CC0 packs as a starting point** (trees, rocks, fences, guardrails and other props), restyled to our palette. This is easy to reverse: tracks use our own wrapper scenes (for example `props/tree_pine.tscn`), each of which contains a pack model. Swapping a pack model for our own later means editing that one wrapper, not every track.
+
+**Keeping the assets (Decided)**
+- CC0 is a permanent dedication to the public domain. Once we have a copy, we can use, change and redistribute it forever, even if the creator later takes the pack down.
+- We **commit the files we use into the repo** (`racing/assets/vendor/<pack>/`), with the pack's licence file and a note of where and when it came from. The game never downloads anything from the creator's site, so their site going away can't break it.
+- Only the models we actually use get committed, not whole packs, to keep the repo small.
 
 ## 10. Controls
 
@@ -442,12 +459,11 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 
 ## 17. Open questions
 1. Working title (1).
-2. The animal roster and weight classes (5.4).
+2. Which 8 drivers for launch (5.4); swappable as we go.
 3. The balancing rules for parts (5.1), later.
-4. The second launch track: Canyon Run or Frosty Pass (8.3).
-5. Showing the held item: on the item button, on the kart, or both (6.1).
-6. Who makes the custom karts and drivers (9.3).
-7. The kart limit: 8 at launch, 12 later (13.3).
+4. Showing the held item: on the item button, on the kart, or both (6.1).
+5. Which environment packs to start from (9.3).
+6. The kart limit: 8 at launch, 12 later (13.3).
 8. Cups and points across races (4).
 9. Music (11).
 
@@ -472,3 +488,7 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 | 2026-11-06 | Every track has background scenery and scenery that affects play (trees, guardrails) | The user's request |
 | 2026-11-06 | Launch with Meadow Loop plus one terrain track | The user's agreement with the proposal |
 | 2026-11-06 | Launch items: honey puddle, tumbleweed, growing snowball (snowy tracks only) | The user's picks |
+| 2026-11-06 | Launch tracks: Meadow Loop and Frosty Pass | The user's pick |
+| 2026-11-06 | Drivers share one simple rounded base body; animals told apart by features and colours | The user's direction: not anatomically correct, Among Us or Teletubby style |
+| 2026-11-06 | The driver roster can change if an animal is hard to make readable | The user's direction |
+| 2026-11-06 | Karts and drivers built by us in code; environment starts from CC0 packs, committed to the repo | The user's direction; reversible through wrapper scenes |

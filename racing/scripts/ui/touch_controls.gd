@@ -5,6 +5,7 @@ extends Control
 ##   wherever your thumb lands in the left part of the screen.
 ## - Right: two equal buttons, brake and gas, with icons instead of words.
 ## - Above them: the ability button, showing the held item's icon.
+## - Steering by tilt: gas bottom-right, brake bottom-left, item above gas.
 ## Handles several fingers at once and writes into Controls.touch.
 
 var buttons := {}            # "brake" | "gas" | "item" -> Rect2
@@ -32,9 +33,15 @@ func _layout() -> void:
 	var bottom := s.y - pad - _u
 	buttons.clear()
 	buttons["gas"] = Rect2(s.x - pad - _u, bottom, _u, _u)
-	buttons["brake"] = Rect2(s.x - pad * 2.0 - _u * 2.0, bottom, _u, _u)
-	var mid: float = ((buttons["gas"] as Rect2).get_center().x + (buttons["brake"] as Rect2).get_center().x) * 0.5
-	buttons["item"] = Rect2(mid - _u * 0.55, bottom - pad - _u * 1.1, _u * 1.1, _u * 1.1)
+	if _stick_enabled():
+		buttons["brake"] = Rect2(s.x - pad * 2.0 - _u * 2.0, bottom, _u, _u)
+		var mid: float = ((buttons["gas"] as Rect2).get_center().x + (buttons["brake"] as Rect2).get_center().x) * 0.5
+		buttons["item"] = Rect2(mid - _u * 0.55, bottom - pad - _u * 1.1, _u * 1.1, _u * 1.1)
+	else:
+		# Steering by tilt: no joystick, so it's like pedals. Gas in the
+		# bottom-right corner, brake in the bottom-left, the item above gas.
+		buttons["brake"] = Rect2(pad, bottom, _u, _u)
+		buttons["item"] = Rect2(s.x - pad - _u * 1.05, bottom - pad - _u * 1.1, _u * 1.1, _u * 1.1)
 	_stick_radius = _u * 0.85
 	_stick_home = Vector2(pad + _stick_radius + _u * 0.2, s.y - pad - _stick_radius)
 	if _stick_finger < 0:

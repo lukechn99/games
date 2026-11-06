@@ -20,6 +20,7 @@ var _countdown := 0.0
 var _racing := false
 var _finish_order: Array[Kart] = []
 var sun: DirectionalLight3D
+var _env: Environment
 var _fps_time := 0.0          # seconds of racing measured so far
 var _fps_frames := 0
 
@@ -123,7 +124,15 @@ func _build_world() -> void:
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_energy = 0.45
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY  # metal and water reflect the sky
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	# A soft glow around the brightest things: lamps, glints, boost flames.
+	env.glow_intensity = 0.6
+	env.glow_strength = 0.9
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 0.95
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	_env = env
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.62, 0.84, 1.0)  # the horizon colour, so distance fades into sky
 	env.fog_density = 0.0009
@@ -134,6 +143,8 @@ func _build_world() -> void:
 	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52, -35, 0)
 	sun.light_energy = 0.8
+	sun.light_color = Color(1.0, 0.97, 0.9)   # a touch warm, against the cool sky light
+	sun.light_specular = 1.0
 	# Real shadows only near the camera, so they stay cheap (design doc 9.4).
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	sun.directional_shadow_max_distance = 45.0
@@ -146,23 +157,36 @@ func _build_world() -> void:
 	Controls.quality_changed.connect(_apply_quality)
 
 
+## Graphics levels (design doc 9.1). High: 4x anti-aliasing, glow, surface
+## relief, clear-coat paint (and sun shadows with ?shadows=on). Medium: 2x
+## anti-aliasing, glow and relief. Low: none of those, and the 3D view drawn
+## at 75% resolution.
 func _apply_quality() -> void:
-	sun.shadow_enabled = Controls.shadows
+	var q := Controls.quality
+	var vp := get_viewport()
+	vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][q]
+	vp.scaling_3d_scale = 0.75 if q == Controls.Quality.LOW else 1.0
+	_env.glow_enabled = q >= Controls.Quality.MEDIUM
+	sun.shadow_enabled = Controls.shadows and q == Controls.Quality.HIGH
+	Palette.apply_quality(q >= Controls.Quality.MEDIUM)
 	_fps_time = 0.0
 	_fps_frames = 0
 
 
-## If a phone can't keep up with shadows, turn them off once, early in the
-## race, and say so. Players can turn them back on in the garage.
+## Start on the best graphics and step down if the device can't keep up:
+## each 6 seconds of racing below 45 frames a second drops one level.
 func _watch_frame_rate(delta: float) -> void:
-	if not Controls.shadows or _fps_time > 8.0:
+	if Controls.quality == Controls.Quality.LOW:
 		return
 	_fps_time += delta
 	_fps_frames += 1
-	if _fps_time > 8.0 and _fps_frames / _fps_time < 40.0:
-		Controls.set_shadows(false)
-		_fps_time = 99.0
-		hud.flash("Shadows off for smoother play", 2.0)
+	if _fps_time >= 6.0:
+		var fps := _fps_frames / _fps_time
+		_fps_time = 0.0
+		_fps_frames = 0
+		if fps < 45.0:
+			Controls.set_quality((Controls.quality - 1) as Controls.Quality)
+			hud.flash("Graphics: %s, for smoother play" % Controls.quality_name(), 2.0)
 
 
 static var _blob: StandardMaterial3D

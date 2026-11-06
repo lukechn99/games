@@ -47,6 +47,28 @@ const KIT_TEX := {
 const TEX_DIR := "res://assets/textures/"
 
 static var _cache := {}
+static var _detailed: Array[StandardMaterial3D] = []   # materials with normal maps
+static var _shiny: Array[StandardMaterial3D] = []      # paint and metal
+
+
+## Turn surface relief (normal maps) and clear-coat shine on or off for
+## every material, when the graphics quality changes.
+static func apply_quality(high: bool) -> void:
+	for m in _detailed:
+		m.normal_enabled = high
+	for m in _shiny:
+		m.clearcoat_enabled = high and m.get_meta("paint", false)
+
+
+## Give a textured material the matching normal map (assets/textures/*_n.png).
+static func add_relief(m: StandardMaterial3D, tex: String, strength := 1.0) -> void:
+	var path := TEX_DIR + tex + "_n.png"
+	if not ResourceLoader.exists(path):
+		return
+	m.normal_texture = load(path)
+	m.normal_scale = strength
+	m.normal_enabled = Controls.quality >= Controls.Quality.MEDIUM
+	_detailed.append(m)
 
 
 ## A flat cartoon-shaded material. `vertex_colors` uses per-vertex colours
@@ -72,22 +94,31 @@ static func toon(c: Color, vertex_colors := false, outline := 0.0, finish := Fin
 			m.uv1_world_triplanar = true
 			m.uv1_scale = Vector3.ONE / tile_m
 			m.uv1_triplanar_sharpness = 4.0
+		add_relief(m, tex)
 	match finish:
 		Finish.METAL:
-			m.metallic = 0.45
+			# Chrome-like: mostly reflects the sky, with a sharp sun highlight.
+			m.metallic = 0.85
 			m.metallic_specular = 1.0
-			m.roughness = 0.22
-			m.specular_mode = BaseMaterial3D.SPECULAR_TOON
+			m.roughness = 0.18
+			m.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
 			m.rim_enabled = true
-			m.rim = 0.35
-			m.rim_tint = 0.2
+			m.rim = 0.3
+			m.rim_tint = 0.3
+			_shiny.append(m)
 		Finish.PAINT:
+			# Glossy paint with a clear coat that catches the sun.
 			m.metallic_specular = 0.6
-			m.roughness = 0.38
-			m.specular_mode = BaseMaterial3D.SPECULAR_TOON
+			m.roughness = 0.35
+			m.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
 			m.rim_enabled = true
 			m.rim = 0.2
 			m.rim_tint = 0.6
+			m.clearcoat = 0.6
+			m.clearcoat_roughness = 0.15
+			m.set_meta("paint", true)
+			m.clearcoat_enabled = Controls.quality == Controls.Quality.HIGH
+			_shiny.append(m)
 		_:
 			m.roughness = 1.0
 			m.specular_mode = BaseMaterial3D.SPECULAR_DISABLED

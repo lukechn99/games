@@ -13,9 +13,13 @@ var auto_gas := false         # optional assist; phones have a gas button
 var tilt_full_lock := TILT_FULL_LOCK
 var tilt_trim := 0.0          # degrees, for people who hold their phone slightly tilted
 var shake_level := 1.0        # 1 full, 0.5 gentle, 0 off
-## Real-time sun shadows (design doc 9.4). On for computers; phones start
-## without them and can switch them on. Every kart has a blob shadow anyway.
-var shadows := true
+## Graphics quality (design doc 9.1). Everyone starts on High; if the frame
+## rate drops, the race steps down a level by itself (main.gd).
+enum Quality { LOW, MEDIUM, HIGH }
+var quality := Quality.HIGH
+## Real-time sun shadows, only on High. Off until they look right in the
+## browser renderer (they brightened the scene); ?shadows=on to try them.
+var shadows := false
 
 signal quality_changed
 
@@ -37,18 +41,21 @@ func _ready() -> void:
 		var query := str(JavaScriptBridge.eval("location.search", true))
 		if query.contains("shake=off"):
 			shake_level = 0.0
-	shadows = false  # TODO: on for computers once checked on real GPUs
 	if OS.has_feature("web"):
 		var q := str(JavaScriptBridge.eval("location.search", true))
-		if q.contains("shadows=on"):
-			shadows = true
-		elif q.contains("shadows=off"):
-			shadows = false
+		shadows = q.contains("shadows=on")
+		for name in ["low", "medium", "high"]:
+			if q.contains("quality=" + name):
+				quality = ["low", "medium", "high"].find(name) as Quality
 
 
-func set_shadows(on: bool) -> void:
-	shadows = on
+func set_quality(q: Quality) -> void:
+	quality = q
 	quality_changed.emit()
+
+
+func quality_name() -> String:
+	return ["Low", "Medium", "High"][quality]
 
 
 func _add_action(name: String, keys: Array, buttons: Array = [], axis: Array = []) -> void:

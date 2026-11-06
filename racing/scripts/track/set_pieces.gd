@@ -308,12 +308,24 @@ static func _tunnel(t: Track) -> void:
 	while d < d1 - 2.0:
 		var f := t.road_frame(d)
 		_box(lamps, Transform3D(f.basis, f.origin + f.basis.y * (ri * 0.78 - 0.25)), Vector3(1.6, 0.18, 0.5), Color(1.0, 0.86, 0.55))
+		# Every other lamp really lights the tunnel (and karts driving through).
+		if int((d - d0) / 7.0) % 2 == 0:
+			var light := OmniLight3D.new()
+			light.light_color = Color(1.0, 0.8, 0.5)
+			light.light_energy = 1.6
+			light.omni_range = 11.0
+			light.omni_attenuation = 1.2
+			light.position = f.origin + f.basis.y * (ri * 0.78 - 1.0)
+			t.add_child(light)
 		d += 7.0
 	_commit(t, inner_st, _stone_mat(), true, "rock")
 	_commit(t, outer_st, _rock_mat())
 	var glow := StandardMaterial3D.new()
 	glow.vertex_color_use_as_albedo = true
 	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.emission_enabled = true
+	glow.emission = Color(1.0, 0.8, 0.45)
+	glow.emission_energy_multiplier = 1.5
 	_commit(t, lamps, glow)
 	# It's darker inside.
 	var mid := (d0 + d1) * 0.5

@@ -1,10 +1,11 @@
-// Lake water (design doc 9.4): slow waves, deep and shallow blues, and a
-// few sun glints that come and go.
+// Lake water (design doc 9.4): slow waves, deep and shallow blues, the sky
+// reflected more at low angles (fresnel), and sun glints that come and go.
 shader_type spatial;
-render_mode diffuse_toon, specular_toon;
+render_mode diffuse_toon, specular_schlick_ggx;
 
-uniform vec3 deep : source_color = vec3(0.1, 0.36, 0.66);
-uniform vec3 shallow : source_color = vec3(0.22, 0.56, 0.82);
+uniform vec3 deep : source_color = vec3(0.08, 0.32, 0.6);
+uniform vec3 shallow : source_color = vec3(0.2, 0.52, 0.8);
+uniform vec3 sky : source_color = vec3(0.62, 0.84, 1.0);
 
 varying vec3 world;
 
@@ -20,10 +21,16 @@ void vertex() {
 
 void fragment() {
 	float w = wave(world.xz, TIME) + 0.5 * wave(world.zx * 1.9 + 3.0, TIME * 1.3);
-	ALBEDO = mix(deep, shallow, smoothstep(-1.0, 1.3, w));
-	// Glints only where two wave patterns crest together, so they're sparse.
+	vec3 col = mix(deep, shallow, smoothstep(-1.0, 1.3, w));
+	// Tilt the surface normal with the waves so highlights move.
+	vec3 n = normalize(vec3(cos(world.x * 0.55 + TIME * 1.3) * 0.12, 1.0, sin(world.z * 0.47 - TIME) * 0.12));
+	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
+	float fresnel = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 4.0);
+	col = mix(col, sky, fresnel * 0.7);
 	float g = wave(world.xz * 2.3 + 11.0, TIME * 1.7) * wave(world.zx * 3.1 - 7.0, TIME * 2.1);
-	ALBEDO += vec3(smoothstep(0.82, 0.95, g)) * 0.5;
-	ROUGHNESS = 0.2;
-	SPECULAR = 0.6;
+	col += vec3(smoothstep(0.82, 0.95, g)) * 0.5;
+	ALBEDO = col;
+	ROUGHNESS = 0.08;
+	SPECULAR = 0.9;
+	METALLIC = 0.0;
 }

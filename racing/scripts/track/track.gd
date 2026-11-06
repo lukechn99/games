@@ -177,6 +177,7 @@ func _mat(c: Color, tex := "", uv := 1.0, tri := 0.0) -> StandardMaterial3D:
 			m.uv1_triplanar_sharpness = 4.0
 		else:
 			m.uv1_scale = Vector3(uv, uv, 1.0)
+		Palette.add_relief(m, tex, 0.8)
 	return m
 
 

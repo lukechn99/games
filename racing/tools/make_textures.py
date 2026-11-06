@@ -57,7 +57,25 @@ def save(name, a):
     a = 1.0 - (1.0 - a) * STRENGTH[name]
     a = np.clip(a, 0, 1)
     Image.fromarray((a * 255).astype(np.uint8), "L").save(OUT / f"{name}.png", optimize=True)
+    normal_map(name, a)
     print(name, a.shape, round(float(a.mean()), 3))
+
+
+# How bumpy each surface is when light rakes across it.
+BUMP = {"asphalt": 2.0, "grass": 2.5, "dirt": 3.0, "ice": 1.0, "stone": 5.0, "rock": 6.0, "wood": 2.5}
+
+
+def normal_map(name, h):
+    """A tangent-space normal map from the texture's brightness used as height:
+    mortar sits lower than stones, creases lower than rock, cracks lower than
+    asphalt. Light then catches the edges (design doc 9.4)."""
+    k = BUMP[name] * h.shape[0] / 256.0
+    dx = (np.roll(h, -1, 1) - np.roll(h, 1, 1)) * 0.5 * k
+    dy = (np.roll(h, -1, 0) - np.roll(h, 1, 0)) * 0.5 * k
+    n = np.stack([-dx, dy, np.ones_like(h)], axis=-1)
+    n /= np.linalg.norm(n, axis=-1, keepdims=True)
+    rgb = ((n * 0.5 + 0.5) * 255).astype(np.uint8)
+    Image.fromarray(rgb, "RGB").save(OUT / f"{name}_n.png", optimize=True)
 
 
 def asphalt():

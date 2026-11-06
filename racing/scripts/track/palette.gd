@@ -27,22 +27,48 @@ const KIT := {
 
 const OUTLINE := Color(0.13, 0.1, 0.16)
 
+## How a surface catches the light (design doc 9.4).
+## MATTE: wood, rock, grass, fur, rubber. No shine.
+## PAINT: kart bodywork. A soft highlight and a little rim light.
+## METAL: tubes, rims, rails. A sharp bright highlight.
+enum Finish { MATTE, PAINT, METAL }
+
+const METAL_KIT := ["grey", "metal", "metalDark", "chrome"]
+
 static var _cache := {}
 
 
 ## A flat cartoon-shaded material. `vertex_colors` uses per-vertex colours
 ## (for merged meshes); `outline` adds an ink outline around the shape.
-static func toon(c: Color, vertex_colors := false, outline := 0.0) -> StandardMaterial3D:
-	var key := "%s|%s|%s" % [c.to_html(), vertex_colors, outline]
+static func toon(c: Color, vertex_colors := false, outline := 0.0, finish := Finish.MATTE) -> StandardMaterial3D:
+	var key := "%s|%s|%s|%s" % [c.to_html(), vertex_colors, outline, finish]
 	if _cache.has(key):
 		return _cache[key]
 	var m := StandardMaterial3D.new()
+	m.resource_name = str(finish)
 	m.albedo_color = c
 	m.vertex_color_use_as_albedo = vertex_colors
 	m.vertex_color_is_srgb = true  # merged meshes store our colours as written
-	m.roughness = 1.0
 	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	m.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+	match finish:
+		Finish.METAL:
+			m.metallic = 0.45
+			m.metallic_specular = 1.0
+			m.roughness = 0.22
+			m.specular_mode = BaseMaterial3D.SPECULAR_TOON
+			m.rim_enabled = true
+			m.rim = 0.35
+			m.rim_tint = 0.2
+		Finish.PAINT:
+			m.metallic_specular = 0.6
+			m.roughness = 0.38
+			m.specular_mode = BaseMaterial3D.SPECULAR_TOON
+			m.rim_enabled = true
+			m.rim = 0.2
+			m.rim_tint = 0.6
+		_:
+			m.roughness = 1.0
+			m.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 	if outline > 0.0:
 		var o := StandardMaterial3D.new()
 		o.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -67,7 +93,7 @@ static func restyle(mesh: Mesh) -> Mesh:
 		var src := mesh.surface_get_material(i)
 		var name := src.resource_name if src else ""
 		var c: Color = KIT.get(name, (src as BaseMaterial3D).albedo_color if src is BaseMaterial3D else Color.WHITE)
-		out.surface_set_material(i, toon(c))
+		out.surface_set_material(i, toon(c, false, 0.0, Finish.METAL if name in METAL_KIT else Finish.MATTE))
 	_cache[key] = out
 	return out
 
@@ -80,5 +106,5 @@ static func restyle_tree(root: Node) -> void:
 		if n is MeshInstance3D:
 			var mi := n as MeshInstance3D
 			mi.mesh = restyle(mi.mesh)
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		stack.append_array(n.get_children())

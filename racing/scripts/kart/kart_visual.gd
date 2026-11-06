@@ -21,7 +21,7 @@ var _sparks: MeshInstance3D
 var _lean := 0.0
 var _bob := 0.0
 var _bob_vel := 0.0
-var _materials := {}
+var _finish := Palette.Finish.PAINT  # parts built from now on
 
 
 func _init(k: Kart, merge := true) -> void:
@@ -34,17 +34,15 @@ func _ready() -> void:
 	rebuild()
 
 
-func _mat(c: Color, rough := 0.85) -> StandardMaterial3D:
-	var key := c.to_html() + str(rough)
-	if _materials.has(key):
-		return _materials[key]
-	var m := StandardMaterial3D.new()
-	m.albedo_color = c
-	m.roughness = rough
-	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	m.specular_mode = BaseMaterial3D.SPECULAR_TOON
-	_materials[key] = m
-	return m
+## Paintwork shines softly, metal sharply, rubber and fur not at all (9.4).
+func _mat(c: Color) -> StandardMaterial3D:
+	var finish := _finish
+	if finish == Palette.Finish.PAINT:
+		if c in [METAL, CHROME, Color(0.6, 0.6, 0.64), Color(0.45, 0.47, 0.52)]:
+			finish = Palette.Finish.METAL
+		elif c == DARK or c.v < 0.22:
+			finish = Palette.Finish.MATTE
+	return Palette.toon(c, false, 0.0, finish)
 
 
 func _mesh(mesh: Mesh, c: Color, parent: Node3D, pos := Vector3.ZERO, scale_v := Vector3.ONE, rot := Vector3.ZERO) -> MeshInstance3D:
@@ -54,7 +52,6 @@ func _mesh(mesh: Mesh, c: Color, parent: Node3D, pos := Vector3.ZERO, scale_v :=
 	mi.position = pos
 	mi.scale = scale_v
 	mi.rotation = rot
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(mi)
 	return mi
 
@@ -97,6 +94,7 @@ func rebuild() -> void:
 	for c in get_children():
 		c.queue_free()
 	_wheels.clear()
+	_finish = Palette.Finish.PAINT
 	_wobbly.clear()
 	_wobble_vel.clear()
 	_wobble_pos.clear()
@@ -126,9 +124,11 @@ func rebuild() -> void:
 	_boost_flame = _mesh(_cone(0.18, 0.6), Color(1.0, 0.6, 0.15), self, Vector3(0, body_y, size.z * 0.6), Vector3.ONE, Vector3(-PI / 2, 0, 0))
 	_boost_flame.material_override = _glow(Color(1.0, 0.62, 0.2))
 	_boost_flame.visible = false
+	_boost_flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_sparks = _mesh(_sphere(0.12, 4, 6), Color(0.4, 0.75, 1.0), self, Vector3(0, 0.1, size.z * 0.5))
 	_sparks.material_override = _glow(Color(0.45, 0.8, 1.0))
 	_sparks.visible = false
+	_sparks.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	# Wheels snap to the chassis's mounting points.
 	var r := kart.wheel_radius()
@@ -146,21 +146,34 @@ func rebuild() -> void:
 		cyl.height = width
 		cyl.radial_segments = 14
 		cyl.rings = 1
+		_finish = Palette.Finish.MATTE  # rubber
 		_mesh(cyl, tire_color, spin, Vector3.ZERO, Vector3.ONE, Vector3(0, 0, PI / 2))
-		_mesh(_box(Vector3(width * 1.02, r * 0.9, r * 0.25)), Color(0.85, 0.85, 0.88), spin)  # hub, shows the spin
+		_finish = Palette.Finish.PAINT
+		var rim := CylinderMesh.new()
+		rim.top_radius = r * 0.55
+		rim.bottom_radius = r * 0.55
+		rim.height = width * 1.04
+		rim.radial_segments = 10
+		rim.rings = 1
+		_mesh(rim, CHROME, spin, Vector3.ZERO, Vector3.ONE, Vector3(0, 0, PI / 2))  # shiny rim
+		_mesh(_box(Vector3(width * 1.08, r * 0.7, r * 0.16)), DARK, spin)  # spokes, show the spin
 		if kart.tires_id == "knobby" or kart.tires_id == "studded":
 			for k in 6:
 				var a := TAU * k / 6.0
+				_finish = Palette.Finish.MATTE
 				_mesh(_box(Vector3(width * 1.05, 0.06, 0.08)), tire_color.lightened(0.25), spin, Vector3(0, cos(a) * r, sin(a) * r), Vector3.ONE, Vector3(a, 0, 0))
 		_wheels.append(pivot)
 
+	_finish = Palette.Finish.MATTE  # fur and cloth
 	_build_driver(body_y, size, seat["z"])
+	_finish = Palette.Finish.PAINT
 	if not has_meta("nomerge"):
 		_merge_all()
 
 
 const OUTLINE_W := 0.025
 const METAL := Color(0.78, 0.8, 0.84)
+const CHROME := Color(0.86, 0.87, 0.9)
 const DARK := Color(0.16, 0.16, 0.2)
 
 
@@ -299,11 +312,31 @@ func _merge(group: Node3D) -> void:
 	_collect(group, Transform3D.IDENTITY, parts, xforms, true)
 	if parts.size() < 1:
 		return
+	# One surface per finish, so metal still shines and fur stays matte.
+	var by_finish := {}
+	for i in parts.size():
+		var f := int(parts[i].material_override.resource_name)
+		if not by_finish.has(f):
+			by_finish[f] = []
+		by_finish[f].append(i)
+	var mesh := ArrayMesh.new()
+	for f in by_finish:
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, _combine(parts, xforms, by_finish[f]))
+		mesh.surface_set_material(mesh.get_surface_count() - 1, Palette.toon(Color.WHITE, true, OUTLINE_W, f))
+	for mi in parts:
+		mi.get_parent().remove_child(mi)
+		mi.queue_free()
+	var merged := MeshInstance3D.new()
+	merged.mesh = mesh
+	group.add_child(merged)
+
+
+func _combine(parts: Array[MeshInstance3D], xforms: Array[Transform3D], which: Array) -> Array:
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
-	for i in parts.size():
+	for i in which:
 		var mi := parts[i]
 		var xf := xforms[i]
 		var c: Color = (mi.material_override as StandardMaterial3D).albedo_color
@@ -323,22 +356,13 @@ func _merge(group: Node3D) -> void:
 		else:
 			for k in idx:
 				indices.append(base + k)
-	for mi in parts:
-		mi.get_parent().remove_child(mi)
-		mi.queue_free()
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_COLOR] = colors
 	arrays[Mesh.ARRAY_INDEX] = indices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var merged := MeshInstance3D.new()
-	merged.mesh = mesh
-	merged.material_override = Palette.toon(Color.WHITE, true, OUTLINE_W)
-	merged.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	group.add_child(merged)
+	return arrays
 
 
 ## Mesh parts under `node`, with transforms relative to the group. Stops at
@@ -355,7 +379,8 @@ func _collect(node: Node3D, xf: Transform3D, parts: Array[MeshInstance3D], xform
 				# Stretched shells shade wrongly once merged, so they stay
 				# separate (with the same toon look and outline).
 				var mi := child as MeshInstance3D
-				mi.material_override = Palette.toon((mi.material_override as StandardMaterial3D).albedo_color, false, OUTLINE_W)
+				var m := mi.material_override as StandardMaterial3D
+				mi.material_override = Palette.toon(m.albedo_color, false, OUTLINE_W, int(m.resource_name))
 				_collect(child, cx, parts, xforms, false)
 				continue
 			parts.append(child)

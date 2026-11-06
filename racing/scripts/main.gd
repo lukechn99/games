@@ -19,6 +19,9 @@ var center_text := ""
 var _countdown := 0.0
 var _racing := false
 var _finish_order: Array[Kart] = []
+var sun: DirectionalLight3D
+var _fps_time := 0.0          # seconds of racing measured so far
+var _fps_frames := 0
 
 
 func _ready() -> void:
@@ -108,11 +111,64 @@ func _build_world() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52, -35, 0)
 	sun.light_energy = 0.8
-	sun.shadow_enabled = false  # blob shadows only (design doc 9.1)
+	# Real shadows only near the camera, so they stay cheap (design doc 9.4).
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	sun.directional_shadow_max_distance = 45.0
+	sun.shadow_bias = 0.04
+	sun.shadow_normal_bias = 1.5
+	sun.shadow_opacity = 0.55
+	sun.shadow_blur = 1.5
 	add_child(sun)
+	_apply_quality()
+	Controls.quality_changed.connect(_apply_quality)
+
+
+func _apply_quality() -> void:
+	sun.shadow_enabled = Controls.shadows
+	_fps_time = 0.0
+	_fps_frames = 0
+
+
+## If a phone can't keep up with shadows, turn them off once, early in the
+## race, and say so. Players can turn them back on in the garage.
+func _watch_frame_rate(delta: float) -> void:
+	if not Controls.shadows or _fps_time > 8.0:
+		return
+	_fps_time += delta
+	_fps_frames += 1
+	if _fps_time > 8.0 and _fps_frames / _fps_time < 40.0:
+		Controls.set_shadows(false)
+		_fps_time = 99.0
+		hud.flash("Shadows off for smoother play", 2.0)
+
+
+static var _blob: StandardMaterial3D
+
+
+## A soft dark oval that fades out at the edges.
+func _blob_material() -> StandardMaterial3D:
+	if _blob:
+		return _blob
+	var g := Gradient.new()
+	g.set_color(0, Color(0, 0, 0, 0.5))
+	g.set_color(1, Color(0, 0, 0, 0.0))
+	g.add_point(0.55, Color(0, 0, 0, 0.32))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	tex.width = 64
+	tex.height = 64
+	_blob = StandardMaterial3D.new()
+	_blob.albedo_texture = tex
+	_blob.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_blob.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_blob.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	return _blob
 
 
 func _spawn_kart(chassis: String, tires: String, driver: String, slot: int) -> Kart:
@@ -124,17 +180,14 @@ func _spawn_kart(chassis: String, tires: String, driver: String, slot: int) -> K
 	var vis := KartVisual.new(k)
 	k.add_child(vis)
 	k.set_meta("visual", vis)
-	var shadow := MeshInstance3D.new()  # soft blob shadow
+	var shadow := MeshInstance3D.new()  # soft blob shadow, on every device
 	var quad := QuadMesh.new()
-	quad.size = Vector2(1.6, 2.4)
+	quad.size = Vector2(1.9, 2.7)
 	shadow.mesh = quad
 	shadow.rotation.x = -PI / 2
 	shadow.position.y = -0.24
-	var sm := StandardMaterial3D.new()
-	sm.albedo_color = Color(0, 0, 0, 0.28)
-	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	shadow.material_override = sm
+	shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	shadow.material_override = _blob_material()
 	k.add_child(shadow)
 	k.crashed.connect(func(s): if k == player_kart and s > 0.5: hud.flash("Ouch!", 0.8))
 	k.lap_completed.connect(func(lap, _t): _on_lap(k, lap))
@@ -170,6 +223,8 @@ func _set_bots_enabled(on: bool) -> void:
 
 
 func _process(delta: float) -> void:
+	if _racing:
+		_watch_frame_rate(delta)
 	if not _racing:
 		var before := ceili(_countdown)
 		_countdown -= delta

@@ -55,7 +55,11 @@ jobs:
       - name: Test and export the kart racer
         run: |
           ~/godot/godot --headless --path racing --import
-          ~/godot/godot --headless --path racing --fixed-fps 60 -s tests/run_tests.gd
+          # A script error can stop the tests without failing the step, so
+          # also insist on the final "N passed, 0 failed" line.
+          ~/godot/godot --headless --path racing --fixed-fps 60 -s tests/run_tests.gd 2>&1 | tee /tmp/racing-tests.log
+          grep -qE "^[0-9]+ passed, 0 failed" /tmp/racing-tests.log
+          ! grep -q "SCRIPT ERROR" /tmp/racing-tests.log
           mkdir -p public/racing
           ~/godot/godot --headless --path racing --export-release "Web" "$PWD/public/racing/index.html"
           test -f public/racing/index.wasm

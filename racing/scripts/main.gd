@@ -168,7 +168,7 @@ func _apply_quality() -> void:
 	vp.scaling_3d_scale = 0.75 if q == Controls.Quality.LOW else 1.0
 	_env.glow_enabled = q >= Controls.Quality.MEDIUM
 	sun.shadow_enabled = Controls.shadows and q == Controls.Quality.HIGH
-	Palette.apply_quality(q >= Controls.Quality.MEDIUM)
+	Palette.apply_quality(q >= Controls.Quality.MEDIUM, q == Controls.Quality.HIGH)
 	_fps_time = 0.0
 	_fps_frames = 0
 

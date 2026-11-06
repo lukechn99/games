@@ -49,15 +49,19 @@ const TEX_DIR := "res://assets/textures/"
 static var _cache := {}
 static var _detailed: Array[StandardMaterial3D] = []   # materials with normal maps
 static var _shiny: Array[StandardMaterial3D] = []      # paint and metal
+static var relief_on := true     # set by main.gd from the graphics quality
+static var clearcoat_on := true
 
 
 ## Turn surface relief (normal maps) and clear-coat shine on or off for
 ## every material, when the graphics quality changes.
-static func apply_quality(high: bool) -> void:
+static func apply_quality(relief: bool, clearcoat: bool) -> void:
+	relief_on = relief
+	clearcoat_on = clearcoat
 	for m in _detailed:
-		m.normal_enabled = high
+		m.normal_enabled = relief
 	for m in _shiny:
-		m.clearcoat_enabled = high and m.get_meta("paint", false)
+		m.clearcoat_enabled = clearcoat and m.get_meta("paint", false)
 
 
 ## Give a textured material the matching normal map (assets/textures/*_n.png).
@@ -67,7 +71,7 @@ static func add_relief(m: StandardMaterial3D, tex: String, strength := 1.0) -> v
 		return
 	m.normal_texture = load(path)
 	m.normal_scale = strength
-	m.normal_enabled = Controls.quality >= Controls.Quality.MEDIUM
+	m.normal_enabled = relief_on
 	_detailed.append(m)
 
 
@@ -117,7 +121,7 @@ static func toon(c: Color, vertex_colors := false, outline := 0.0, finish := Fin
 			m.clearcoat = 0.6
 			m.clearcoat_roughness = 0.15
 			m.set_meta("paint", true)
-			m.clearcoat_enabled = Controls.quality == Controls.Quality.HIGH
+			m.clearcoat_enabled = clearcoat_on
 			_shiny.append(m)
 		_:
 			m.roughness = 1.0

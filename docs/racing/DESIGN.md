@@ -529,7 +529,7 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
   - any sideways push from the floor itself is undone.
 
   A test drives straight from pole through the first 165 m and must hit nothing.
-- **Kart selection (4).** Every race starts in a lobby: a see-through menu over a slow aerial tour of the whole track. Chassis, wheels, driver and steering (joystick or tilt) are on the left. The chosen kart turns on a stand on the right, with its driver standing beside it, waving. Ready is in the bottom-right corner, and the race starts when everyone is ready (bots always are; online players will come from the room).
+- **Kart selection (4).** Every race starts in a lobby: a see-through menu over a slow aerial tour of the whole track. Chassis, wheels, driver and steering (joystick or tilt) are on the left. The chosen kart slowly turns on the right, just the kart. Ready is in the bottom-right corner, and the race starts when everyone is ready (bots always are; online players will come from the room).
 - **Landscape only on phones.** On the first tap, Android browsers go full screen and lock to landscape. iPhones can't lock, so a "turn your phone sideways" card covers the game while it's upright. Full tilt lock is now 25°, so there's no need to tip the phone far.
 - **Kart meshes are merged** into one vertex-coloured mesh per moving group, with an ink outline. Stretched shells (nose cones, pods, the soapbox egg) stay separate pieces, because merging them shaded wrongly.
 
@@ -600,3 +600,4 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | The fork: open road with the boost pad vs a neon cave with boost moss and pillars | The user's request for a meaningful choice |
 | 2026-11-06 | Performance strategy 14.1 | The user's request, from research and measurement |
 | 2026-11-06 | Next: review the road and environment pieces one by one and build our own asset set from the CC0 kits (mine rails and more) | The user's direction |
+| 2026-11-06 | Lobby preview shows just the kart, no stand or standing animal | The user's direction: the standing animal looked odd |

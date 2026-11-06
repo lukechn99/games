@@ -2,12 +2,11 @@ class_name Lobby
 extends CanvasLayer
 ## The kart-selection screen before each race (design doc 4 and 5).
 ## A see-through menu over a slow aerial tour of the whole track (main.gd
-## flies the camera). Options on the left, the chosen kart turning on its
-## stand on the right, and Ready in the bottom-right corner.
+## flies the camera). Options on the left, the chosen kart slowly turning
+## on the right, and Ready in the bottom-right corner.
 ##
 ## Everyone picks a chassis, wheels and a driver, and how they'll steer, then
-## taps Ready. The race starts when every player is ready. The chosen kart
-## turns slowly on a stand with its driver standing beside it, waving.
+## taps Ready. The race starts when every player is ready.
 ##
 ## Online play will fill `players` from the room; for now it's you plus the
 ## computer drivers, who are always ready.
@@ -23,7 +22,6 @@ var _preview: SubViewport
 var _preview_box: SubViewportContainer
 var _kart: Kart
 var _kart_vis: KartVisual
-var _stand_vis: KartVisual
 var _turn: Node3D
 var _buttons := {}
 var _list: VBoxContainer
@@ -89,26 +87,6 @@ func _build_preview() -> void:
 	rim.light_energy = 0.6
 	rim.light_color = Color(0.6, 0.75, 1.0)
 	_preview.add_child(rim)
-	# A round stand with a stripe round the edge.
-	var stand := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius = 2.3
-	cyl.bottom_radius = 2.4
-	cyl.height = 0.3
-	cyl.radial_segments = 48
-	stand.mesh = cyl
-	stand.position = Vector3(0, -0.15, 0)
-	stand.material_override = Palette.toon(Color(0.86, 0.88, 0.94), false, 0.0, Palette.Finish.PAINT)
-	_preview.add_child(stand)
-	var ring := MeshInstance3D.new()
-	var tor := TorusMesh.new()
-	tor.inner_radius = 2.3
-	tor.outer_radius = 2.45
-	tor.rings = 48
-	ring.mesh = tor
-	ring.position = Vector3(0, -0.02, 0)
-	ring.material_override = Palette.toon(Color(1.0, 0.68, 0.1), false, 0.0, Palette.Finish.PAINT)
-	_preview.add_child(ring)
 	_turn = Node3D.new()
 	_preview.add_child(_turn)
 	# A parked kart to dress: frozen, it never moves on its own.
@@ -120,15 +98,11 @@ func _build_preview() -> void:
 	_kart_vis.empty = true
 	_kart.add_child(_kart_vis)
 	_kart.position = Vector3(0, 0.12, 0)
-	_stand_vis = KartVisual.new(_kart, true, true)
-	_preview.add_child(_stand_vis)
-	_stand_vis.position = Vector3(2.0, 0.42, 0.9)
-	_stand_vis.rotation.y = PI - 0.45
 	var cam := Camera3D.new()
-	cam.position = Vector3(0.9, 2.6, 7.4)
-	cam.fov = 38.0
+	cam.position = Vector3(0, 2.2, 5.6)
+	cam.fov = 36.0
 	_preview.add_child(cam)
-	cam.look_at(Vector3(0.9, 0.55, 0.2), Vector3.UP)
+	cam.look_at(Vector3(0, 0.35, 0), Vector3.UP)
 
 
 func _process(delta: float) -> void:
@@ -136,10 +110,6 @@ func _process(delta: float) -> void:
 		return
 	_t += delta
 	_turn.rotation.y += delta * 0.45
-	# The driver bobs about, happy to be picked.
-	_stand_vis.position.y = 0.42 + absf(sin(_t * 2.2)) * 0.06
-	_stand_vis.rotation.z = sin(_t * 2.2) * 0.05
-	_stand_vis.rotation.y = PI - 0.45 + sin(_t * 0.9) * 0.15
 	_layout(get_viewport().get_visible_rect().size)
 	if _tilt_btn:
 		var r := _tilt_btn.get_global_rect()
@@ -280,7 +250,6 @@ func _set_scheme(s: Controls.Scheme) -> void:
 func _dress() -> void:
 	_kart.configure(choice["chassis"], choice["tires"], choice["driver"])
 	_kart_vis.rebuild()
-	_stand_vis.rebuild()
 
 
 func _refresh() -> void:

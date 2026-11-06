@@ -76,6 +76,8 @@ func _ready() -> void:
 	garage_btn.pressed.connect(func(): _garage.visible = not _garage.visible)
 	root.add_child(garage_btn)
 	_build_garage(root)
+	if _query_has("perf"):
+		root.add_child(PerfOverlay.new())
 
 
 func _query_has(s: String) -> bool:

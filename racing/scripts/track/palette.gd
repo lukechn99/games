@@ -138,6 +138,21 @@ static func toon(c: Color, vertex_colors := false, outline := 0.0, finish := Fin
 	return m
 
 
+## The ink outline on its own (drawn as a separate, nearby-only mesh).
+static func outline_material(width: float) -> StandardMaterial3D:
+	var key := "outline|%s" % width
+	if _cache.has(key):
+		return _cache[key]
+	var o := StandardMaterial3D.new()
+	o.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	o.albedo_color = OUTLINE
+	o.cull_mode = BaseMaterial3D.CULL_FRONT
+	o.grow = true
+	o.grow_amount = width
+	_cache[key] = o
+	return o
+
+
 ## Leaves that sway in the wind (shaders/leaves.gdshader).
 static func leaves(c: Color) -> ShaderMaterial:
 	var key := "leaves|" + c.to_html()

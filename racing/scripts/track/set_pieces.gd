@@ -365,7 +365,7 @@ static func _bridge(t: Track) -> void:
 	var flat := Basis(f.basis.x, Vector3.UP, f.basis.x.cross(Vector3.UP))
 	# Deck and parapets.
 	_box(st, Transform3D(flat, f.origin * Vector3(1, 0, 1) + Vector3.UP * deck_y), Vector3(span * 2.0, 1.4, 5.0), stone)
-	for s in [-1.0, 1.0]:
+	for s: float in [-1.0, 1.0]:
 		_box(st, Transform3D(flat, f.origin * Vector3(1, 0, 1) + Vector3.UP * (deck_y + 1.1) + f.basis.z * s * 2.2), Vector3(span * 2.0, 0.8, 0.5), stone.darkened(0.05))
 	# A shallow arch under the deck.
 	for k in 10:
@@ -374,7 +374,7 @@ static func _bridge(t: Track) -> void:
 		_box(st, Transform3D(flat, f.origin * Vector3(1, 0, 1) + f.basis.x * x + Vector3.UP * (deck_y - 0.7 - (2.2 - sag) * 0.5 - 0.2)), Vector3((span * 2.0 - 6.0) / 10.0 + 0.05, (2.2 - sag) + 0.4, 4.6), stone.darkened(0.08))
 	# Gate towers either side, standing on the ground.
 	var tower := _new_st()
-	for s in [-1.0, 1.0]:
+	for s: float in [-1.0, 1.0]:
 		var c: Vector3 = f.origin * Vector3(1, 0, 1) + f.basis.x * s * (span + 2.0)
 		var h := deck_y + 4.0
 		_box(tower, Transform3D(flat, c + Vector3.UP * h * 0.5), Vector3(5.0, h, 6.0), stone)
@@ -400,7 +400,7 @@ static func _gantry(t: Track, d: float) -> void:
 	var metal := Color(0.82, 0.84, 0.88)
 	var half := Track.ROAD_WIDTH * 0.5 + 2.6
 	var h := 7.0
-	for s in [-1.0, 1.0]:
+	for s: float in [-1.0, 1.0]:
 		var base: Vector3 = flat.origin + flat.basis.x * s * half
 		base.y = minf(base.y, f.origin.y) - 1.0
 		_box(st, Transform3D(flat.basis, base + Vector3.UP * (h + 1.0) * 0.5), Vector3(0.45, h + 1.0, 0.45), metal)
@@ -425,39 +425,155 @@ static func _gantry(t: Track, d: float) -> void:
 	road_shade(t, d + 3.0, half * 2.0, 3.0, sun_ground_offset().x * 2.0, 0.7)
 
 
-## The rocky island between the two routes, a ramp on the second route,
-## and cones marking where the road splits and joins.
+## Where the road splits (design doc 9.4): the main road stays out under the
+## sky and has the boost pad where the routes meet again. The second route
+## dives into a hill: a dark cave lit by glowing mushrooms and crystals, with
+## two strips of glowing moss that boost you and crystal pillars to weave
+## round. Longer and riskier, but faster if you hit the moss.
 static func _island(t: Track) -> void:
-	var st := _new_st()
-	var mid: float = (Track.BRANCH[0] + Track.BRANCH[1]) * 0.5
-	var shade := []
-	var i := 0
-	for d in [mid - 16.0, mid - 2.0, mid + 12.0]:
-		var f := t.transform_at(d)
-		var lateral := t.branch_offset(d) * 0.5
-		var base := f.origin + f.basis.x * lateral
-		base.y = 0.0
-		var r := 3.0 + (i % 2) * 0.8
-		var h := 5.0 + i * 1.6
-		_boulder(st, base, r, h, 11 + i)
-		_solid_cylinder(t, base, r * 0.95, h)
-		shade.append([base, r, h])
-		i += 1
-	_commit(t, st, _rock_mat())
-	ground_shade(t, shade)
-	# A ramp on the second route (the main road has the boost pad).
-	var rf := t.branch_frame(mid)
-	_ramp(t, rf, Track.ROAD_WIDTH * 0.7, 6.0, 1.1)
-	# Cones at the tips of the island.
+	# Where the two roads are fully apart.
+	var d0 := -1.0
+	var d1 := -1.0
+	var d: float = Track.BRANCH[0]
+	while d < Track.BRANCH[1]:
+		if absf(t.branch_offset(d)) >= Track.BRANCH_SPLIT:
+			if d0 < 0.0:
+				d0 = d
+			d1 = d
+		d += 1.0
+	_cones(t, d0, d1)
+	_cave(t, d0 + 6.0, d1 - 6.0)
+	# The hill over the cave fills the island; keep trees off it.
+	var mid := t.branch_frame((d0 + d1) * 0.5)
+	t.keep_clear(mid.origin, 40.0)
+
+
+static func _cones(t: Track, d0: float, d1: float) -> void:
 	var cones := _new_st()
-	for d in [Track.BRANCH[0] + 34.0, Track.BRANCH[1] - 34.0]:
+	for d in [d0, d1]:
 		var f := t.transform_at(d)
 		var p := f.origin + f.basis.x * t.branch_offset(d) * 0.5
 		for k in 3:
-			var c := p + f.basis.z * (k - 1) * 2.0
+			var c := p + f.basis.z * (k - 1) * 1.6 * (1.0 if d == d0 else -1.0)
 			_box(cones, Transform3D(Basis(), c + Vector3.UP * 0.4), Vector3(0.6, 0.8, 0.6), Color(1.0, 0.55, 0.08))
 			_box(cones, Transform3D(Basis(), c + Vector3.UP * 0.5), Vector3(0.66, 0.15, 0.66), Color(1, 1, 1))
 	_commit(t, cones, Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.PAINT))
+
+
+static func _cave(t: Track, d0: float, d1: float) -> void:
+	var inner_st := _new_st()
+	var outer_st := _new_st()
+	var ri := Track.ROAD_WIDTH * 0.5 + 1.8
+	var arc := 14
+	var rings := []
+	var d := d0
+	while d <= d1 + 0.01:
+		var f := t.branch_frame(d)
+		var inner := []
+		var outer := []
+		for k in arc + 3:
+			var p_in: Vector3
+			var p_out: Vector3
+			if k == 0 or k == arc + 2:
+				var sx := 1.0 if k == 0 else -1.0
+				p_in = f.origin + f.basis.x * sx * ri - Vector3.UP * 2.0
+				p_out = f.origin + f.basis.x * sx * (ri + 9.0) - Vector3.UP * 2.0
+			else:
+				var a := PI * float(k - 1) / arc
+				var lump := 0.5 * sin(d * 0.4 + k * 2.1) + 0.3 * sin(d * 0.17 + k)
+				var dir := f.basis.x * cos(a) + Vector3.UP * sin(a) * 0.68
+				p_in = f.origin + dir * (ri + lump * 0.4)
+				# Outside: a broad grassy hill rather than a tube.
+				p_out = f.origin + f.basis.x * cos(a) * (ri + 7.0) + Vector3.UP * (sin(a) * (ri * 0.68 + 3.5) + lump)
+			inner.append(p_in)
+			outer.append(p_out)
+		rings.append([inner, outer])
+		d += 3.0
+	var cave_rock := Color(0.34, 0.31, 0.46)
+	for r in rings.size() - 1:
+		var a_in: Array = rings[r][0]
+		var b_in: Array = rings[r + 1][0]
+		var a_out: Array = rings[r][1]
+		var b_out: Array = rings[r + 1][1]
+		for k in a_in.size() - 1:
+			_quad(inner_st, a_in[k], b_in[k], b_in[k + 1], a_in[k + 1], cave_rock.darkened(0.15 * float(k % 3)))
+			# Rock low down, grass over the top of the hill.
+			var up := float(min(k, a_in.size() - 2 - k)) / (a_in.size() * 0.5)
+			var col := Color(0.6, 0.58, 0.55).lerp(Color(0.42, 0.78, 0.3), smoothstep(0.35, 0.6, up))
+			_quad(outer_st, a_out[k], a_out[k + 1], b_out[k + 1], b_out[k], col)
+	for e in [0, rings.size() - 1]:
+		var ins: Array = rings[e][0]
+		var outs: Array = rings[e][1]
+		for k in ins.size() - 1:
+			if e == 0:
+				_quad(inner_st, ins[k], ins[k + 1], outs[k + 1], outs[k], Color(0.5, 0.47, 0.45))
+			else:
+				_quad(inner_st, ins[k], outs[k], outs[k + 1], ins[k + 1], Color(0.5, 0.47, 0.45))
+	_commit(t, inner_st, _rock_mat(), true, "rock")
+	_commit(t, outer_st, Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.MATTE, "rock", 6.0))
+	# Darker road inside.
+	var dark := _new_st()
+	d = d0 + 1.0
+	while d < d1 - 1.0:
+		var fa := t.branch_frame(d)
+		var fb := t.branch_frame(d + 2.0)
+		var hw := Track.ROAD_WIDTH * 0.5 + 1.2
+		var depth := clampf(minf(d - d0, d1 - d) / 8.0, 0.0, 1.0)
+		var c := Color(0.02, 0.0, 0.08, 0.62 * depth)
+		var lift := Vector3.UP * 0.075
+		_quad(dark, fa.origin - fa.basis.x * hw + lift, fb.origin - fb.basis.x * hw + lift, fb.origin + fb.basis.x * hw + lift, fa.origin + fa.basis.x * hw + lift, c)
+		d += 2.0
+	var dm := StandardMaterial3D.new()
+	dm.vertex_color_use_as_albedo = true
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dm.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	_commit(t, dark, dm)
+	# Neon life: mushrooms along the walls, crystals on the walls and roof.
+	var glow := _new_st()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 21
+	var neon := [Color(0.2, 1.0, 0.95), Color(1.0, 0.3, 0.9), Color(0.6, 1.0, 0.25), Color(0.55, 0.5, 1.0)]
+	d = d0 + 2.0
+	while d < d1 - 2.0:
+		var f := t.branch_frame(d)
+		for side: float in [-1.0, 1.0]:
+			# A cluster of mushrooms at the foot of the wall.
+			var base := f.origin + f.basis.x * side * (ri - 0.7) + f.basis.z * rng.randf_range(-1.0, 1.0)
+			var col: Color = neon[rng.randi() % neon.size()]
+			for m in rng.randi_range(2, 4):
+				var p := base + Vector3(rng.randf_range(-0.6, 0.6), 0, rng.randf_range(-0.6, 0.6))
+				var h := rng.randf_range(0.35, 0.9)
+				_box(glow, Transform3D(Basis(), p + Vector3.UP * h * 0.5), Vector3(0.12, h, 0.12), Color(0.85, 0.9, 1.0))
+				_box(glow, Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU), p + Vector3.UP * h), Vector3(0.5, 0.16, 0.5) * rng.randf_range(0.7, 1.3), col)
+			# A crystal sticking out of the wall, angled up.
+			var a := rng.randf_range(0.35, 1.2)
+			var cpos := f.origin + f.basis.x * side * cos(a) * (ri + 0.4) + Vector3.UP * sin(a) * (ri + 0.4) * 0.68
+			var cb := Basis.looking_at((f.origin + Vector3.UP * 2.0 - cpos).normalized(), Vector3.UP).rotated(f.basis.z, rng.randf_range(-0.3, 0.3))
+			_box(glow, Transform3D(cb * Basis.from_scale(Vector3(0.35, 0.35, 1.5)), cpos), Vector3.ONE, neon[(rng.randi() + 1) % neon.size()])
+		d += 3.0
+	var gm := ShaderMaterial.new()
+	gm.shader = load("res://shaders/neon.gdshader")
+	_commit(t, glow, gm)
+	# Coloured light from the glow, so karts inside light up too.
+	var n := 4
+	for i in n:
+		var f := t.branch_frame(lerpf(d0, d1, (i + 0.5) / n))
+		var light := OmniLight3D.new()
+		light.light_color = neon[i % neon.size()]
+		light.light_energy = 1.8
+		light.omni_range = 12.0
+		light.position = f.origin + Vector3.UP * 3.5
+		t.add_child(light)
+	# Crystal pillars near the walls to weave round.
+	var pillars := _new_st()
+	for u in [0.52, 0.56]:
+		var f := t.branch_frame(lerpf(Track.BRANCH[0], Track.BRANCH[1], u))
+		var sx := -1.0 if u < 0.54 else 1.0
+		var p := f.origin + f.basis.x * sx * 4.4
+		_box(pillars, Transform3D(Basis().rotated(Vector3.UP, 0.4), p + Vector3.UP * 2.5), Vector3(1.3, 5.0, 1.3), neon[0] if sx < 0 else neon[1])
+		_solid_cylinder(t, p, 0.85, 5.0)
+	_commit(t, pillars, gm)
 
 
 static func _ramp(t: Track, f: Transform3D, w: float, l: float, h: float) -> void:
@@ -470,6 +586,7 @@ static func _ramp(t: Track, f: Transform3D, w: float, l: float, h: float) -> voi
 	shape.points = pts
 	var body := StaticBody3D.new()
 	body.set_meta("surface", "asphalt")
+	body.set_meta("floor", true)
 	body.transform = f
 	var col := CollisionShape3D.new()
 	col.shape = shape
@@ -499,6 +616,12 @@ static func _bleachers(t: Track, d: float, side := 0.0) -> void:
 	if side == 0.0:
 		side = signf(t.bank_at(d)) if absf(t.bank_at(d)) > 0.01 else 1.0
 		side = -side  # the outside of the corner
+	# Slide back along the road until no part of the stand is near any road
+	# (a corner further on can curve toward it: a bot kept hitting one).
+	for attempt in 12:
+		if _stand_clear(t, d, side):
+			break
+		d -= 8.0
 	var f := t.transform_at(d)
 	var face := f.basis.rotated(Vector3.UP, PI / 2 if side > 0 else -PI / 2)  # -Z faces the road
 	var origin := f.origin + f.basis.x * side * (Track.ROAD_WIDTH * 0.5 + 9.0)
@@ -542,6 +665,17 @@ static func _bleachers(t: Track, d: float, side := 0.0) -> void:
 	_crowd(t, people, face)
 	ground_shade(t, [[origin + face * Vector3(0, 0, 3.0), width * 0.45, 7.0]])
 	t.keep_clear(origin + face * Vector3(0, 0, 3.0), 14.0)
+
+
+static func _stand_clear(t: Track, d: float, side: float) -> bool:
+	var f := t.transform_at(d)
+	var face := f.basis.rotated(Vector3.UP, PI / 2 if side > 0 else -PI / 2)
+	var origin := f.origin + f.basis.x * side * (Track.ROAD_WIDTH * 0.5 + 9.0)
+	for x in [-9.5, 0.0, 9.5]:
+		for z in [-1.0, 7.0]:
+			if t.distance_to_road(origin + face * Vector3(x, 0, z)) < Track.ROAD_WIDTH * 0.5 + 4.0:
+				return false
+	return true
 
 
 static func _crowd(t: Track, spots: Array, face: Basis) -> void:
@@ -591,7 +725,7 @@ static func _start_flags(t: Track) -> void:
 	var d := t.length - 70.0
 	while d < t.length + 26.0:
 		var f := t.transform_at(fposmod(d, t.length))
-		for s in [-1.0, 1.0]:
+		for s: float in [-1.0, 1.0]:
 			if s == t.branch_side and fposmod(d, t.length) < 40.0 and fposmod(d, t.length) > Track.BRANCH[0] - 8.0:
 				continue
 			var base: Vector3 = f.origin + f.basis.x * s * (Track.ROAD_WIDTH * 0.5 + 4.2)

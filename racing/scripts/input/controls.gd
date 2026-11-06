@@ -6,7 +6,7 @@ extends Node
 enum Scheme { AUTO, TILT, TOUCH_BUTTONS }
 
 const TILT_DEAD_ZONE := 3.0   # degrees around level that count as straight
-const TILT_FULL_LOCK := 30.0  # degrees for full steering
+const TILT_FULL_LOCK := 25.0  # degrees for full steering (no need to tip the phone far)
 
 var scheme := Scheme.AUTO
 var auto_gas := false         # optional assist; phones have a gas button

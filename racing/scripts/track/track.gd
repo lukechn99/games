@@ -42,6 +42,7 @@ const BRIDGE_AT := 445.0          # stone bridge over the ice
 const GANTRIES := [118.0, 540.0]  # metal sign gantries over the highway
 const BRANCH := [30.0, 170.0]     # the road splits round a rocky island here
 const BRANCH_SHIFT := 26.0        # how far the second route swings out
+const BRANCH_SPLIT := ROAD_WIDTH + 2.2   # past this, the routes are separate roads
 ## Detail texture and tiling per road surface (UVs: one unit = 14 m).
 const SURFACE_TEX := {"asphalt": ["asphalt", 1.0], "boost": ["asphalt", 1.0], "dirt": ["dirt", 2.0], "ice": ["ice", 2.0]}
 
@@ -181,15 +182,19 @@ func _mat(c: Color, tex := "", uv := 1.0, tri := 0.0) -> StandardMaterial3D:
 	return m
 
 
-func _body(surface: String) -> StaticBody3D:
+## `floor`: something karts drive on (road, banks, ground, ramps), as
+## opposed to something they hit (rails, rocks, trees). Karts ignore bumps
+## from the edges of floor pieces (kart.gd).
+func _body(surface: String, floor := false) -> StaticBody3D:
 	var b := StaticBody3D.new()
 	b.set_meta("surface", surface)
+	b.set_meta("floor", floor)
 	add_child(b)
 	return b
 
 
 func _build_ground() -> void:
-	var b := _body("grass")
+	var b := _body("grass", true)
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = Vector3(1400, 2, 1400)
@@ -220,10 +225,68 @@ func _build_road() -> void:
 		var st: SurfaceTool = groups[s]
 		var a := road_frame(d)
 		var b := road_frame(minf(d + step, length))
-		_quad_strip(st, a, b, s, int(d / step), d)
+		var shift := absf(branch_offset(d))
+		if shift > 0.3 and shift < BRANCH_SPLIT:
+			# Where the routes part, one wide piece of road covers both, so
+			# there are no overlapping layers and no seams (design doc 9.4).
+			_merged_strip(st, d, minf(d + step, length), int(d / step))
+		else:
+			_quad_strip(st, a, b, s, int(d / step), d)
+			if shift >= BRANCH_SPLIT:
+				var ba := branch_frame(d)
+				var bb := branch_frame(minf(d + step, BRANCH[1]))
+				var bs := "boost" if _in_moss(d) else "asphalt"
+				# The moss glows green rather than boost-pad orange.
+				var moss := Color(0.35, 1.0, 0.45) if bs == "boost" else Color(0, 0, 0, 0)
+				_quad_strip(_group(groups, bs) if bs != s else st, ba, bb, bs, int(d / step), d, 0.0, 0.0, moss)
 		_embankment(_group(groups, "grass"), _group(groups, "rock"), a, b, int(d / step), d)
 		d += step
 	_commit_groups(groups)
+
+
+## Glowing moss strips that boost you, inside the cave route.
+func _in_moss(d: float) -> bool:
+	var u := (d - BRANCH[0]) / (BRANCH[1] - BRANCH[0])
+	return (u > 0.42 and u < 0.47) or (u > 0.6 and u < 0.65)
+
+
+## One road surface from the main road's far edge to the second route's far
+## edge, with kerbs only on the outside.
+func _merged_strip(st: SurfaceTool, da: float, db: float, index: int) -> void:
+	var side := branch_side
+	var half := ROAD_WIDTH * 0.5
+	var lift := Vector3.UP * 0.04
+	var ma := road_frame(da)
+	var mb := road_frame(db)
+	var aa := branch_frame(da)
+	var ab := branch_frame(db)
+	var near_a := ma.origin - ma.basis.x * side * half
+	var near_b := mb.origin - mb.basis.x * side * half
+	var far_a := aa.origin + aa.basis.x * side * half
+	var far_b := ab.origin + ab.basis.x * side * half
+	var base: Color = Parts.surface("asphalt")["color"]
+	var kerb := Color(0.92, 0.22, 0.2) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
+	var va := da / 14.0
+	var vb := db / 14.0
+	var bands := [
+		[near_a, far_a, near_b, far_b, base],
+		[near_a - ma.basis.x * side * 1.1, near_a, near_b - mb.basis.x * side * 1.1, near_b, kerb],
+		[far_a, far_a + aa.basis.x * side * 1.1, far_b, far_b + ab.basis.x * side * 1.1, kerb],
+	]
+	for band in bands:
+		var p0: Vector3 = band[0] + lift
+		var p1: Vector3 = band[1] + lift
+		var p3: Vector3 = band[2] + lift
+		var p2: Vector3 = band[3] + lift
+		var c: Color = band[4]
+		var w := p0.distance_to(p1) / ROAD_WIDTH
+		var uvs := {p0: Vector2(0, va), p1: Vector2(w, va), p2: Vector2(w, vb), p3: Vector2(0, vb)}
+		# Keep the same winding as the main road whichever side we're on.
+		var order := [p0, p2, p1, p0, p3, p2] if side > 0 else [p0, p1, p2, p0, p2, p3]
+		for v in order:
+			st.set_color(c)
+			st.set_uv(uvs[v])
+			st.add_vertex(v)
 
 
 func _group(groups: Dictionary, key: String) -> SurfaceTool:
@@ -242,7 +305,7 @@ func _commit_groups(groups: Dictionary) -> void:
 		var mesh := st.commit()
 		if mesh == null or mesh.get_surface_count() == 0:
 			continue
-		var body := _body(s)
+		var body := _body(s, s != "rock")
 		var mi := MeshInstance3D.new()
 		mi.mesh = mesh
 		if s == "grass":
@@ -329,9 +392,9 @@ func _rock_side(st: SurfaceTool, ea: Vector3, eb: Vector3, out_a: Vector3, out_b
 			st.add_vertex(q[0])
 
 
-func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, index: int, d := 0.0, skip_kerb := 0.0, lift_extra := 0.0) -> void:
+func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, index: int, d := 0.0, skip_kerb := 0.0, lift_extra := 0.0, tint := Color(0, 0, 0, 0)) -> void:
 	var half := ROAD_WIDTH * 0.5
-	var base: Color = Parts.surface(s)["color"]
+	var base: Color = Parts.surface(s)["color"] if tint.a == 0.0 else tint
 	var lift := Vector3.UP * (0.04 + lift_extra)
 	# Road, then a kerb on each side (red and white blocks every 2 m).
 	var kerb := Color(0.92, 0.22, 0.2) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
@@ -384,21 +447,36 @@ func _mesh_of(path: String) -> Mesh:
 	return found
 
 
-## Many copies of one model in a single draw call (design doc 9.1).
-func _scatter(path: String, xforms: Array[Transform3D]) -> void:
+## Many copies of one model, one draw call per patch of ground (design doc
+## 9.1). Splitting into 160 m patches lets the camera skip patches behind it
+## or (with `far`) too far away to matter.
+func _scatter(path: String, xforms: Array[Transform3D], far := 0.0) -> void:
 	var mesh := _mesh_of(path)
 	if mesh == null or xforms.is_empty():
 		return
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = Palette.restyle(mesh)
-	mm.instance_count = xforms.size()
-	for i in xforms.size():
-		mm.set_instance_transform(i, xforms[i])
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-	add_child(mmi)
+	var cells := {}
+	for x in xforms:
+		var key := Vector2i(floori(x.origin.x / 160.0), floori(x.origin.z / 160.0))
+		if not cells.has(key):
+			cells[key] = []
+		cells[key].append(x)
+	var styled := Palette.restyle(mesh)
+	for key in cells:
+		var list: Array = cells[key]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = styled
+		mm.instance_count = list.size()
+		for i in list.size():
+			mm.set_instance_transform(i, list[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		if far > 0.0:
+			mmi.visibility_range_end = far
+			mmi.visibility_range_end_margin = 20.0
+			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		add_child(mmi)
 
 
 func _in_rail_zone(f: float) -> bool:
@@ -412,7 +490,7 @@ func _in_rail_zone(f: float) -> bool:
 ## scrape along them instead of stopping dead (design doc 8.2).
 func _build_rails() -> void:
 	var visuals: Array[Transform3D] = []
-	var body := _body("asphalt")
+	var body := _body("rail")
 	var mat := PhysicsMaterial.new()
 	mat.friction = 0.0
 	mat.bounce = 0.2
@@ -453,7 +531,7 @@ func _build_jump() -> void:
 		pts.append(Vector3(x, h, -l / 2))
 	var shape := ConvexPolygonShape3D.new()
 	shape.points = pts
-	var body := _body("asphalt")
+	var body := _body("asphalt", true)
 	body.transform = a
 	var col := CollisionShape3D.new()
 	col.shape = shape
@@ -541,6 +619,14 @@ func _distance_to_line(p: Vector3) -> float:
 	return best
 
 
+## Flat distance from `p` to the nearest point of the racing line.
+func distance_to_road(p: Vector3) -> float:
+	var best := INF
+	for t in _samples:
+		best = minf(best, Vector2(p.x - t.origin.x, p.z - t.origin.z).length())
+	return best
+
+
 ## Places scenery must stay out of (the lake, set pieces).
 func _blocked(p: Vector3) -> bool:
 	for c in _keep_clear:
@@ -613,21 +699,7 @@ func branch_frame(offset: float) -> Transform3D:
 ## The second route: asphalt round the island, with a ramp of its own
 ## (the main road has the boost pad), so neither way is clearly faster.
 func _build_branch() -> void:
-	var groups := {}
-	var d := BRANCH[0]
-	var step := 2.0
-	while d < BRANCH[1]:
-		var shift := absf(branch_offset(d))
-		if shift > 1.5:
-			var a := branch_frame(d)
-			var b := branch_frame(minf(d + step, BRANCH[1]))
-			# While the two roads still overlap, leave out the kerb on the
-			# inner side and sit a touch higher, so they blend into one.
-			var overlap := shift < ROAD_WIDTH + 2.2
-			var skip := (-branch_side if overlap else 0.0)
-			_quad_strip(_group(groups, "asphalt#branch"), a, b, "asphalt", int(d / step), d, skip, 0.02 if overlap else 0.0)
-		d += step
-	_commit_groups(groups)
+	pass  # built with the main road now (_build_road)
 
 
 ## Water: falling in counts as out of bounds (kart.gd).
@@ -651,7 +723,7 @@ func _build_scenery() -> void:
 	var rocks: Array[Transform3D] = []
 	var bushes: Array[Transform3D] = []
 	var flowers: Array[Transform3D] = []
-	var solid := _body("grass")
+	var solid := _body("tree")
 	var shade := []   # soft shade under every tree and rock (design doc 9.4)
 	var tries := 0
 	var placed := 0
@@ -703,8 +775,8 @@ func _build_scenery() -> void:
 		else:
 			flowers.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * 4.0), p))
 	_scatter(KIT_NATURE + "rock_largeA.glb", rocks)
-	_scatter(KIT_NATURE + "plant_bushLarge.glb", bushes)
-	_scatter(KIT_NATURE + "flower_yellowA.glb", flowers)
+	_scatter(KIT_NATURE + "plant_bushLarge.glb", bushes, 220.0)
+	_scatter(KIT_NATURE + "flower_yellowA.glb", flowers, 140.0)
 	SetPieces.ground_shade(self, shade)
 	_build_mountains()
 

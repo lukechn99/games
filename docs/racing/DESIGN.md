@@ -327,7 +327,7 @@ What makes the reference look alive, and our phone-friendly version of each:
 - **Materials:** metal shines sharply, paint softly; wood, rock, grass and fur are matte.
 - **Shade:** a soft dark patch under every kart, tree, rock, boulder and the bleachers, stretched away from the sun, plus shade across the road under the bridge and gantries and a darker road inside the tunnel. Real-time shadows stay off. In Godot's Compatibility renderer they brighten the whole scene (seen on a real GPU too), and the fake shade works on every phone.
 - **Carved into the land:** the high ledge (the climb's top) has a sheer rock cliff down to a lake on the outside and a rock wall rising on the inside. Falling into the lake puts you back on the road.
-- **Route choice:** just after the start, the road splits round a rocky island. The main road has the boost pad; the second route is a little longer and has a ramp. Bots take either, switching lap to lap.
+- **Route choice:** just after the start the road splits. The main road stays out under the sky and is the safe line, with the boost pad where the routes meet again. The second route dives into a grassy hill: a dark cave lit by glowing mushrooms and crystals in neon colours, with coloured light on the karts, two strips of glowing moss that boost you, and crystal pillars to weave round. It's longer and riskier, but faster if you hit both moss strips. Where the roads part and rejoin, one wide road surface covers both, so nothing overlaps. Bots take either route, switching lap to lap.
 - **Overhead:** a rock tunnel with lamps on the climb, a stone bridge between castle towers over the ice, and two metal sign gantries.
 - **Motion:** leaves sway (each tree on its own timing), flags ripple along the start, fans in two bleachers hop and cheer, the lake has moving waves and glints, clouds drift, and tires kick up dust on dirt and grass, and smoke when drifting.
 - **Haze:** two rings of mountains, the far ring paler and bluer, and fog tinted to the horizon colour.
@@ -455,6 +455,27 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 - **Download target:** under 15 MB compressed on first load, then cached.
 - **Performance target:** 60 fps on a mid-range phone from the last 3–4 years (see the budgets in 9).
 
+### 14.1 Performance strategy (Decided: from research and measurement)
+What we measured: the game logic and physics are cheap (6 karts cost about 0.6 ms per physics step natively, roughly 2–3 ms in the browser). So stutter comes from drawing and from one-off hitches, not from the game code. The strategy, in order of payoff:
+1. **Smooth motion.** Karts move in 60 Hz physics steps and are drawn smoothly between them. The camera must follow the *drawn* position, not the physics one. It didn't, which caused judder at any refresh rate, worst on 90 and 120 Hz screens. Fixed.
+2. **No first-time hitches.** The browser renderer compiles each shader the first time it's drawn, so the tunnel, crowd, flames and dust each caused a freeze the first time they appeared. Every mesh and material, including lamp-lit versions, is now drawn once behind the lobby. Rule: anything new must be in the scene when the lobby opens.
+3. **Pixel budget.** Phones draw 3 pixels per point, 5 to 9 times a laptop's pixels. The 3D view is drawn to a budget (High about 2 million pixels, Medium 1.4, Low 0.9) and scaled up; menus stay sharp.
+4. **Draw calls (the usual browser limit, about 100–200 a frame).**
+   - Karts were about 48 draws each. The ink outline is now a separate mesh only drawn within 28 m.
+   - **Next:** one skinned mesh per kart (a skeleton for wheels, driver and ears), which would bring a kart to 2–3 draws.
+   - Scenery is in 160 m patches so off-screen patches are skipped, and flowers and bushes stop drawing far away.
+5. **Quality that adapts:** start on High, step down automatically under 45 fps (9.1).
+6. **Later:**
+   - VRAM-compressed textures (ETC2/ASTC) once the texture set grows.
+   - Fewer, larger textures (atlases).
+   - Level of detail for distant set pieces.
+   - Lightmaps baked in the editor for real soft shadows and bounce light. This would replace the fake shade and the broken real-time shadows.
+7. **Measuring:**
+   - `?perf` shows frame rate, the worst frame, draw calls and triangles, and logs them to the console.
+   - Turn one effect off at a time and compare.
+
+Sources: [How to make Godot 3D look better](https://codingquests.io/blog/how-to-make-godot-3d-look-better) (sun, sky and tonemapper first; shadows cost the most; turn effects off one at a time to measure), [Godot forum: web export stutters on mobile](https://forum.godotengine.org/t/godot-4-web-export-stutters-on-mobile-its-probably-your-art-pipeline-not-your-code-31fps-to-60fps-benchmarks-inside/143268) (texture compression, atlases, draw calls), [shader compilation lag in web builds](https://forum.godotengine.org/t/handling-particle-shader-compilation-lag-in-godot-4-web-compatibility-renderer/36170/2) (draw everything once at load), [Godot: reducing pipeline compilation stutter](https://docs.godotengine.org/en/stable/tutorials/performance/pipeline_compilations.html), [Godot: jitter and stutter](https://docs.godotengine.org/en/4.2/tutorials/rendering/jitter_stutter.html).
+
 ## 15. Accessibility
 - Colour-blind-safe kart colours, plus a number on each kart.
 - Assists: automatic gas, steering help and auto-drift.
@@ -502,9 +523,17 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - **Winding fix.** The grassy banks were built facing the wrong way: invisible from above (you saw the flat ground through them) though still solid. That's part of why the road looked like it floated and why karts could seem to drive "under" it. They now face up and are lit properly.
 - **Graphics levels (9.1).** Everyone starts on **High**: 4x anti-aliasing, glow on bright things, surface relief (normal maps made from the detail textures), clear-coat paint, chrome-like metal reflecting the sky, a warm sun, and lamps that really light the tunnel. **Medium** keeps glow and relief with 2x anti-aliasing; **Low** drops those and draws the 3D view at 75% resolution. If a race runs under 45 frames a second for 6 seconds, it steps down a level by itself and says so; the garage has a Graphics switch. Add `?quality=low|medium|high` to force one.
 - **Pedals when tilting (10.3).** With tilt steering there's no joystick, so gas sits in the bottom-right corner, brake in the bottom-left, and the item button above gas.
+- **The phantom hits, found.** At speed, downforce squashed the suspension all the way, so the kart's hit box scraped along the road. It caught on the edges where road pieces meet (like the boost pad) and threw the kart sideways or up. Now:
+  - a firm bump stop keeps the box clear of the road (firm going down, soft coming back, so landings don't bounce);
+  - the hit box sits higher;
+  - any sideways push from the floor itself is undone.
+
+  A test drives straight from pole through the first 165 m and must hit nothing.
+- **Kart selection (4).** Every race starts in a lobby: a see-through menu over a slow aerial tour of the whole track. Chassis, wheels, driver and steering (joystick or tilt) are on the left. The chosen kart turns on a stand on the right, with its driver standing beside it, waving. Ready is in the bottom-right corner, and the race starts when everyone is ready (bots always are; online players will come from the room).
+- **Landscape only on phones.** On the first tap, Android browsers go full screen and lock to landscape. iPhones can't lock, so a "turn your phone sideways" card covers the game while it's upright. Full tilt lock is now 25°, so there's no need to tip the phone far.
 - **Kart meshes are merged** into one vertex-coloured mesh per moving group, with an ink outline. Stretched shells (nose cones, pods, the soapbox egg) stay separate pieces, because merging them shaded wrongly.
 
-**Automated tests (39), run on every deploy:**
+**Automated tests (40), run on every deploy:**
 - All four chassis settle on four wheels.
 - Each reaches its top speed, and 72 km/h in a fair time.
 - The soapbox turns tightest and the hauler and racer widest.
@@ -517,6 +546,7 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - A rear-end bump shoves a kart without spinning it, and a full pack laps the hilly, banked track with no spins.
 - Hitting a boulder at speed doesn't launch the kart, and a kart under the road is put back on it.
 - Bots use both routes where the road splits.
+- Driving straight from pole hits nothing.
 
 ## 17. Open questions
 1. Working title (1).
@@ -564,3 +594,9 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Mine Shaft added as a future track idea | The user's idea |
 | 2026-11-06 | Start every device on the best graphics and step down automatically if the frame rate drops | The user's request: don't hold back on phones until performance shows it's needed |
 | 2026-11-06 | When steering by tilt, gas bottom-right and brake bottom-left | The user's request |
+| 2026-11-06 | Races start with a kart-selection lobby; everyone readies up | The user's request |
+| 2026-11-06 | Lobby: see-through menu over an aerial tour, options left, turning kart right, Ready bottom-right | The user's direction |
+| 2026-11-06 | Phones play in landscape only | The user's request: hard tilting flipped the game to portrait |
+| 2026-11-06 | The fork: open road with the boost pad vs a neon cave with boost moss and pillars | The user's request for a meaningful choice |
+| 2026-11-06 | Performance strategy 14.1 | The user's request, from research and measurement |
+| 2026-11-06 | Next: review the road and environment pieces one by one and build our own asset set from the CC0 kits (mine rails and more) | The user's direction |

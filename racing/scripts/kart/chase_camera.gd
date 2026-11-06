@@ -24,6 +24,8 @@ var _fov_punch := 0.0
 
 func _ready() -> void:
 	_noise.seed = 7
+	# The camera moves every drawn frame itself, so it is not interpolated.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_noise.frequency = 1.6
 	fov = BASE_FOV
 	near = 0.1
@@ -58,8 +60,15 @@ func _on_land(strength: float) -> void:
 		add_trauma(strength * 0.35)
 
 
+## Where the kart is drawn this frame. Karts move in physics steps (60 a
+## second) and are drawn smoothly between them; following the raw physics
+## position instead made the view judder, worst on 90 and 120 Hz screens.
+func _target_xf() -> Transform3D:
+	return target.get_global_transform_interpolated()
+
+
 func _flat_forward() -> Vector3:
-	var f := -target.global_transform.basis.z
+	var f := -_target_xf().basis.z
 	f.y = 0.0
 	if f.length() < 0.1:
 		return Vector3.FORWARD
@@ -70,7 +79,7 @@ func _desired_position() -> Vector3:
 	var f := _flat_forward()
 	if look_back:
 		f = -f
-	return target.global_position - f * DISTANCE + Vector3.UP * HEIGHT
+	return _target_xf().origin - f * DISTANCE + Vector3.UP * HEIGHT
 
 
 func _process(delta: float) -> void:
@@ -80,7 +89,7 @@ func _process(delta: float) -> void:
 	var desired := _desired_position()
 	_pos = _pos.lerp(desired, clampf(delta * (14.0 if look_back else 7.0), 0.0, 1.0))
 	var f := _flat_forward() * (-1.0 if look_back else 1.0)
-	var look := target.global_position + f * LOOK_AHEAD + Vector3.UP * 0.8
+	var look := _target_xf().origin + f * LOOK_AHEAD + Vector3.UP * 0.8
 
 	var shake := trauma * trauma
 	var offset := Vector3(_noise.get_noise_2d(_t * 30.0, 0.0), _noise.get_noise_2d(0.0, _t * 30.0), 0.0) * 0.45 * shake

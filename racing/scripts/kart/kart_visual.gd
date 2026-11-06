@@ -24,8 +24,16 @@ var _bob_vel := 0.0
 var _finish := Palette.Finish.PAINT  # parts built from now on
 
 
-func _init(k: Kart, merge := true) -> void:
+## `standing`: just the driver, standing on its own feet beside the kart
+## (the kart-selection screen), instead of the kart with the driver seated.
+var standing := false
+## `empty`: the kart with nobody in it (the driver stands beside it).
+var empty := false
+
+
+func _init(k: Kart, merge := true, stand := false) -> void:
 	kart = k
+	standing = stand
 	if not merge:
 		set_meta("nomerge", true)
 
@@ -98,6 +106,15 @@ func rebuild() -> void:
 	_wobbly.clear()
 	_wobble_vel.clear()
 	_wobble_pos.clear()
+	_wheel_ring = null
+	_torso = null
+	_head = null
+	_driver = null
+	_boost_flame = null
+	_sparks = null
+	if standing:
+		_build_standing()
+		return
 	var ch := kart.chassis
 	var size: Vector3 = ch["size"]
 	var color: Color = ch["color"]
@@ -164,9 +181,10 @@ func rebuild() -> void:
 				_mesh(_box(Vector3(width * 1.05, 0.06, 0.08)), tire_color.lightened(0.25), spin, Vector3(0, cos(a) * r, sin(a) * r), Vector3.ONE, Vector3(a, 0, 0))
 		_wheels.append(pivot)
 
-	_finish = Palette.Finish.MATTE  # fur and cloth
-	_build_driver(body_y, size, seat["z"])
-	_finish = Palette.Finish.PAINT
+	if not empty:
+		_finish = Palette.Finish.MATTE  # fur and cloth
+		_build_driver(body_y, size, seat["z"])
+		_finish = Palette.Finish.PAINT
 	if not has_meta("nomerge"):
 		_merge_all()
 
@@ -295,12 +313,17 @@ func _build_frame(style: String, color: Color) -> Dictionary:
 ## Merge each group of parts that moves together into one mesh with an ink
 ## outline (design doc 9.1): a kart drops from ~70 draw calls to ~15.
 func _merge_all() -> void:
-	_boost_flame.set_meta("keep", true)
-	_sparks.set_meta("keep", true)
-	var groups: Array[Node3D] = [self, _torso, _head]
+	if _boost_flame:
+		_boost_flame.set_meta("keep", true)
+		_sparks.set_meta("keep", true)
+	var groups: Array[Node3D] = []
+	for g in ([self, _driver, _torso, _head] if standing else [self, _torso, _head]):
+		if g != null:
+			groups.append(g)
 	for w in _wheels:
 		groups.append(w.get_child(0))
-	groups.append(_wheel_ring.get_parent())
+	if _wheel_ring:
+		groups.append(_wheel_ring.get_parent())
 	groups.append_array(_wobbly)
 	for g in groups:
 		_merge(g)
@@ -322,13 +345,27 @@ func _merge(group: Node3D) -> void:
 	var mesh := ArrayMesh.new()
 	for f in by_finish:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, _combine(parts, xforms, by_finish[f]))
-		mesh.surface_set_material(mesh.get_surface_count() - 1, Palette.toon(Color.WHITE, true, OUTLINE_W, f))
+		mesh.surface_set_material(mesh.get_surface_count() - 1, Palette.toon(Color.WHITE, true, 0.0, f))
+	# The ink outline is its own single mesh that only draws for karts near
+	# the camera: far away it's too thin to see, and skipping it halves the
+	# draw calls for the rest of the pack (design doc 14).
+	var all := []
+	for i in parts.size():
+		all.append(i)
+	var ink := ArrayMesh.new()
+	ink.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, _combine(parts, xforms, all))
 	for mi in parts:
 		mi.get_parent().remove_child(mi)
 		mi.queue_free()
 	var merged := MeshInstance3D.new()
 	merged.mesh = mesh
 	group.add_child(merged)
+	var outline := MeshInstance3D.new()
+	outline.mesh = ink
+	outline.material_override = Palette.outline_material(OUTLINE_W)
+	outline.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	outline.visibility_range_end = 28.0
+	group.add_child(outline)
 
 
 func _combine(parts: Array[MeshInstance3D], xforms: Array[Transform3D], which: Array) -> Array:
@@ -401,7 +438,20 @@ func _glow(c: Color) -> StandardMaterial3D:
 
 
 ## The shared base body: a soft bean with a big head, stubby arms and legs.
-func _build_driver(seat_y: float, size: Vector3, seat_z: float) -> void:
+## The driver on its own: the same body and features, on two stubby legs,
+## with its arms down instead of reaching for a wheel.
+func _build_standing() -> void:
+	_finish = Palette.Finish.MATTE
+	_build_driver(0.42, Vector3.ONE, 0.0, false)
+	var d := kart.driver
+	var body_c: Color = d["body"]
+	for side in [-1.0, 1.0]:
+		_mesh(_capsule(0.1, 0.5), body_c, _driver, Vector3(0.13 * side, -0.18, 0))
+		_mesh(_sphere(0.11), body_c.darkened(0.15), _driver, Vector3(0.13 * side, -0.42, -0.06), Vector3(1.0, 0.6, 1.4))
+	_merge_all()
+
+
+func _build_driver(seat_y: float, size: Vector3, seat_z: float, seated := true) -> void:
 	var d := kart.driver
 	var body_c: Color = d["body"]
 	var belly_c: Color = d["belly"]
@@ -417,7 +467,12 @@ func _build_driver(seat_y: float, size: Vector3, seat_z: float) -> void:
 	_mesh(_sphere(0.2), belly_c, _torso, Vector3(0, 0.25, -0.13), Vector3(1.0, 1.2, 0.5))
 	# Arms reach forward to the wheel.
 	for side in [-1.0, 1.0]:
-		_mesh(_capsule(0.07, 0.42), body_c, _torso, Vector3(0.22 * side, 0.38, -0.2), Vector3.ONE, Vector3(deg_to_rad(-70), 0, side * 0.35))
+		if seated:
+			_mesh(_capsule(0.07, 0.42), body_c, _torso, Vector3(0.22 * side, 0.38, -0.2), Vector3.ONE, Vector3(deg_to_rad(-70), 0, side * 0.35))
+		else:
+			# Arms at its sides, one raised in a little wave.
+			var wave: bool = side > 0.0
+			_mesh(_capsule(0.07, 0.42), body_c, _torso, Vector3(0.3 * side, 0.45 if wave else 0.22, -0.02), Vector3.ONE, Vector3(0, 0, side * (2.4 if wave else 0.35)))
 	_head = Node3D.new()
 	_head.position = Vector3(0, 0.78, 0)
 	_torso.add_child(_head)
@@ -478,6 +533,8 @@ func _process(delta: float) -> void:
 		_wheel_ring.rotation.y = -kart.steer_angle * 2.2
 
 	# Driver: lean against the turn, bob with the suspension, spring back.
+	if _torso == null:
+		return
 	_lean = lerpf(_lean, clampf(-kart.lateral_g * 0.22, -0.4, 0.4), clampf(delta * 6.0, 0.0, 1.0))
 	_bob_vel += (-_bob * 140.0 - _bob_vel * 9.0) * delta
 	_bob_vel -= clampf(kart.vertical_kick, -3.0, 3.0) * 0.9

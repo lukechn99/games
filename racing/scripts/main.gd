@@ -20,6 +20,9 @@ var _countdown := 0.0
 var _racing := false
 var _finish_order: Array[Kart] = []
 var sun: DirectionalLight3D
+var lobby: Lobby
+var _in_lobby := false
+var _tour := 0.0
 var _env: Environment
 var _fps_time := 0.0          # seconds of racing measured so far
 var _fps_frames := 0
@@ -59,6 +62,46 @@ func _ready() -> void:
 		_showroom(q)
 	elif q.contains("cam="):
 		_camera_view(q)
+	else:
+		_open_lobby()
+	# Compile every shader now, behind the lobby, instead of mid-race.
+	ShaderWarmup.new().warm(self, camera)
+
+
+## Behind the lobby: a slow aerial circle round the whole track.
+func _fly_over(delta: float) -> void:
+	_tour += delta
+	var center := Vector3(95, 0, -40)
+	var a := _tour * 0.08
+	camera.global_position = center + Vector3(cos(a) * 260.0, 150.0, sin(a) * 260.0)
+	camera.look_at(center + Vector3(0, -10, 0), Vector3.UP)
+	camera.fov = 55.0
+
+
+## Races begin with everyone picking a kart and tapping Ready (design doc 4).
+func _open_lobby() -> void:
+	if lobby == null:
+		lobby = Lobby.new()
+		add_child(lobby)
+		lobby.parts_changed.connect(func(c, t, d):
+			_on_parts_changed(c, t, d)
+			hud.set_choice(c, t, d))
+		lobby.all_ready.connect(func():
+			_in_lobby = false
+			hud.visible = true
+			camera.set_process(true)
+			camera.follow(player_kart)
+			start_race())
+	var names := []
+	for k in karts:
+		if k != player_kart:
+			names.append(k.display_name)
+	lobby.choice = {"chassis": player_kart.chassis_id, "tires": player_kart.tires_id, "driver": player_kart.driver_id}
+	lobby.open(names)
+	_in_lobby = true
+	hud.visible = false
+	camera.set_process(false)
+	_tour = 0.0
 
 
 ## ?cam=OFFSET[,SIDE,HEIGHT,LOOK]: a still camera at that point of the lap,
@@ -155,6 +198,7 @@ func _build_world() -> void:
 	add_child(sun)
 	_apply_quality()
 	Controls.quality_changed.connect(_apply_quality)
+	get_viewport().size_changed.connect(_fit_resolution)
 
 
 ## Graphics levels (design doc 9.1). High: 4x anti-aliasing, glow, surface
@@ -165,12 +209,25 @@ func _apply_quality() -> void:
 	var q := Controls.quality
 	var vp := get_viewport()
 	vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][q]
-	vp.scaling_3d_scale = 0.75 if q == Controls.Quality.LOW else 1.0
+	_fit_resolution()
 	_env.glow_enabled = q >= Controls.Quality.MEDIUM
 	sun.shadow_enabled = Controls.shadows and q == Controls.Quality.HIGH
 	Palette.apply_quality(q >= Controls.Quality.MEDIUM, q == Controls.Quality.HIGH)
 	_fps_time = 0.0
 	_fps_frames = 0
+
+
+## Phones have very sharp screens (3 pixels per point is common), so
+## drawing the 3D view at full sharpness costs 5 to 9 times the pixels of a
+## laptop for little visible gain. Draw the 3D view at a pixel budget instead
+## (High about 2 million pixels, Medium 1.4, Low 0.9) and let it scale up;
+## menus and text stay full sharpness. This is usually the biggest single
+## speed-up on phones (design doc 14).
+func _fit_resolution() -> void:
+	var vp := get_viewport()
+	var px := float(vp.size.x * vp.size.y)
+	var budget: float = [900000.0, 1400000.0, 2000000.0][Controls.quality]
+	vp.scaling_3d_scale = clampf(sqrt(budget / maxf(px, 1.0)), 0.5, 1.0)
 
 
 ## Start on the best graphics and step down if the device can't keep up:
@@ -268,6 +325,9 @@ func _set_bots_enabled(on: bool) -> void:
 
 
 func _process(delta: float) -> void:
+	if _in_lobby:
+		_fly_over(delta)
+		return
 	if _racing:
 		_watch_frame_rate(delta)
 	if not _racing:

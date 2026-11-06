@@ -63,6 +63,9 @@ var _upside_down_time := 0.0
 var _collision: CollisionShape3D
 var _off_track_time := 0.0
 var _calm_vy := 0.0  # upward speed before touching a wall
+var _box_bottom := 0.05
+var _good_v := Vector3.ZERO   # velocity before any phantom bump
+var _good_w := Vector3.ZERO
 var _was_drift_pressed := false
 var _drift_exit := 0.0     # seconds left blending grip back in after a drift
 const DRIFT_EXIT := 0.35
@@ -109,9 +112,13 @@ func configure(new_chassis: String, new_tires: String, new_driver: String) -> vo
 		_collision = CollisionShape3D.new()
 		add_child(_collision)
 	var box := BoxShape3D.new()
-	box.size = size
+	# The hit box rides clear of the road: the wheels (rays) hold the kart
+	# up, and the box is for walls, rocks, trees and landing upside down. Its
+	# bottom is raised and its top stays put, so the kart balances the same.
+	_box_bottom = 0.2
+	box.size = Vector3(size.x, maxf(0.2, size.y - 0.15), size.z)
 	_collision.shape = box
-	_collision.position = Vector3(0, size.y * 0.5 + 0.05, 0)
+	_collision.position = Vector3(0, _box_bottom + box.size.y * 0.5, 0)
 
 	var half_wb := float(chassis["wheelbase"]) * 0.5
 	var half_tr := float(chassis["track"]) * 0.5
@@ -143,10 +150,25 @@ func top_speed() -> float:
 ## and throw the kart several metres high (the "phantom" launches).
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	var walled := false
+	var phantom := false
+	var inv := state.transform.affine_inverse()
 	for i in state.get_contact_count():
 		if state.get_contact_local_normal(i).dot(Vector3.UP) < 0.6:
-			walled = true
-			break
+			# A sideways push from the floor itself, low on the hit box: that's
+			# the box catching the edge where two road pieces meet, not a wall.
+			# Real physics engines call these "ghost" collisions. Undo it.
+			var other := state.get_contact_collider_object(i)
+			var low := (inv * state.get_contact_local_position(i)).y < _box_bottom + 0.15
+			if other != null and other.get_meta("floor", false) and low:
+				phantom = true
+			else:
+				walled = true
+	if phantom and not walled:
+		state.linear_velocity = _good_v
+		state.angular_velocity = _good_w
+		return
+	_good_v = state.linear_velocity
+	_good_w = state.angular_velocity
 	if walled:
 		var v := state.linear_velocity
 		if v.y > _calm_vy:
@@ -206,6 +228,14 @@ func _physics_process(delta: float) -> void:
 		var point_vel := linear_velocity + angular_velocity.cross(offset)
 		var compress_speed := -point_vel.dot(up)
 		var load := maxf(0.0, _spring * compression + _damper * compress_speed)
+		# A stiff bump stop near the end of travel, so downforce at speed and
+		# hard landings never bottom the kart out onto its hit box (that
+		# scraping is what caught on road edges and threw karts about).
+		var stop := compression - SUSPENSION_TRAVEL * 0.7
+		if stop > 0.0:
+			# Firm while squashing, soft while springing back, so landings
+			# are caught instead of bouncing the kart back into the air.
+			load += _spring * (5.0 if compress_speed > 0.0 else 1.0) * stop + _damper * maxf(compress_speed, 0.0) * 0.8
 		vertical_kick = maxf(vertical_kick, compress_speed)
 		apply_force(up * load, offset)
 

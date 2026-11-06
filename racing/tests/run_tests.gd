@@ -26,6 +26,7 @@ func _run() -> void:
 	await _test_boulder_is_not_a_ramp()
 	await _test_bots_lap_the_track()
 	await _test_fall_off_respawns()
+	await _test_clean_start()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
 
@@ -225,7 +226,8 @@ func _test_tilt_mapping() -> void:
 	c.steer_from_degrees(0.0, big)
 	check(c.steer_from_degrees(40.0, big) > 0.99, "tilting past full lock is full right")
 	c.steer_from_degrees(0.0, big)
-	check(c.steer_from_degrees(-16.5, big) < -0.45 and c.steer_from_degrees(-16.5, big) > -0.55, "halfway to full lock is half steering", "%.2f" % c.steer_from_degrees(-16.5, big))
+	var halfway := -(Controls.TILT_DEAD_ZONE + (Controls.TILT_FULL_LOCK - Controls.TILT_DEAD_ZONE) * 0.5)
+	check(c.steer_from_degrees(halfway, big) < -0.45 and c.steer_from_degrees(halfway, big) > -0.55, "halfway to full lock is half steering", "%.2f" % c.steer_from_degrees(halfway, big))
 
 
 func _test_rear_end_bump() -> void:
@@ -274,6 +276,7 @@ func _test_bots_lap_the_track() -> void:
 	bumps.karts = bots
 	_world.add_child(bumps)
 	var spins := [0]
+	var spin_at := []
 	var last_spin := [-99.0, -99.0, -99.0, -99.0]
 	var respawns := [0, 0, 0, 0]
 	for i in bots.size():
@@ -307,13 +310,14 @@ func _test_bots_lap_the_track() -> void:
 			if absf(fwd.normalized().signed_angle_to(road, Vector3.UP)) > deg_to_rad(120) and Vector2(k.linear_velocity.x, k.linear_velocity.z).length() > 3.0 and t - last_spin[i] > 5.0:
 				last_spin[i] = t
 				spins[0] += 1
+				spin_at.append("kart %d at %d m, %.0f m/s, drifting %s, %d wheels down, t %.0f s" % [i, int(track.offset_of(k.global_position)), k.speed, k.drifting, k.grounded_wheels, t])
 		if lap_time.all(func(x): return x > 0.0):
 			break
 	for i in bots.size():
 		var avg := track.length / maxf(lap_time[i], 0.01)
 		check(lap_time[i] > 0.0 and avg > 13.0, "%s bot (%s, %s) laps at a racing pace" % [builds[i][2], builds[i][0], builds[i][1]],
 			"lap %.1f s, avg %.1f m/s, %d respawns" % [lap_time[i], avg, respawns[i]])
-	check(spins[0] == 0, "nobody gets spun round in the pack (hills, banks, bumps)", "%d spins" % spins[0])
+	check(spins[0] == 0, "nobody gets spun round in the pack (hills, banks, bumps)", "%d spins %s" % [spins[0], spin_at])
 	check(took_branch[0] > 0 and took_main[0] > 0, "bots use both routes where the road splits", "%d frames on the second route, %d on the main road" % [took_branch[0], took_main[0]])
 	print("  lap length %.0f m" % track.length)
 
@@ -364,3 +368,27 @@ func _test_fall_off_respawns() -> void:
 	await _ticks(90)
 	var back: Vector3 = track.road_frame(track.offset_of(k.global_position)).affine_inverse() * k.global_position
 	check(got[0] and back.y > -1.0, "a kart that ends up under the road is put back on it", "road %.1f m up, kart %.1f m from the road surface" % [frame.origin.y, back.y])
+
+
+## The user kept hitting "something invisible" right after the start: the
+## hit box scraped the road at speed and caught on the edges between road
+## pieces (the boost pad). Driving straight from pole must hit nothing.
+func _test_clean_start() -> void:
+	print("clean start")
+	if _world:
+		_world.free()
+	_world = Node3D.new()
+	root.add_child(_world)
+	var track := Track.new()
+	_world.add_child(track)
+	var k := Kart.new()
+	k.configure("frame", "slicks", "fox")
+	k.track = track
+	_world.add_child(k)
+	k.global_transform = track.grid_transform(0)
+	var hits := []
+	k.crashed.connect(func(s): hits.append("%.2f at %d m" % [s, int(track.offset_of(k.global_position))]))
+	while track.offset_of(k.global_position) < 165.0 or track.offset_of(k.global_position) > 900.0:
+		k.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+		await physics_frame
+	check(hits.is_empty(), "driving straight from pole hits nothing (no phantom bumps)", "%s" % [hits])

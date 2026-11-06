@@ -19,28 +19,28 @@ const SURFACES := {
 ## Sizes in metres; forward is -Z. `max_steer` in radians.
 const CHASSIS := {
 	"frame": {
-		"name": "Go-kart frame",
+		"name": "Go-kart frame", "blurb": "An all-rounder",
 		"size": Vector3(1.3, 0.5, 2.0), "wheelbase": 1.45, "track": 1.2,
 		"mass": 140.0, "max_steer": 0.5, "high_speed_steer": 0.42,
 		"top_speed": 27.0, "accel": 1500.0,
 		"wheel_radius": [0.26, 0.36], "color": Color(0.95, 0.35, 0.3),
 	},
 	"soapbox": {
-		"name": "Soapbox",
+		"name": "Soapbox", "blurb": "Light and nimble: turns tightest, smallest to hit",
 		"size": Vector3(1.05, 0.5, 1.6), "wheelbase": 1.15, "track": 1.0,
 		"mass": 110.0, "max_steer": 0.6, "high_speed_steer": 0.5,
 		"top_speed": 25.5, "accel": 1300.0,
 		"wheel_radius": [0.22, 0.3], "color": Color(0.3, 0.65, 0.95),
 	},
 	"hauler": {
-		"name": "Hauler",
+		"name": "Hauler", "blurb": "Heavy and wide: shoves others aside, turns wider",
 		"size": Vector3(1.6, 0.65, 2.3), "wheelbase": 1.7, "track": 1.45,
 		"mass": 210.0, "max_steer": 0.42, "high_speed_steer": 0.38,
 		"top_speed": 27.5, "accel": 2050.0,
 		"wheel_radius": [0.3, 0.42], "color": Color(0.96, 0.72, 0.2),
 	},
 	"racer": {
-		"name": "Racer",
+		"name": "Racer", "blurb": "Long and fast, but turns wide",
 		"size": Vector3(1.15, 0.42, 2.5), "wheelbase": 1.9, "track": 1.15,
 		"mass": 150.0, "max_steer": 0.44, "high_speed_steer": 0.36,
 		"top_speed": 29.0, "accel": 1450.0,
@@ -54,22 +54,22 @@ const CHASSIS := {
 ## (lower = looser) and how fast drifts charge boost.
 const TIRES := {
 	"slicks": {
-		"name": "Slicks", "radius": 0.3, "width": 0.3, "grip": 1.35,
+		"name": "Slicks", "blurb": "Wheels: best grip on asphalt", "radius": 0.3, "width": 0.3, "grip": 1.35,
 		"by_surface": {"asphalt": 1.1, "dirt": 0.75, "grass": 0.75, "sand": 0.7, "ice": 0.8, "snow": 0.7},
 		"top_speed": 1.03, "spring": 1.0, "drift": 0.62, "drift_charge": 1.0, "color": Color(0.15, 0.15, 0.17),
 	},
 	"knobby": {
-		"name": "Knobby off-road", "radius": 0.33, "width": 0.34, "grip": 1.25,
+		"name": "Knobby off-road", "blurb": "Wheels: grips dirt and grass", "radius": 0.33, "width": 0.34, "grip": 1.25,
 		"by_surface": {"asphalt": 0.95, "dirt": 1.25, "grass": 1.25, "sand": 1.1, "ice": 0.95, "snow": 1.1},
 		"top_speed": 0.97, "spring": 1.1, "drift": 0.66, "drift_charge": 0.9, "color": Color(0.28, 0.22, 0.18),
 	},
 	"balloon": {
-		"name": "Balloon", "radius": 0.36, "width": 0.4, "grip": 1.2,
+		"name": "Balloon", "blurb": "Wheels: soft and bouncy, good off the road", "radius": 0.36, "width": 0.4, "grip": 1.2,
 		"by_surface": {"asphalt": 0.95, "dirt": 1.1, "grass": 1.1, "sand": 1.35, "ice": 0.95, "snow": 1.05},
 		"top_speed": 0.98, "spring": 0.75, "drift": 0.7, "drift_charge": 1.1, "color": Color(0.3, 0.3, 0.36),
 	},
 	"studded": {
-		"name": "Studded", "radius": 0.3, "width": 0.3, "grip": 1.22,
+		"name": "Studded", "blurb": "Wheels: holds on ice and snow", "radius": 0.3, "width": 0.3, "grip": 1.22,
 		"by_surface": {"asphalt": 0.95, "dirt": 1.0, "grass": 0.95, "sand": 0.75, "ice": 2.6, "snow": 1.35},
 		"top_speed": 0.99, "spring": 1.0, "drift": 0.66, "drift_charge": 1.0, "color": Color(0.22, 0.25, 0.3),
 	},

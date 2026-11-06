@@ -44,6 +44,9 @@ func _ready() -> void:
 		var bot := BotDriver.new(k, track, b["level"], i + 3)
 		add_child(bot)
 		bot.set_meta("kart", k)
+	var bumps := KartBumps.new()
+	bumps.karts = karts
+	add_child(bumps)
 	camera.follow(player_kart)
 	hud.minimap.setup(track, karts, player_kart)
 	start_race()
@@ -88,26 +91,26 @@ func _build_world() -> void:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var mat := ProceduralSkyMaterial.new()
-	mat.sky_top_color = Color(0.32, 0.6, 0.95)
-	mat.sky_horizon_color = Color(0.75, 0.88, 0.98)
-	mat.ground_horizon_color = Color(0.75, 0.88, 0.98)
+	mat.sky_top_color = Color(0.2, 0.5, 0.98)
+	mat.sky_horizon_color = Color(0.62, 0.84, 1.0)
+	mat.ground_horizon_color = Color(0.62, 0.84, 1.0)
 	mat.ground_bottom_color = Color(0.4, 0.6, 0.35)
 	mat.sun_angle_max = 20.0
 	sky.sky_material = mat
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.55
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.ambient_light_energy = 0.45
+	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.75, 0.86, 0.97)
-	env.fog_density = 0.0016
+	env.fog_light_color = Color(0.66, 0.84, 1.0)
+	env.fog_density = 0.0007
 	env.fog_sky_affect = 0.0
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52, -35, 0)
-	sun.light_energy = 1.35
+	sun.light_energy = 0.8
 	sun.shadow_enabled = false  # blob shadows only (design doc 9.1)
 	add_child(sun)
 

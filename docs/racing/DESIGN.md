@@ -300,6 +300,23 @@ Free packs (CC0: free for any use, no credit required) exist from two well-known
 - We **commit the files we use into the repo** (`racing/assets/vendor/<pack>/`), with the pack's licence file and a note of where and when it came from. The game never downloads anything from the creator's site, so their site going away can't break it.
 - Only the models we actually use get committed, not whole packs, to keep the repo small.
 
+### 9.4 Making the world feel alive (Proposed, from the Mario Kart World reference)
+What makes the reference look alive, and our phone-friendly version of each:
+
+| What it does | Our version |
+|---|---|
+| **Surfaces have texture.** Asphalt has grain and patched seams; stone walls have blocks and mortar; grass has tufts. Nothing is a flat colour at road level. | Small tiling detail textures (256 px, greyscale) multiplied over our palette colours: asphalt grain, cobble, plank, rock strata, grass noise. One texture per material, shared by every track. |
+| **Materials catch light differently.** Metal rails have a bright, sharp highlight; painted wood is soft and matte; rock is rough with dark crevices; karts are glossy. | A few material presets instead of one toon look: *metal* (sharp toon specular, rim light), *paint* (soft specular), *wood/rock/grass* (matte, no specular). Rock and wood get darkened creases baked into vertex colours (fake ambient occlusion). |
+| **Real shadows.** Karts sit on dark shadows, trees and bridges throw shade across the road, so you can tell what touches the ground. | One shadow-casting sun with a short shadow distance (about 40 m) on high quality; a soft blob under each kart on every setting; shade under bridges and trees baked into the road's vertex colours. |
+| **The road has edges that matter.** Some stretches drop away to a canyon, a river or a cliff, so the track feels like it's built *into* a place, not on a flat plane. | Track sections that tag an edge as a *drop*: no embankment, a short kerb, then a cliff mesh going down. Falling off respawns you on the road (we already have respawn). |
+| **Choices without a right answer.** The road splits round a rock or a building, and both sides are about as fast, just different. | Split sections on the racing line: two branches of similar length, each with its own flavour (a jump vs a boost pad, dirt vs tight asphalt). Bots pick one at random, weighted by their tires. |
+| **Things above you.** Bridges, arches, pipes and the start gantry pass overhead, which gives depth and speed as they flash by. | Bridges where the track crosses itself on hills, plus overhead arches, banners and a tunnel. Cheap: a few big shapes. |
+| **Life everywhere.** Spectators, flags, swaying trees, birds, water, dust behind karts, motion in the distance. | Wind sway in the tree shader; flags and banners that flutter; a crowd as waving billboard cards in the grandstands; dust and grass puffs from tires; sparkles on water; birds that scatter when you pass. |
+| **Depth in the distance.** Mountains fade into blue haze, and far scenery is layered, so the world goes on past the track. | Height fog plus distance fog tinted to the sky, and two or three layers of backdrop silhouettes. |
+| **Polish on the karts.** Rims shine, tires are chunky with tread, and each kart carries a number and its driver's colours. | Rim highlights from the *metal* preset, tread notches on tires, numbers and simple decals on the nose plate. |
+
+**Order of work (Proposed):** 1) shadows and material presets (biggest change for least work); 2) detail textures on the road and ground; 3) drop-off edges and one bridge; 4) life (sway, flags, crowd, dust); 5) a split section. Each step is checked on a phone for frame rate before the next.
+
 ## 10. Controls
 
 **Decided:** tilt-to-steer is investigated, and players can always choose their control method.
@@ -460,7 +477,12 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - **Track M0** is a test loop built from the racing line, about 987 m: a guardrailed highway straight, an ice patch, a dirt stretch, a boost pad, a jump, solid trees and rocks near the road, and Kenney props.
 - **Download:** about 9.5 MB compressed, almost all of it the Godot engine; the game data is under 0.3 MB.
 
-**Automated tests (32), run on every deploy:**
+- **Colours (9.1).** `palette.gd` is our one palette. Every Kenney kit material is matched by name and swapped for a toon material in our colours, so kit props and our own shapes look like one world. Lighting is tuned so bright colours don't clip: linear tonemap, sun 0.8, ambient 0.45, light fog.
+- **Hills and banked corners.** The racing line has heights (up to 7 m), and the road leans into corners in proportion to how sharp they are, up to 15°. The road's edges continue into grassy embankments, so there are no gaps under a banked road.
+- **Kart bumps (7.2).** Karts don't collide as rigid boxes: a rear-end hit could kick a kart into a 180° spin. Each kart is two circles; overlapping karts are pushed apart and trade speed, weighted by mass (`bumps.gd`). Turning is also capped at 4 rad/s outside drifts. A test drives a full pack round the hilly track and counts zero spins.
+- **Kart meshes are merged** into one vertex-coloured mesh per moving group, with an ink outline. Stretched shells (nose cones, pods, the soapbox egg) stay separate pieces, because merging them shaded wrongly.
+
+**Automated tests (36), run on every deploy:**
 - All four chassis settle on four wheels.
 - Each reaches its top speed, and 72 km/h in a fair time.
 - The soapbox turns tightest and the hauler and racer widest.
@@ -470,6 +492,7 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - A flipped kart recovers, and every chassis stays upright through a flat-out slalom.
 - Tilt maps to steering correctly.
 - Bots of every level lap the test track at racing pace.
+- A rear-end bump shoves a kart without spinning it, and a full pack laps the hilly, banked track with no spins.
 
 ## 17. Open questions
 1. Working title (1).
@@ -508,3 +531,5 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Drivers share one simple rounded base body; animals told apart by features and colours | The user's direction: not anatomically correct, Among Us or Teletubby style |
 | 2026-11-06 | The driver roster can change if an animal is hard to make readable | The user's direction |
 | 2026-11-06 | Karts and drivers built by us in code; environment starts from CC0 packs, committed to the repo | The user's direction; reversible through wrapper scenes |
+| 2026-11-06 | Bold palette restyle of the CC0 kits, plus hills and banked corners | The user's request: make the colours pop and tilt parts of the road |
+| 2026-11-06 | Kart-to-kart bumps are soft pushes, never spins | The user's report of unexpected 180° spins |

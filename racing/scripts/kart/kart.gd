@@ -17,6 +17,7 @@ const DOWNFORCE := 0.9
 const AIR_LEVELLING := 9.0
 const DRIFT_MIN_SPEED := 9.0
 const DRIFT_SLIP := 0.49  # radians (28°): how far the nose points into a drift
+const MAX_YAW_RATE := 4.0  # rad/s: hits can turn you, but never whip you round
 const BOOST_STAGES := [[0.7, 0.55], [1.5, 0.95], [2.4, 1.4]]  # [drift seconds, boost seconds]
 const BOOST_FORCE := 1.25  # times the chassis acceleration
 const BOOST_SPEED := 1.22  # top speed multiplier while boosting
@@ -67,6 +68,10 @@ const DRIFT_EXIT := 0.35
 
 func _ready() -> void:
 	continuous_cd = true
+	# Karts live on layer 2 and only collide with the world (layer 1);
+	# kart-to-kart bumps are handled gently by KartBumps instead.
+	collision_layer = 2
+	collision_mask = 1
 	contact_monitor = false
 	can_sleep = false
 	# Replace Godot's default damping: all drag comes from the surfaces.
@@ -262,6 +267,11 @@ func _physics_process(delta: float) -> void:
 		if grounded_wheels > 0:
 			apply_central_force(fwd * float(chassis["accel"]) * 0.6)
 
+	# Backstop against violent spins (wall hits at an angle): outside a drift,
+	# cap how fast the kart can rotate about its own up axis.
+	var yaw := angular_velocity.dot(up)
+	if not drifting and absf(yaw) > MAX_YAW_RATE:
+		angular_velocity -= up * (yaw - signf(yaw) * MAX_YAW_RATE)
 	_detect_crash(delta)
 	_check_recovery(delta)
 	lateral_g = lerpf(lateral_g, linear_velocity.dot(xf.basis.x) * angular_velocity.dot(up) / 9.8, 0.2)

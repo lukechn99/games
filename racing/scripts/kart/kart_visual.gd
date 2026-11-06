@@ -24,8 +24,10 @@ var _bob_vel := 0.0
 var _materials := {}
 
 
-func _init(k: Kart) -> void:
+func _init(k: Kart, merge := true) -> void:
 	kart = k
+	if not merge:
+		set_meta("nomerge", true)
 
 
 func _ready() -> void:
@@ -153,8 +155,11 @@ func rebuild() -> void:
 		_wheels.append(pivot)
 
 	_build_driver(body_y, size, seat["z"])
+	if not has_meta("nomerge"):
+		_merge_all()
 
 
+const OUTLINE_W := 0.025
 const METAL := Color(0.78, 0.8, 0.84)
 const DARK := Color(0.16, 0.16, 0.2)
 
@@ -272,6 +277,92 @@ func _build_frame(style: String, color: Color) -> Dictionary:
 	var wheel_at := Vector3(0, seat_y + 0.45, seat_z - 0.42)
 	_tube(Vector3(0, low, fz + 0.05), wheel_at, 0.02, DARK)
 	return {"y": seat_y, "z": seat_z, "wheel_at": wheel_at}
+
+
+## Merge each group of parts that moves together into one mesh with an ink
+## outline (design doc 9.1): a kart drops from ~70 draw calls to ~15.
+func _merge_all() -> void:
+	_boost_flame.set_meta("keep", true)
+	_sparks.set_meta("keep", true)
+	var groups: Array[Node3D] = [self, _torso, _head]
+	for w in _wheels:
+		groups.append(w.get_child(0))
+	groups.append(_wheel_ring.get_parent())
+	groups.append_array(_wobbly)
+	for g in groups:
+		_merge(g)
+
+
+func _merge(group: Node3D) -> void:
+	var parts: Array[MeshInstance3D] = []
+	var xforms: Array[Transform3D] = []
+	_collect(group, Transform3D.IDENTITY, parts, xforms, true)
+	if parts.size() < 1:
+		return
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var colors := PackedColorArray()
+	var indices := PackedInt32Array()
+	for i in parts.size():
+		var mi := parts[i]
+		var xf := xforms[i]
+		var c: Color = (mi.material_override as StandardMaterial3D).albedo_color
+		var arr := mi.mesh.surface_get_arrays(0)
+		var base := verts.size()
+		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var n: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+		var nb := xf.basis.inverse().transposed()
+		for k in v.size():
+			verts.append(xf * v[k])
+			normals.append((nb * n[k]).normalized())
+			colors.append(c)
+		var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+		if idx.is_empty():
+			for k in v.size():
+				indices.append(base + k)
+		else:
+			for k in idx:
+				indices.append(base + k)
+	for mi in parts:
+		mi.get_parent().remove_child(mi)
+		mi.queue_free()
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var merged := MeshInstance3D.new()
+	merged.mesh = mesh
+	merged.material_override = Palette.toon(Color.WHITE, true, OUTLINE_W)
+	merged.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	group.add_child(merged)
+
+
+## Mesh parts under `node`, with transforms relative to the group. Stops at
+## plain Node3D children (they move on their own, so they're merged separately).
+func _collect(node: Node3D, xf: Transform3D, parts: Array[MeshInstance3D], xforms: Array[Transform3D], is_root: bool) -> void:
+	for c in node.get_children():
+		if not c is Node3D or c.has_meta("keep"):
+			continue
+		var child := c as Node3D
+		var cx := xf * child.transform
+		if child is MeshInstance3D and (child as MeshInstance3D).material_override is StandardMaterial3D:
+			var sc := cx.basis.get_scale()
+			if absf(sc.x - sc.y) > 0.01 or absf(sc.y - sc.z) > 0.01:
+				# Stretched shells shade wrongly once merged, so they stay
+				# separate (with the same toon look and outline).
+				var mi := child as MeshInstance3D
+				mi.material_override = Palette.toon((mi.material_override as StandardMaterial3D).albedo_color, false, OUTLINE_W)
+				_collect(child, cx, parts, xforms, false)
+				continue
+			parts.append(child)
+			xforms.append(cx)
+			_collect(child, cx, parts, xforms, false)
+		elif not is_root and not child is MeshInstance3D:
+			continue
 
 
 func _glow(c: Color) -> StandardMaterial3D:

@@ -13,12 +13,18 @@ const KIT_RACING := "res://assets/vendor/kenney_racing_kit/"
 const KIT_NATURE := "res://assets/vendor/kenney_nature_kit/"
 
 ## Racing line, in metres, clockwise. y is height.
+## The far side climbs a hill (up to 7 m), drops down past the ice and
+## crests before the jump; the start straight stays at ground level.
 const POINTS := [
-	Vector3(0, 0, 40), Vector3(0, 0, -60), Vector3(0, 0, -140), Vector3(25, 0, -190), Vector3(80, 0, -205),
-	Vector3(135, 0, -180), Vector3(150, 0, -125), Vector3(150, 0, -70), Vector3(185, 0, -25),
-	Vector3(210, 0, 35), Vector3(190, 0, 85), Vector3(140, 0, 95), Vector3(105, 0, 65),
+	Vector3(0, 0, 40), Vector3(0, 0, -60), Vector3(0, 0.5, -140), Vector3(25, 2.5, -190), Vector3(80, 5.5, -205),
+	Vector3(135, 7, -180), Vector3(150, 6, -125), Vector3(150, 3.5, -70), Vector3(185, 2.5, -25),
+	Vector3(210, 2.5, 35), Vector3(190, 2.5, 85), Vector3(140, 1.5, 95), Vector3(105, 0.5, 65),
 	Vector3(70, 0, 95), Vector3(40, 0, 140), Vector3(0, 0, 130),
 ]
+## Corners bank toward the inside, up to this angle, set by how sharp they are.
+const MAX_BANK := deg_to_rad(15.0)
+const BANK_PER_TURN := 6.5   # bank (radians) per radian-per-metre of turn
+const SLOPE := 2.5           # embankments drop 1 m for every 2.5 m outward
 ## Stretches of the lap with their own surface: [from, to] as fractions of the lap.
 const SURFACE_ZONES := [
 	{"from": 0.405, "to": 0.475, "surface": "ice"},
@@ -35,6 +41,8 @@ var length := 0.0
 var laps := LAPS
 var trees_hit_radius := 26.0
 var _samples: Array[Transform3D] = []   # every 2 m along the line
+var _bank: PackedFloat32Array = []       # bank angle every 2 m
+var _skirt: PackedFloat32Array = []      # embankment width every 2 m
 var _rng := RandomNumberGenerator.new()
 
 
@@ -59,22 +67,65 @@ func _build_curve() -> void:
 		curve.add_point(p, -handle, handle)
 	curve.bake_interval = 1.0
 	length = curve.get_baked_length()
+	# Bank each corner by how sharply the line turns, smoothed so the road
+	# rolls in and out of corners gradually.
+	var raw: Array[float] = []
 	var d := 0.0
+	while d < length:
+		var a := _flat_dir(d - 8.0)
+		var b := _flat_dir(d + 8.0)
+		raw.append(clampf(a.signed_angle_to(b, Vector3.UP) / 16.0 * BANK_PER_TURN, -MAX_BANK, MAX_BANK))
+		d += 2.0
+	var n_s := raw.size()
+	_bank.resize(n_s)
+	for i in n_s:
+		var acc := 0.0
+		for k in range(-6, 7):
+			acc += raw[(i + k + n_s) % n_s]
+		_bank[i] = acc / 13.0
+	_skirt.resize(n_s)
+	d = 0.0
 	while d < length:
 		_samples.append(transform_at(d))
 		d += 2.0
 
 
-## Position and facing on the racing line at `offset` metres.
+func _flat_dir(offset: float) -> Vector3:
+	var p := curve.sample_baked(fposmod(offset, length), true)
+	var ahead := curve.sample_baked(fposmod(offset + 1.0, length), true)
+	var f := ahead - p
+	f.y = 0.0
+	return f.normalized()
+
+
+## Bank angle at `offset` (positive tips the right edge up, for left turns).
+func bank_at(offset: float) -> float:
+	if _bank.is_empty():
+		return 0.0
+	var x := fposmod(offset, length) / 2.0
+	var i := int(x) % _bank.size()
+	return lerpf(_bank[i], _bank[(i + 1) % _bank.size()], x - floorf(x))
+
+
+## Position and facing on the racing line at `offset` metres. The facing is
+## level; the position is lifted on banked corners so the low edge of the
+## road meets the ground instead of sinking into it.
 func transform_at(offset: float) -> Transform3D:
 	offset = fposmod(offset, length)
 	var p := curve.sample_baked(offset, true)
-	var ahead := curve.sample_baked(fposmod(offset + 1.0, length), true)
-	var fwd := (ahead - p)
-	fwd.y = 0.0
-	fwd = fwd.normalized()
-	var basis := Basis.looking_at(fwd, Vector3.UP)
+	var bank := bank_at(offset)
+	p.y = maxf(p.y, sin(absf(bank)) * (ROAD_WIDTH * 0.5 + 1.1))
+	var basis := Basis.looking_at(_flat_dir(offset), Vector3.UP)
 	return Transform3D(basis, p)
+
+
+## Like transform_at, but `basis.x` follows the road's bank (for building it).
+func road_frame(offset: float) -> Transform3D:
+	var t := transform_at(offset)
+	var b := bank_at(offset)
+	var right := t.basis.x * cos(b) + Vector3.UP * sin(b)
+	t.basis = Basis(right, t.basis.z.cross(right).normalized(), t.basis.z)
+	return t
 
 
 func offset_of(pos: Vector3) -> float:
@@ -134,9 +185,13 @@ func _build_road() -> void:
 			groups[s] = SurfaceTool.new()
 			(groups[s] as SurfaceTool).begin(Mesh.PRIMITIVE_TRIANGLES)
 		var st: SurfaceTool = groups[s]
-		var a := transform_at(d)
-		var b := transform_at(minf(d + step, length))
+		var a := road_frame(d)
+		var b := road_frame(minf(d + step, length))
 		_quad_strip(st, a, b, s, int(d / step))
+		if not groups.has("grass"):
+			groups["grass"] = SurfaceTool.new()
+			(groups["grass"] as SurfaceTool).begin(Mesh.PRIMITIVE_TRIANGLES)
+		_embankment(groups["grass"], a, b, int(d / step))
 		d += step
 	for s in groups:
 		var st: SurfaceTool = groups[s]
@@ -150,6 +205,32 @@ func _build_road() -> void:
 		var col := CollisionShape3D.new()
 		col.shape = mesh.create_trimesh_shape()
 		body.add_child(col)
+
+
+## Where the road sits above the ground, a grassy bank slopes down to meet it.
+func _embankment(st: SurfaceTool, a: Transform3D, b: Transform3D, index: int) -> void:
+	var edge := ROAD_WIDTH * 0.5 + 1.1
+	var widest := 0.0
+	for side in [-1.0, 1.0]:
+		var ea: Vector3 = a.origin + a.basis.x * side * edge
+		var eb: Vector3 = b.origin + b.basis.x * side * edge
+		var h := maxf(ea.y, eb.y)
+		if h < 0.08:
+			continue
+		var out_a: Vector3 = (a.basis.x * Vector3(1, 0, 1)).normalized() * side
+		var out_b: Vector3 = (b.basis.x * Vector3(1, 0, 1)).normalized() * side
+		var w := h * SLOPE + 1.0
+		widest = maxf(widest, w)
+		var ga := Vector3(ea.x, -0.02, ea.z) + out_a * w
+		var gb := Vector3(eb.x, -0.02, eb.z) + out_b * w
+		var c: Color = Parts.surface("grass")["color"]
+		c = c.darkened(0.06) if index % 2 == 0 else c
+		var tri := [ea, ga, gb, ea, gb, eb] if side > 0 else [ea, gb, ga, ea, eb, gb]
+		for v in tri:
+			st.set_color(c)
+			st.add_vertex(v)
+	if index < _skirt.size():
+		_skirt[index] = widest
 
 
 func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, index: int) -> void:
@@ -201,7 +282,7 @@ func _scatter(path: String, xforms: Array[Transform3D]) -> void:
 		return
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = mesh
+	mm.mesh = Palette.restyle(mesh)
 	mm.instance_count = xforms.size()
 	for i in xforms.size():
 		mm.set_instance_transform(i, xforms[i])
@@ -232,7 +313,7 @@ func _build_rails() -> void:
 	while d < length:
 		var f := d / length
 		if _in_rail_zone(f):
-			var a := transform_at(d)
+			var a := road_frame(d)
 			for side in [-1.0, 1.0]:
 				var pos: Vector3 = a.origin + a.basis.x * side * (ROAD_WIDTH * 0.5 + 1.8)
 				var col := CollisionShape3D.new()
@@ -250,7 +331,7 @@ func _build_rails() -> void:
 
 func _build_jump() -> void:
 	var d := JUMP_AT * length
-	var a := transform_at(d)
+	var a := road_frame(d)
 	var w := ROAD_WIDTH * 0.8
 	var l := 7.0
 	var h := 1.3
@@ -288,6 +369,7 @@ func _place(path: String, xf: Transform3D) -> void:
 		return
 	var n: Node3D = scene.instantiate()
 	n.transform = xf
+	Palette.restyle_tree(n)
 	add_child(n)
 
 
@@ -334,13 +416,16 @@ func _build_start() -> void:
 	_scatter(KIT_RACING + "pylon.glb", cones)
 
 
+## Distance from the road's centre line, minus any embankment there, so
+## scenery never ends up buried in a bank or floating over one.
 func _distance_to_line(p: Vector3) -> float:
 	var best := INF
-	for s in _samples:
-		var dd := Vector2(p.x - s.origin.x, p.z - s.origin.z).length_squared()
+	for i in _samples.size():
+		var s := _samples[i]
+		var dd := Vector2(p.x - s.origin.x, p.z - s.origin.z).length() - (_skirt[i] if i < _skirt.size() else 0.0)
 		if dd < best:
 			best = dd
-	return sqrt(best)
+	return best
 
 
 ## Background and scenery (design doc 8.2): far mountains, trees and rocks.

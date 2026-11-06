@@ -500,6 +500,8 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - **Out of bounds.** A kart under the road, more than 6 m below it, or more than 45 m from it is put back on the road after 0.4 seconds, like falling off the course in Mario Kart. The road and banks are also solid from both sides, so karts can't slip through.
 - **Finishes (9.4).** Metal shines sharply, paint softly, rubber and fur stay matte; each kart is merged into one mesh per finish. Every kart has a soft blob shadow. Real sun shadows exist behind `?shadows=on` and a garage toggle, but stay off by default for now: turning them on brightens the whole scene in Godot's Compatibility renderer (seen on a real GPU too), which needs fixing first.
 - **Winding fix.** The grassy banks were built facing the wrong way: invisible from above (you saw the flat ground through them) though still solid. That's part of why the road looked like it floated and why karts could seem to drive "under" it. They now face up and are lit properly.
+- **Graphics levels (9.1).** Everyone starts on **High**: 4x anti-aliasing, glow on bright things, surface relief (normal maps made from the detail textures), clear-coat paint, chrome-like metal reflecting the sky, a warm sun, and lamps that really light the tunnel. **Medium** keeps glow and relief with 2x anti-aliasing; **Low** drops those and draws the 3D view at 75% resolution. If a race runs under 45 frames a second for 6 seconds, it steps down a level by itself and says so; the garage has a Graphics switch. Add `?quality=low|medium|high` to force one.
+- **Pedals when tilting (10.3).** With tilt steering there's no joystick, so gas sits in the bottom-right corner, brake in the bottom-left, and the item button above gas.
 - **Kart meshes are merged** into one vertex-coloured mesh per moving group, with an ink outline. Stretched shells (nose cones, pods, the soapbox egg) stay separate pieces, because merging them shaded wrongly.
 
 **Automated tests (39), run on every deploy:**
@@ -560,3 +562,5 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | World pass: textures, materials, shade, cliff and lake, split route, tunnel, bridge, gantries, crowd, flags, sway, dust, haze | The user's request, from the Mario Kart World reference |
 | 2026-11-06 | Shade is drawn as soft patches, not real-time shadows | Real shadows brighten the scene in the Compatibility renderer; patches are cheap on phones |
 | 2026-11-06 | Mine Shaft added as a future track idea | The user's idea |
+| 2026-11-06 | Start every device on the best graphics and step down automatically if the frame rate drops | The user's request: don't hold back on phones until performance shows it's needed |
+| 2026-11-06 | When steering by tilt, gas bottom-right and brake bottom-left | The user's request |

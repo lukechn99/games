@@ -480,9 +480,12 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - **Colours (9.1).** `palette.gd` is our one palette. Every Kenney kit material is matched by name and swapped for a toon material in our colours, so kit props and our own shapes look like one world. Lighting is tuned so bright colours don't clip: linear tonemap, sun 0.8, ambient 0.45, light fog.
 - **Hills and banked corners.** The racing line has heights (up to 7 m), and the road leans into corners in proportion to how sharp they are, up to 15°. The road's edges continue into grassy embankments, so there are no gaps under a banked road.
 - **Kart bumps (7.2).** Karts don't collide as rigid boxes: a rear-end hit could kick a kart into a 180° spin. Each kart is two circles; overlapping karts are pushed apart and trade speed, weighted by mass (`bumps.gd`). Turning is also capped at 4 rad/s outside drifts. A test drives a full pack round the hilly track and counts zero spins.
+- **No launches off walls.** Wheels only roll on ground (surfaces flatter than about 53°), and when the kart's body touches a wall, rock or tree, any upward speed and pitching or rolling it picks up is removed. Before this, a hit at speed tipped the nose up and threw karts several metres into the air. Boulders have straight-sided hit shapes and tree trunks match the trunk, not the leaves.
+- **Out of bounds.** A kart under the road, more than 6 m below it, or more than 45 m from it is put back on the road after 0.4 seconds, like falling off the course in Mario Kart. The road and banks are also solid from both sides, so karts can't slip through.
+- **Finishes (9.4).** Metal shines sharply, paint softly, rubber and fur stay matte; each kart is merged into one mesh per finish. Every kart has a soft blob shadow. Real sun shadows exist behind `?shadows=on` and a garage toggle, but stay off by default for now: turning them on brightens the whole scene in Godot's Compatibility renderer (seen on a real GPU too), which needs fixing first.
 - **Kart meshes are merged** into one vertex-coloured mesh per moving group, with an ink outline. Stretched shells (nose cones, pods, the soapbox egg) stay separate pieces, because merging them shaded wrongly.
 
-**Automated tests (36), run on every deploy:**
+**Automated tests (38), run on every deploy:**
 - All four chassis settle on four wheels.
 - Each reaches its top speed, and 72 km/h in a fair time.
 - The soapbox turns tightest and the hauler and racer widest.
@@ -493,6 +496,7 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - Tilt maps to steering correctly.
 - Bots of every level lap the test track at racing pace.
 - A rear-end bump shoves a kart without spinning it, and a full pack laps the hilly, banked track with no spins.
+- Hitting a boulder at speed doesn't launch the kart, and a kart under the road is put back on it.
 
 ## 17. Open questions
 1. Working title (1).
@@ -533,3 +537,5 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Karts and drivers built by us in code; environment starts from CC0 packs, committed to the repo | The user's direction; reversible through wrapper scenes |
 | 2026-11-06 | Bold palette restyle of the CC0 kits, plus hills and banked corners | The user's request: make the colours pop and tilt parts of the road |
 | 2026-11-06 | Kart-to-kart bumps are soft pushes, never spins | The user's report of unexpected 180° spins |
+| 2026-11-06 | Falling off or under the course puts you back on the road | The user's request, as in Mario Kart |
+| 2026-11-06 | The garage closes with an X in its top-right corner (or Escape) | The user's request: the old Close button was hidden among the options |

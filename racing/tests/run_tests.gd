@@ -23,7 +23,9 @@ func _run() -> void:
 	await _test_slalom_stays_upright()
 	_test_tilt_mapping()
 	await _test_rear_end_bump()
+	await _test_boulder_is_not_a_ramp()
 	await _test_bots_lap_the_track()
+	await _test_fall_off_respawns()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
 
@@ -304,3 +306,51 @@ func _test_bots_lap_the_track() -> void:
 			"lap %.1f s, avg %.1f m/s, %d respawns" % [lap_time[i], avg, respawns[i]])
 	check(spins[0] == 0, "nobody gets spun round in the pack (hills, banks, bumps)", "%d spins" % spins[0])
 	print("  lap length %.0f m" % track.length)
+
+
+func _test_boulder_is_not_a_ramp() -> void:
+	print("boulders")
+	_pad()
+	# Same hit shape as the track's boulders (track.gd, _build_scenery).
+	var rock := StaticBody3D.new()
+	var c := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = 0.36 * 4.0
+	cyl.height = 0.26 * 4.0 * 2.6
+	c.shape = cyl
+	c.position = Vector3(0.6, cyl.height * 0.5, -60)
+	rock.add_child(c)
+	_world.add_child(rock)
+	var k := _kart()
+	var top := [0.0]
+	for i in 300:
+		k.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+		await physics_frame
+		top[0] = maxf(top[0], k.global_position.y)
+	check(top[0] < 1.2, "hitting a boulder at speed bumps you, it doesn't launch you", "highest %.2f m" % top[0])
+
+
+func _test_fall_off_respawns() -> void:
+	print("falling off")
+	if _world:
+		_world.free()
+	_world = Node3D.new()
+	root.add_child(_world)
+	var track := Track.new()
+	_world.add_child(track)
+	var k := Kart.new()
+	k.configure("frame", "slicks", "fox")
+	k.track = track
+	_world.add_child(k)
+	# Find a raised stretch and drop the kart well under the road there.
+	var best := 0.0
+	for o in range(0, int(track.length), 5):
+		if track.road_frame(o).origin.y > track.road_frame(best).origin.y:
+			best = o
+	var frame: Transform3D = track.road_frame(best)
+	k.global_transform = Transform3D(frame.basis, frame.origin - frame.basis.y * 4.0)
+	var got := [false]
+	k.respawned.connect(func(): got[0] = true)
+	await _ticks(90)
+	var back: Vector3 = track.road_frame(track.offset_of(k.global_position)).affine_inverse() * k.global_position
+	check(got[0] and back.y > -1.0, "a kart that ends up under the road is put back on it", "road %.1f m up, kart %.1f m from the road surface" % [frame.origin.y, back.y])

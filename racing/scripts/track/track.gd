@@ -143,6 +143,7 @@ func _mat(c: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	m.roughness = 0.95
 	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
 	return m
@@ -203,7 +204,11 @@ func _build_road() -> void:
 		mi.material_override = _mat(Color.WHITE)
 		body.add_child(mi)
 		var col := CollisionShape3D.new()
-		col.shape = mesh.create_trimesh_shape()
+		var shape := mesh.create_trimesh_shape()
+		# Solid from both sides, so nothing can slip through the road or the
+		# banks and end up underneath.
+		shape.backface_collision = true
+		col.shape = shape
 		body.add_child(col)
 
 
@@ -453,7 +458,7 @@ func _build_scenery() -> void:
 		if dist < trees_hit_radius:
 			var col := CollisionShape3D.new()
 			var cyl := CylinderShape3D.new()
-			cyl.radius = 0.12 * sc
+			cyl.radius = 0.06 * sc  # about the trunk, not the leaves
 			cyl.height = 6.0
 			col.shape = cyl
 			col.position = p + Vector3.UP * 3.0
@@ -469,14 +474,18 @@ func _build_scenery() -> void:
 		if dist < ROAD_WIDTH * 0.5 + 4.0:
 			continue
 		if i % 3 == 0:
-			var sc := _rng.randf_range(3.0, 6.0)
-			rocks.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * sc), p))
+			# Boulders: taller than a kart, with straight sides, so you bump
+			# into them. (A low, rounded hit shape worked like a ramp and
+			# threw karts into the air.)
+			var sc := _rng.randf_range(3.0, 5.0)
+			rocks.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3(sc, sc * 2.6, sc)), p))
 			if dist < trees_hit_radius:
 				var col := CollisionShape3D.new()
-				var sph := SphereShape3D.new()
-				sph.radius = 0.4 * sc
-				col.shape = sph
-				col.position = p
+				var cyl := CylinderShape3D.new()
+				cyl.radius = 0.36 * sc
+				cyl.height = 0.26 * sc * 2.6
+				col.shape = cyl
+				col.position = p + Vector3.UP * cyl.height * 0.5
 				solid.add_child(col)
 		elif i % 3 == 1:
 			bushes.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * _rng.randf_range(3.0, 5.0)), p))

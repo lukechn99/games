@@ -37,7 +37,9 @@
       side = a === 90 ? 1 : -1
     }
     var deg = (Math.asin(Math.max(-1, Math.min(1, y / len))) * 180) / Math.PI
-    tilt.deg = deg * side
+    // Positive = turned right (clockwise). Checked on a real phone: the
+    // sign was the wrong way round, so it is flipped here.
+    tilt.deg = -deg * side
     tilt.flat = Math.abs(z) / len > 0.97
     tilt.state = 'on'
   }

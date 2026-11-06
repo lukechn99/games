@@ -61,6 +61,8 @@ var _damper := 0.0
 var _prev_velocity := Vector3.ZERO
 var _upside_down_time := 0.0
 var _collision: CollisionShape3D
+var _off_track_time := 0.0
+var _calm_vy := 0.0  # upward speed before touching a wall
 var _was_drift_pressed := false
 var _drift_exit := 0.0     # seconds left blending grip back in after a drift
 const DRIFT_EXIT := 0.35
@@ -72,7 +74,9 @@ func _ready() -> void:
 	# kart-to-kart bumps are handled gently by KartBumps instead.
 	collision_layer = 2
 	collision_mask = 1
-	contact_monitor = false
+	# Contacts are watched so a wall can stop a kart but never throw it (below).
+	contact_monitor = true
+	max_contacts_reported = 4
 	can_sleep = false
 	# Replace Godot's default damping: all drag comes from the surfaces.
 	angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
@@ -134,6 +138,27 @@ func top_speed() -> float:
 	return float(chassis["top_speed"]) * float(tires["top_speed"]) * (BOOST_SPEED if boost_time > 0.0 else 1.0)
 
 
+## Walls, rocks and trees stop you or knock you sideways; they never launch
+## you into the air or flip you over. A hit at speed used to tip the nose up
+## and throw the kart several metres high (the "phantom" launches).
+func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	var walled := false
+	for i in state.get_contact_count():
+		if state.get_contact_local_normal(i).dot(Vector3.UP) < 0.6:
+			walled = true
+			break
+	if walled:
+		var v := state.linear_velocity
+		if v.y > _calm_vy:
+			v.y = _calm_vy
+		state.linear_velocity = v
+		var up := state.transform.basis.y
+		var w := state.angular_velocity
+		state.angular_velocity = up * w.dot(up) + (w - up * w.dot(up)) * 0.2
+	else:
+		_calm_vy = maxf(state.linear_velocity.y, 0.0)
+
+
 func _physics_process(delta: float) -> void:
 	if _wheel_mounts.is_empty():
 		return
@@ -163,6 +188,11 @@ func _physics_process(delta: float) -> void:
 		params.from = mount
 		params.to = mount - up * ray_len
 		var hit := space.intersect_ray(params)
+		# Wheels only roll on ground, never on the face of a wall or rock.
+		# (Without this a wheel touching a wall pushed the kart up it, and
+		# the kart was thrown into the air.)
+		if not hit.is_empty() and (hit["normal"] as Vector3).dot(Vector3.UP) < 0.6:
+			hit = {}
 		if hit.is_empty():
 			wheel_grounded[i] = false
 			wheel_compression[i] = lerpf(wheel_compression[i], 0.0, 0.3)
@@ -342,8 +372,20 @@ func _detect_crash(delta: float) -> void:
 func _check_recovery(delta: float) -> void:
 	var upright := global_transform.basis.y.dot(Vector3.UP)
 	_upside_down_time = _upside_down_time + delta if upright < 0.35 else 0.0
-	if global_position.y < -12.0 or _upside_down_time > 1.6:
+	_off_track_time = _off_track_time + delta if _fallen_off() else 0.0
+	if global_position.y < -12.0 or _upside_down_time > 1.6 or _off_track_time > 0.4:
 		respawn()
+
+
+## Out of bounds, like falling off the course in Mario Kart: under the road,
+## well below it, or far from it. The kart is put back on the road.
+func _fallen_off() -> bool:
+	if track == null:
+		return false
+	var frame: Transform3D = track.road_frame(track.offset_of(global_position))
+	var local: Vector3 = frame.affine_inverse() * global_position
+	var under_road: bool = local.y < -2.0 and absf(local.x) < Track.ROAD_WIDTH * 0.5 + 2.0
+	return under_road or local.y < -6.0 or absf(local.x) > 45.0
 
 
 func respawn() -> void:
@@ -363,6 +405,7 @@ func respawn() -> void:
 	_prev_velocity = linear_velocity
 	drifting = false
 	_upside_down_time = 0.0
+	_off_track_time = 0.0
 	reset_physics_interpolation()
 	respawned.emit()
 

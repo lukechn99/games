@@ -112,7 +112,24 @@ func _build_garage(root: Control) -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	_garage.add_child(v)
-	_heading(v, "Garage")
+	# Title row with a close (X) button in the top-right corner, where
+	# people expect it. Escape closes the garage too.
+	var top := HBoxContainer.new()
+	v.add_child(top)
+	_heading(top, "Garage")
+	(top.get_child(0) as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var x := Button.new()
+	x.custom_minimum_size = Vector2(48, 48)
+	x.tooltip_text = "Close the garage"
+	x.focus_mode = Control.FOCUS_NONE
+	x.draw.connect(func():
+		var c := x.size * 0.5
+		var k := 10.0
+		var col := Color(1, 1, 1, 0.95)
+		x.draw_line(c + Vector2(-k, -k), c + Vector2(k, k), col, 3.5, true)
+		x.draw_line(c + Vector2(k, -k), c + Vector2(-k, k), col, 3.5, true))
+	x.pressed.connect(func(): _garage.visible = false)
+	top.add_child(x)
 	_choices(v, "Chassis", "chassis", Parts.CHASSIS)
 	_choices(v, "Wheels", "tires", Parts.TIRES)
 	_choices(v, "Driver", "driver", Parts.DRIVERS)
@@ -148,8 +165,6 @@ func _build_garage(root: Control) -> void:
 	restart.pressed.connect(func():
 		_garage.visible = false
 		restart_requested.emit())
-	var close := _button(row2, "Close")
-	close.pressed.connect(func(): _garage.visible = false)
 
 
 func _heading(v: Control, text: String, size_px := 26) -> void:
@@ -269,3 +284,9 @@ func _ordinal(n: int) -> String:
 	if n % 100 in [11, 12, 13]:
 		return "th"
 	return {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _garage.visible and event.is_action_pressed("ui_cancel"):
+		_garage.visible = false
+		get_viewport().set_input_as_handled()

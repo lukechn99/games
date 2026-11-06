@@ -47,6 +47,40 @@ func _ready() -> void:
 	camera.follow(player_kart)
 	hud.minimap.setup(track, karts, player_kart)
 	start_race()
+	var q := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else ""
+	if q.contains("showroom"):
+		_showroom(q)
+
+
+## ?showroom: every chassis side by side, parked, for reviewing the models.
+## Add &tires=knobby or &driver=deer to swap those on all of them.
+func _showroom(q: String) -> void:
+	var tires := "slicks"
+	var driver := "fox"
+	for t in Parts.TIRES:
+		if q.contains("tires=" + t):
+			tires = t
+	for d in Parts.DRIVERS:
+		if q.contains("driver=" + d):
+			driver = d
+	set_process(false)
+	hud.visible = false
+	for c in get_children():
+		if c is BotDriver or c is PlayerDriver:
+			c.queue_free()
+	var ids := Parts.CHASSIS.keys()
+	var base := track.transform_at(60.0)
+	for i in karts.size():
+		var k := karts[i]
+		k.configure(ids[i % ids.size()], tires, driver)
+		(k.get_meta("visual") as KartVisual).rebuild()
+		k.freeze = true
+		k.global_transform = Transform3D(base.basis.rotated(Vector3.UP, 0.6), base.origin + base.basis.x * (float(i) - 1.5) * 3.2 + Vector3.UP * 0.32)
+		k.input = {"steer": 0.0, "throttle": 0.0, "brake": 0.0, "drift": false}
+	camera.set_process(false)
+	camera.global_position = base.origin - base.basis.z * 6.5 + base.basis.x * 1.5 + Vector3.UP * 2.6
+	camera.look_at(base.origin + Vector3.UP * 0.4, Vector3.UP)
+	camera.fov = 52.0
 
 
 func _build_world() -> void:

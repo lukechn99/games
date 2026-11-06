@@ -316,49 +316,33 @@ Free packs (CC0: free for any use, no credit required) exist from two well-known
 
 | Scheme | Steer | Gas | Brake / reverse | Drift | Item |
 |---|---|---|---|---|---|
-| Tilt (phone) | Tilt | Automatic, or hold the right side of the screen | Bottom-left button | Bottom-right button | Big button on the right |
-| Touch buttons (phone) | Left and right buttons | Automatic or button | Button | Button | Button |
-| Touch slider (phone) | Drag a thumb left and right | Automatic or button | Button | Button | Button |
+| Tilt (phone) | Tilt | Gas button (right) | Brake button (right) | Hold brake while turning | Ability button (above gas and brake) |
+| Joystick (phone) | Joystick (left) | Gas button (right) | Brake button (right) | Hold brake while turning | Ability button (above gas and brake) |
 | Keyboard | A/D or arrow keys | W or Up | S or Down | Shift or Space | E or Enter |
 | Gamepad | Left stick | Right trigger | Left trigger | Right bumper | A / Cross |
 
 Assists, which players can turn off: automatic gas, steering help that keeps you off the walls, and auto-drift for younger players.
 
-### 10.3 HUD and on-screen layout (Proposed; the minimap is Decided)
-Phones are held sideways in both hands, so controls go where the thumbs rest: the bottom corners. Information goes along the top edge, where it doesn't hide the road.
+### 10.3 HUD and on-screen layout (Decided)
+Phones are held sideways in both hands, so controls go where the thumbs rest: the bottom corners. Information goes along the top edge, where it doesn't hide the road. **No words on the controls, only icons.**
 
-**Tilt steering (only the thumbs press buttons)**
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │ 3rd/8   Lap 2/3  1:24.6                         ┌─────────┐  │
-│ ▲ Otter -0.4                                    │ minimap │  │
-│ ▼ Corgi +1.1                                    └─────────┘  │
-│                                                              │
-│                        (the road)                            │
-│                                                              │
-│ ┌──────┐                                    ┌──────┐ ┌─────┐ │
-│ │BRAKE │                                    │DRIFT │ │ITEM │ │
-│ └──────┘                                    └──────┘ │ 🍯  │ │
-│                                                      └─────┘ │
+│ 54 km/h                                         │ minimap │  │
+│                                                 └─────────┘  │
+│                        (the road)               [ Garage ]   │
+│                                                    ( 🍯 )    │
+│    ╭─────╮                                        ability    │
+│   (  ◉   )  joystick                          ( ⌄⌄ ) ( ⌃⌃ )  │
+│    ╰─────╯                                    brake   gas    │
 └──────────────────────────────────────────────────────────────┘
 ```
-**Touch steering**
-```
-┌──────────────────────────────────────────────────────────────┐
-│ 3rd/8   Lap 2/3  1:24.6                         ┌─────────┐  │
-│                                                 │ minimap │  │
-│                                                 └─────────┘  │
-│                        (the road)                            │
-│ ┌─────┐ ┌─────┐                             ┌──────┐ ┌─────┐ │
-│ │  ◀  │ │  ▶  │                             │DRIFT │ │ITEM │ │
-│ └─────┘ └─────┘         ┌──────┐            └──────┘ │ 🍯  │ │
-│                         │BRAKE │                     └─────┘ │
-└─────────────────────────┴──────┴─────────────────────────────┘
-```
-- **Gas is automatic by default.** Turning it off adds a gas pedal on the far right, under the item button.
-- **Item button:** the largest button on the right; it shows the held item (6.1).
-- **Drift:** hold to drift; release to fire the charged boost.
-- **Brake:** hold to brake; keep holding when stopped to reverse.
+- **Left: a joystick for steering** (Decided), shown only when tilt steering isn't chosen. It appears wherever your thumb lands in the lower left of the screen, and its base follows a thumb that slides too far, so you never lose it.
+- **Right: brake and gas** (Decided), two equal round buttons. Gas is two up-chevrons; brake is two down-chevrons.
+- **Above them: the ability button** (Decided), showing the held item's icon (a honey pot, a tumbleweed, a snowball), or an empty dashed ring.
+- **Drifting without a drift button (Proposed):** hold brake while steering at speed to drift. The kart keeps its throttle, and the brake button glows blue, orange, then purple as the boost charges. Let go to fire the boost. Braking normally still works whenever you're not turning hard. Keyboards and gamepads also have a dedicated drift key.
+- **Automatic gas** is an optional assist in settings, off by default now that there's a gas button.
 - **Top left:** your position and the gap to the karts just ahead of and behind you.
 - **Top centre:** lap and race time; "Final lap!" banner.
 - **Top right: the minimap (Decided).** The track outline is drawn from the racing line. Every kart is a coloured dot with its number; yours is larger, with an arrow showing your direction. Incoming items aimed at you show as a red blip.
@@ -462,6 +446,12 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/run_tests.gd`, and the tilt reader in `racing/web/tilt.js`. The deploy runs the tests and exports the game to `/games/racing/`.
 
 - **Parts are data.** `scripts/kart/parts.gd` holds every chassis, tire, driver and surface as numbers. The garage panel swaps parts live while tuning.
+- **Kart models** are built in code (`kart_visual.gd`) from tubes and tapered shells, placed from each chassis's wheel mounts:
+  - **Go-kart frame:** a classic sprint kart with a nose cone and side pods.
+  - **Soapbox:** an egg-shaped shell and no engine.
+  - **Hauler:** wide pods, double bumpers and a roll hoop.
+  - **Racer:** a long pointed nose with a rear wing.
+  Open `/games/racing/?showroom` (add `&tires=knobby&driver=deer` to swap parts) to see every chassis side by side.
 - **Drifting is arcade, not physical.** Real tire grip can't hold a tight drift at speed. During a drift the kart's nose points about 28° into the corner, the momentum is steered to follow it round, and sideways tire friction is mostly switched off, so drifts keep their speed. Coming out, grip blends back in over 0.35 seconds while the momentum straightens. Holding a drift charges three boost stages (0.7, 1.5 and 2.4 seconds).
 - **No hidden drag.** Godot adds default damping to rigid bodies; karts replace it, so all drag comes from surfaces and rolling resistance.
 - **Crashes for screen shake** are detected from sudden changes in velocity, scaled 0–1. A test checks that ordinary cornering never triggers a shake.
@@ -512,6 +502,8 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Every track has background scenery and scenery that affects play (trees, guardrails) | The user's request |
 | 2026-11-06 | Launch with Meadow Loop plus one terrain track | The user's agreement with the proposal |
 | 2026-11-06 | Launch items: honey puddle, tumbleweed, growing snowball (snowy tracks only) | The user's picks |
+| 2026-11-06 | Phone controls: joystick left (unless tilting), equal gas and brake buttons right, ability button above them; icons, no words | The user's direction |
+| 2026-11-06 | Karts look like real go-karts: metal tube frames, aerodynamic nose, side pods, bumpers | The user's direction: the first boxy karts were too blocky |
 | 2026-11-06 | Launch tracks: Meadow Loop and Frosty Pass | The user's pick |
 | 2026-11-06 | Drivers share one simple rounded base body; animals told apart by features and colours | The user's direction: not anatomically correct, Among Us or Teletubby style |
 | 2026-11-06 | The driver roster can change if an animal is hard to make readable | The user's direction |

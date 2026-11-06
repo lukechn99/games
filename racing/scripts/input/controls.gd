@@ -9,13 +9,13 @@ const TILT_DEAD_ZONE := 3.0   # degrees around level that count as straight
 const TILT_FULL_LOCK := 30.0  # degrees for full steering
 
 var scheme := Scheme.AUTO
-var auto_gas := true          # on by default for touch and tilt
+var auto_gas := false         # optional assist; phones have a gas button
 var tilt_full_lock := TILT_FULL_LOCK
 var tilt_trim := 0.0          # degrees, for people who hold their phone slightly tilted
 var shake_level := 1.0        # 1 full, 0.5 gentle, 0 off
 
 ## Touch buttons write here (see touch_controls.gd).
-var touch := {"left": false, "right": false, "brake": false, "drift": false, "gas": false, "item": false}
+var touch := {"steer": 0.0, "brake": false, "gas": false, "item": false}
 
 var _tilt_smoothed := 0.0
 
@@ -62,11 +62,7 @@ func uses_auto_gas() -> bool:
 
 ## The current controls for the player's kart.
 func read(delta: float) -> Dictionary:
-	var steer := Input.get_axis("steer_left", "steer_right")
-	if touch["left"]:
-		steer -= 1.0
-	if touch["right"]:
-		steer += 1.0
+	var steer := Input.get_axis("steer_left", "steer_right") + float(touch["steer"])
 	if scheme == Scheme.TILT:
 		var tilt := tilt_steer(delta)
 		if absf(tilt) > absf(steer):
@@ -83,7 +79,7 @@ func read(delta: float) -> Dictionary:
 		"steer": clampf(steer, -1.0, 1.0),
 		"throttle": gas,
 		"brake": brake,
-		"drift": Input.is_action_pressed("drift") or touch["drift"],
+		"drift": Input.is_action_pressed("drift"),
 		"item": Input.is_action_just_pressed("item") or touch["item"],
 	}
 

@@ -103,23 +103,22 @@ func rebuild() -> void:
 	var color: Color = ch["color"]
 	var body_y := size.y * 0.5 + 0.05
 
-	# Chassis: a rounded tub, a nose, a seat and a steering wheel.
-	_mesh(_box(Vector3(size.x * 0.82, size.y * 0.55, size.z * 0.9)), color, self, Vector3(0, body_y, 0))
-	_mesh(_box(Vector3(size.x * 0.6, size.y * 0.35, size.z * 0.25)), color.lightened(0.15), self, Vector3(0, body_y + 0.02, -size.z * 0.52))
-	_mesh(_box(Vector3(size.x * 1.02, 0.12, 0.25)), Color(0.2, 0.2, 0.24), self, Vector3(0, body_y - 0.05, -size.z * 0.5))  # front bumper
-	_mesh(_box(Vector3(size.x * 1.02, 0.12, 0.25)), Color(0.2, 0.2, 0.24), self, Vector3(0, body_y - 0.05, size.z * 0.5))   # rear bumper
-	_mesh(_box(Vector3(size.x * 0.5, 0.35, 0.12)), color.darkened(0.25), self, Vector3(0, body_y + 0.32, size.z * 0.18))   # seat back
+	# Chassis: a go-kart built from metal tubes with aerodynamic bodywork
+	# (nose fairing, side pods, rear bumper). Every piece is placed from the
+	# chassis's own wheel mounts, so wheels and driver always line up (5.5).
+	var seat := _build_frame(kart.chassis_id, color)
 	var column := Node3D.new()
-	column.position = Vector3(0, body_y + 0.3, -size.z * 0.12)
-	column.rotation.x = deg_to_rad(-55)
+	column.position = seat["wheel_at"]
+	column.rotation.x = deg_to_rad(-60)
 	add_child(column)
 	var wheel_mesh := TorusMesh.new()
-	wheel_mesh.inner_radius = 0.11
-	wheel_mesh.outer_radius = 0.15
+	wheel_mesh.inner_radius = 0.1
+	wheel_mesh.outer_radius = 0.14
 	wheel_mesh.rings = 12
 	wheel_mesh.ring_segments = 6
 	_wheel_ring = _mesh(wheel_mesh, Color(0.15, 0.15, 0.18), column)
-	# Item rack at the back (design doc 6.1 option B): empty for now.
+	_mesh(_box(Vector3(0.12, 0.03, 0.06)), Color(0.15, 0.15, 0.18), _wheel_ring)
+	body_y = seat["y"]
 
 	# Boost flame and drift sparks, hidden until needed.
 	_boost_flame = _mesh(_cone(0.18, 0.6), Color(1.0, 0.6, 0.15), self, Vector3(0, body_y, size.z * 0.6), Vector3.ONE, Vector3(-PI / 2, 0, 0))
@@ -153,7 +152,126 @@ func rebuild() -> void:
 				_mesh(_box(Vector3(width * 1.05, 0.06, 0.08)), tire_color.lightened(0.25), spin, Vector3(0, cos(a) * r, sin(a) * r), Vector3.ONE, Vector3(a, 0, 0))
 		_wheels.append(pivot)
 
-	_build_driver(body_y + 0.12, size)
+	_build_driver(body_y, size, seat["z"])
+
+
+const METAL := Color(0.78, 0.8, 0.84)
+const DARK := Color(0.16, 0.16, 0.2)
+
+
+## A metal tube from a to b.
+func _tube(a: Vector3, b: Vector3, r: float, c := METAL, parent: Node3D = self) -> MeshInstance3D:
+	var d := b - a
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = r
+	cyl.bottom_radius = r
+	cyl.height = d.length()
+	cyl.radial_segments = 8
+	cyl.rings = 1
+	var mi := _mesh(cyl, c, parent, (a + b) * 0.5)
+	mi.basis = Basis(Quaternion(Vector3.UP, d.normalized()))
+	return mi
+
+
+## A tube bent through several points (bumpers, nerf bars, roll hoops).
+func _bent(points: Array, r: float, c := METAL) -> void:
+	for i in points.size() - 1:
+		_tube(points[i], points[i + 1], r, c)
+		if i > 0:
+			_mesh(_sphere(r, 4, 6), c, self, points[i])
+
+
+## A smooth tapered shell along -Z: `front` and `back` radii, squashed to `w` by `h`.
+func _fairing(center: Vector3, length: float, front: float, back: float, w: float, h: float, c: Color) -> MeshInstance3D:
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = front
+	cyl.bottom_radius = back
+	cyl.height = length
+	cyl.radial_segments = 14
+	cyl.rings = 2
+	var mi := _mesh(cyl, c, self, center)
+	mi.basis = Basis(Vector3.RIGHT, -PI / 2) * Basis.from_scale(Vector3(w, 1.0, h))
+	return mi
+
+
+## Builds the frame and bodywork for one chassis style. Returns where the
+## driver sits and where the steering wheel goes.
+func _build_frame(style: String, color: Color) -> Dictionary:
+	var fl := kart.wheel_mount(0)
+	var rr := kart.wheel_mount(3)
+	var tx := absf(fl.x)          # half track
+	var fz := fl.z                # front axle (negative)
+	var rz := rr.z                # rear axle
+	var y := fl.y - (Kart.SUSPENSION_TRAVEL * 0.6)  # wheel-centre height at rest
+	var low := y - 0.05           # frame rails sit just below the axles
+	var rail_x := tx * 0.42
+	var tube := 0.035
+	var paint := color
+	var accent := color.lightened(0.35)
+
+	# Main rails and cross tubes.
+	_bent([Vector3(-rail_x, low, rz + 0.1), Vector3(-rail_x, low, fz - 0.05), Vector3(-rail_x * 0.55, low, fz - 0.3)], tube)
+	_bent([Vector3(rail_x, low, rz + 0.1), Vector3(rail_x, low, fz - 0.05), Vector3(rail_x * 0.55, low, fz - 0.3)], tube)
+	_tube(Vector3(-rail_x * 0.55, low, fz - 0.3), Vector3(rail_x * 0.55, low, fz - 0.3), tube)
+	for z in [fz, (fz + rz) * 0.5, rz]:
+		_tube(Vector3(-tx + 0.1, low, z), Vector3(tx - 0.1, low, z), tube * 0.9)   # axle carriers
+	# Floor tray.
+	_mesh(_box(Vector3(rail_x * 2.0, 0.02, (rz - fz) * 0.8)), DARK, self, Vector3(0, low - 0.02, (fz + rz) * 0.5))
+	# Rear bumper bar wrapping behind the rear wheels.
+	var by := low + 0.06
+	_bent([Vector3(-tx - 0.08, by, rz - 0.05), Vector3(-tx - 0.08, by, rz + 0.45), Vector3(tx + 0.08, by, rz + 0.45), Vector3(tx + 0.08, by, rz - 0.05)], tube * 1.2)
+	_tube(Vector3(-rail_x, low, rz + 0.1), Vector3(-rail_x, by, rz + 0.45), tube)
+	_tube(Vector3(rail_x, low, rz + 0.1), Vector3(rail_x, by, rz + 0.45), tube)
+	# Front bumper loop under the nose.
+	_bent([Vector3(-tx * 0.7, low + 0.02, fz - 0.15), Vector3(-tx * 0.45, low + 0.02, fz - 0.55), Vector3(tx * 0.45, low + 0.02, fz - 0.55), Vector3(tx * 0.7, low + 0.02, fz - 0.15)], tube)
+
+	# Bodywork, aerodynamic shells in the chassis colour.
+	var nose_len := 0.55
+	var pod_len := (rz - fz) * 0.62
+	match style:
+		"soapbox":
+			# A rounded egg-shaped shell over a light frame.
+			var shell := _mesh(_sphere(0.5, 8, 14), paint, self, Vector3(0, low + 0.16, (fz + rz) * 0.5 - 0.15))
+			shell.scale = Vector3(rail_x * 2.4, 0.42, (rz - fz) * 0.95)
+			_mesh(_sphere(0.5, 6, 10), accent, self, Vector3(0, low + 0.16, fz - 0.15), Vector3(rail_x * 1.4, 0.32, 0.5))
+		"hauler":
+			# Chunky: wide boxy pods, double bumpers and a roll hoop.
+			_fairing(Vector3(0, low + 0.12, fz - 0.25), nose_len, 0.22, 0.3, 1.5, 0.55, paint)
+			for side in [-1.0, 1.0]:
+				_fairing(Vector3(side * (tx - 0.02), low + 0.1, (fz + rz) * 0.5), pod_len, 0.16, 0.16, 1.2, 0.8, paint)
+			_bent([Vector3(-tx - 0.12, by + 0.12, rz + 0.5), Vector3(tx + 0.12, by + 0.12, rz + 0.5)], tube * 1.4, DARK)
+			var hoop_z := rz - 0.2
+			_bent([Vector3(-rail_x, low, hoop_z), Vector3(-rail_x * 0.9, low + 0.85, hoop_z + 0.05), Vector3(rail_x * 0.9, low + 0.85, hoop_z + 0.05), Vector3(rail_x, low, hoop_z)], tube * 1.3)
+		"racer":
+			# Long, low and pointy, with a rear wing.
+			_fairing(Vector3(0, low + 0.09, fz - 0.35), nose_len + 0.35, 0.05, 0.26, 1.3, 0.45, paint)
+			for side in [-1.0, 1.0]:
+				_fairing(Vector3(side * (tx - 0.08), low + 0.06, (fz + rz) * 0.5 + 0.05), pod_len, 0.07, 0.15, 1.0, 0.55, paint)
+				_tube(Vector3(side * rail_x * 0.8, low, rz + 0.25), Vector3(side * rail_x * 0.8, low + 0.6, rz + 0.35), tube)
+			_mesh(_box(Vector3(tx * 2.0, 0.04, 0.32)), accent, self, Vector3(0, low + 0.62, rz + 0.38))
+		_:
+			# Classic sprint kart: nose cone, side pods, number plate.
+			_fairing(Vector3(0, low + 0.1, fz - 0.3), nose_len, 0.1, 0.28, 1.35, 0.5, paint)
+			for side in [-1.0, 1.0]:
+				_fairing(Vector3(side * (tx - 0.05), low + 0.08, (fz + rz) * 0.5), pod_len, 0.09, 0.14, 1.1, 0.7, paint)
+	# Number plate on the nose.
+	var plate := _mesh(_sphere(0.11, 4, 10), Color(0.97, 0.97, 0.97), self, Vector3(0, low + 0.28, fz - 0.05), Vector3(1.0, 1.0, 0.25))
+	plate.rotation.x = deg_to_rad(-25)
+
+	# Engine and exhaust at the back (not on the soapbox: it's gravity powered).
+	if style != "soapbox":
+		_mesh(_box(Vector3(0.24, 0.22, 0.28)), Color(0.45, 0.47, 0.52), self, Vector3(rail_x + 0.05, low + 0.15, rz - 0.05))
+		_mesh(_box(Vector3(0.2, 0.06, 0.24)), DARK, self, Vector3(rail_x + 0.05, low + 0.28, rz - 0.05))
+		_bent([Vector3(rail_x + 0.12, low + 0.15, rz + 0.1), Vector3(rail_x + 0.2, low + 0.2, rz + 0.35), Vector3(rail_x + 0.2, low + 0.26, rz + 0.5)], 0.035, Color(0.6, 0.6, 0.64))
+
+	# Bucket seat and the steering column.
+	var seat_z := (fz + rz) * 0.5 + (rz - fz) * 0.12
+	var seat_y := low + 0.08
+	_mesh(_sphere(0.24, 6, 10), DARK, self, Vector3(0, seat_y + 0.08, seat_z + 0.05), Vector3(1.0, 0.55, 1.0))
+	_mesh(_box(Vector3(0.38, 0.42, 0.06)), DARK, self, Vector3(0, seat_y + 0.25, seat_z + 0.2), Vector3.ONE, Vector3(deg_to_rad(-15), 0, 0))
+	var wheel_at := Vector3(0, seat_y + 0.45, seat_z - 0.42)
+	_tube(Vector3(0, low, fz + 0.05), wheel_at, 0.02, DARK)
+	return {"y": seat_y, "z": seat_z, "wheel_at": wheel_at}
 
 
 func _glow(c: Color) -> StandardMaterial3D:
@@ -167,13 +285,13 @@ func _glow(c: Color) -> StandardMaterial3D:
 
 
 ## The shared base body: a soft bean with a big head, stubby arms and legs.
-func _build_driver(seat_y: float, size: Vector3) -> void:
+func _build_driver(seat_y: float, size: Vector3, seat_z: float) -> void:
 	var d := kart.driver
 	var body_c: Color = d["body"]
 	var belly_c: Color = d["belly"]
 	var s: float = Parts.WEIGHT_SCALE[d["weight"]]
 	_driver = Node3D.new()
-	_driver.position = Vector3(0, seat_y, size.z * 0.08)
+	_driver.position = Vector3(0, seat_y, seat_z)
 	_driver.scale = Vector3.ONE * s
 	add_child(_driver)
 

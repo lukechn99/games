@@ -136,7 +136,7 @@ func _build_garage(root: Control) -> void:
 	shake.pressed.connect(func():
 		Controls.shake_level = 0.5 if Controls.shake_level == 1.0 else (0.0 if Controls.shake_level == 0.5 else 1.0)
 		shake.text = "Shake: " + {1.0: "full", 0.5: "gentle", 0.0: "off"}[Controls.shake_level])
-	var gas := _button(row2, "Auto gas: on")
+	var gas := _button(row2, "Auto gas: off")
 	gas.pressed.connect(func():
 		Controls.auto_gas = not Controls.auto_gas
 		gas.text = "Auto gas: " + ("on" if Controls.auto_gas else "off")

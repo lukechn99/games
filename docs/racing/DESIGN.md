@@ -71,8 +71,8 @@ Reconnecting follows the platform rules. A player who drops mid-race gets their 
 
 ## 5. Kart builder
 
-**Decided:** a build-your-kart stage before racing. The chassis sets turning and the hit box; the wheels and tires set handling and grip on each surface.
-**Proposed:** the driver adds weight, and there's an optional third part (below).
+**Decided:** a build-your-kart stage before racing with **two parts for now: chassis, and wheels and tires**. The chassis sets turning and the hit box; the wheels and tires set handling and grip on each surface. More part types may come later, such as a kite or glider for jumps, so the builder is built to take new slots.
+**Proposed:** the driver adds a little weight (5.4).
 
 ### 5.1 Stats (Proposed)
 Everything comes down to a few stats, each shown as 1–10 bars in the builder:
@@ -87,6 +87,8 @@ Everything comes down to a few stats, each shown as 1–10 bars in the builder:
 | Drift | How easy drifts are to start and hold, and how fast they charge boost |
 
 The stats map onto the physics tuning in section 7, so the builder and the physics share one set of numbers.
+
+**Open, to decide later: the balancing rules.** **Decided principle:** no part or combination is obviously the best choice. Every strength costs something, and tracks favour different builds.
 
 ### 5.2 Chassis (Decided: affects turn radius and hit box)
 Each chassis sets **turning**, its **hit box** size and shape, and some **weight**. A small hit box is harder to hit with items and slips through gaps; a big one shoves others around in bumps.
@@ -121,26 +123,36 @@ Tires set **grip, handling and drift**, and how much grip they keep **on each su
 
 Each driver gets a few short animations: idle, steering lean, getting hit, celebrating and a "tilt" taunt.
 
-### 5.5 A third part? (Open)
-A **motor**, trading top speed against acceleration, would round out the builder. It's optional; the builder works with just chassis and wheels.
+### 5.5 Every combination works and looks good (Decided)
+Any chassis with any wheels and any driver has to drive properly and look right. **Proposed** rules that guarantee it:
+- **Standard mounting points.** Every chassis model has named attachment points: four wheel mounts, a driver seat, a rear item rack, and a top mount reserved for future parts like a kite. Wheels and drivers snap to those points, so nothing floats or clips.
+- **Wheel sizes stay in a range.** Each chassis says how big its wheels can be; wheels scale to fit within it. Suspension and ride height adjust automatically, so the kart never sits on its belly or on stilts.
+- **One seat pose for every driver.** All drivers share the same seated proportions at the hips and hands, so any animal fits any seat and reaches the wheel (9.2).
+- **The hit box comes from the chassis only,** so changing wheels never changes how you collide.
+- **An automatic check of every combination.** A test builds every chassis × wheels × driver combination and renders a contact sheet of screenshots for review. It fails if a wheel or driver clips through the body.
 
 ### 5.6 Keeping it fair (Proposed)
-Every part is a trade-off, so no build is best everywhere. All builds should finish within about 5% of each other on a lap when driven well. Bots use preset balanced builds.
+All builds should finish within about 5% of each other on a lap when driven well (to confirm when we decide the balancing rules). Bots use preset balanced builds.
 
 ## 6. Items
 
 **Decided:** items you collect on the track, designed by us so they aren't copies of Mario Kart.
 **Proposed rules:** item crates sit in rows across the track and reappear 3 seconds after being picked up. You hold one item at a time. What you get depends on your position: karts near the back get more catch-up items.
 
-**Candidate items to choose from (Open: pick about 8 for launch)**
-Each fills a role every kart racer needs, with our own twist:
+**Decided launch items:** the **honey puddle**, the **tumbleweed** and the **growing snowball**. The snowball only appears on snowy tracks.
+**Proposed:** each track has its own item pool, so items can match the terrain (snowballs on snow, tumbleweeds in dry country). That leaves room to add more items without every track getting every item.
+
+| Launch item | What it does | Where |
+|---|---|---|
+| **Honey puddle** | Dropped behind you. Karts that drive through it slow down and steer sluggishly for 2 seconds. It lasts 15 seconds or until 3 karts have driven through it | All tracks |
+| **Tumbleweed** | Rolled backwards down the track. It bounces unpredictably and knocks karts sideways | Meadow Loop, Canyon Run, dry tracks |
+| **Snowball** | Rolled forward along the track. It grows as it rolls, so the further it travels, the bigger the hit. It bursts on walls | Snowy tracks only |
+
+**Candidates for later** (each fills a role every kart racer needs, with our own twist):
 
 | Role | Item idea | What it does |
 |---|---|---|
-| Trap behind you | **Honey puddle** | A sticky patch: karts that drive through it slow down and steer sluggishly for 2 seconds |
-| Trap behind you | **Tumbleweed** | Rolls back down the track, bouncing unpredictably |
 | Forward shot | **Acorn volley** | Three bouncing acorns fired ahead. Each that hits makes a kart wobble |
-| Forward shot | **Snowball** | Grows as it rolls forward. A bigger snowball means a bigger hit |
 | Seeks someone | **Bee swarm** | Chases the kart directly ahead of you, and can be shaken off by drifting |
 | Self boost | **Tailwind** | A strong gust behind you: a boost that also pushes nearby karts aside |
 | Defense | **Bubble** | Absorbs one hit, then pops |
@@ -148,6 +160,11 @@ Each fills a role every kart racer needs, with our own twist:
 | Chaos | **Party dice** | A game-night item: roll for a random effect, good or bad |
 | Catch-up | **Slipstream rope** | Latches onto the kart ahead and slingshots you past it |
 | Field effect | **Fog horn** | Blows fog over the screens of everyone ahead of you for a few seconds (lighter fog for those further ahead) |
+
+### 6.1 Showing the item you're holding (Open)
+Two ways to show the player what they can use next. They can be combined:
+- **A. On the item button itself (Proposed as primary).** The big item button on the right of the screen shows the held item's icon, with a short "spin" while the crate's item is picked. Your eye and your thumb are already there, so nobody has to look away from the road.
+- **B. On the back of the kart (Proposed as an extra).** The held item sits on the kart's rear rack: a honey pot, a tumbleweed, a snowball. It's cute, it tells the karts behind you what's coming, and it adds a little strategy. It's only a few triangles per kart.
 
 ## 7. Physics
 
@@ -194,7 +211,7 @@ Exact determinism across devices. Each kart has one owner, and everyone else sho
 
 ## 8. Tracks
 
-**Decided:** different terrains and obstacles, launching with one or two tracks and built so more can be added.
+**Decided:** different terrains and obstacles, launching with one or two tracks from the candidate list and built so more can be added. Every track has background scenery (sky, distant land, trees) **and** scenery that affects play (trees you can crash into, guardrails along a highway, fences, rocks).
 
 ### 8.1 How a track is built (Proposed)
 Each track is one Godot scene plus a `TrackInfo` resource:
@@ -207,20 +224,32 @@ Each track is one Godot scene plus a `TrackInfo` resource:
 
 Adding a track means building the scene and adding one entry to the track list. No code changes.
 
-### 8.2 Candidate tracks (Open: pick 1–2 for launch, then we design each one together)
+### 8.2 Scenery (Decided: background and gameplay scenery)
+Every track has three layers:
+
+| Layer | Purpose | Examples | Cost on phones |
+|---|---|---|---|
+| **Sky and far background** | Sets the mood and time of day; never touched | A stylised gradient sky with drifting clouds, the sun, distant mountains or a skyline as flat cut-outs | Very cheap: a few large flat shapes |
+| **Middle scenery** | Makes the world feel alive beside the track | Trees, farms, windmills, crowds of animal spectators that cheer as you pass, birds | Cheap: one model repeated many times (instancing), simplified far away |
+| **Gameplay scenery** | Things you can hit, use or avoid | Trees and rocks just off the track that stop you, guardrails along a highway that you scrape along, fences, hay bales that burst, water you have to jump | Has simple collision shapes; placed carefully so it punishes mistakes without feeling unfair |
+
+**Proposed rules for gameplay scenery:** anything you can hit looks solid, and anything you can't hit looks soft or distant. Guardrails slide you along instead of stopping you dead. Trees and rocks sit far enough off the racing line that only a real mistake hits them.
+
+### 8.3 Candidate tracks (Decided: launch with Meadow Loop plus one terrain track; we design each together)
 
 | Track idea | Terrain | Obstacles and gimmicks | Good tires |
 |---|---|---|---|
-| **Meadow Loop** | Asphalt and grass | Gentle hills, a farm gate, a beginner-friendly layout | Slicks |
+| **Meadow Loop** | Asphalt and grass | Gentle hills, a farm gate, a **highway stretch with guardrails**, trees lining the grass, a beginner-friendly layout | Slicks |
 | **Canyon Run** | Dirt and sand | Jumps over gaps, rolling tumbleweeds, a dusty shortcut | Knobby or balloon |
 | **Frosty Pass** | Snow and ice | Icy hairpins, sliding snowballs, a frozen lake shortcut | Studded |
 | **Bayou Boardwalk** | Mud and wooden planks | Swinging lanterns, mud pits, logs rolling across | Balloon |
 | **Kitchen Counter** | Countertop, a tablecloth | Toy-scale race past rolling fruit and a spinning lazy Susan | Any |
 
-**Proposed for launch:** Meadow Loop, to learn the basics, plus one terrain that rewards picking different tires, such as Canyon Run or Frosty Pass.
+**Open:** the second launch track, **Canyon Run** or **Frosty Pass**. Frosty Pass is the only one where the launch snowball item would appear; Canyon Run suits the tumbleweed and the knobby and balloon tires.
 
 ## 9. Characters and art style
 
+### 9.1 Look and performance
 **Decided:** a cartoonish, Mario Kart–like style with animal characters.
 **Proposed, to keep phones fast:**
 - **Look:** chunky, rounded, toy-like shapes; bright saturated colours; simple **toon shading** (2–3 flat bands of light) in Godot's Compatibility renderer.
@@ -232,10 +261,27 @@ Adding a track means building the scene and adding one entry to the track list. 
 - **Budget per kart:** about 3,000 triangles (kart plus driver), and 100,000 on screen in total, at most around 150 draw calls.
 - **Quality settings:** automatic based on frame rate, plus a manual high, medium or low (outlines, effects, draw distance, resolution).
 
-**Open: where do the 3D models come from?**
-- **A. Free (CC0) packs as a base.** Quaternius makes low-poly animated animals and Kenney makes kart and racing kits. Both are free for any use, and we'd restyle them to match.
-- **B. Built to order:** I model in Blender with scripts, using simple rounded shapes. Very consistent, but slower to make.
-- **C. A mix:** packs for scenery, custom models for karts and drivers.
+### 9.2 Driver animation (Decided: believable, not rigid)
+Drivers have to look alive: body parts move believably and react to what the kart is doing. **Proposed** approach, layering simple animations with movement worked out live from the kart's physics:
+
+| Layer | What it does | Driven by |
+|---|---|---|
+| Base pose and loops | A seated idle with breathing and blinking; looping clips for driving, getting hit, celebrating and taunting | Hand-made animations |
+| Hands on the wheel | Hands stay gripping the wheel as it turns; the arms bend to follow (inverse kinematics) | The kart's steering angle |
+| Leaning | The upper body and head lean into turns, against the sideways force; the head looks into the corner | Sideways force, the steering input |
+| Bumps and landings | The body bobs and squashes on landings and settles back with a little overshoot | The suspension |
+| Floppy parts | Ears, tails, cheeks and scarves swing and bounce with momentum | Spring bones (Godot's `SpringBoneSimulator3D`) |
+| Reactions | Looking at a kart overtaking or an incoming item; flinching at crashes; looking back when holding the look-back button | Game events |
+| Speed and boost | Fur and ears pushed back at high speed, an excited face during boosts | Speed, the boost state |
+
+**Proposed rig:** one shared seated skeleton for all animals (spine, neck, head, two arms with hands, legs, plus tail and ear chains). That's about 30–40 bones, so animations and the rules above work for every driver, and every driver fits every chassis (5.5). Scaling the head, ears and tail gives each animal its own silhouette. Animation and spring-bone updates for faraway karts run less often, to save phone power.
+
+### 9.3 Where the 3D models come from (Open)
+Free packs (CC0: free for any use, no credit required) exist from two well-known makers:
+- **Quaternius** (quaternius.com and itch.io): low-poly animated animals (farm animals, a pug, a llama, dinosaurs, monsters) and nature packs (trees, rocks, plants). Clean, flat-coloured style.
+- **Kenney** (kenney.nl): a Toy Car Kit, a Car Kit and a Racing Kit (track pieces, barriers and props), plus nature and city kits. A chunky, toy-like style.
+
+**Proposed: a mix.** Use the free packs for **scenery and track props**, restyled to our palette; they're a great fit there. Build the **karts and drivers ourselves**. The packs' animals are four-legged walkers with walking animations, not seated drivers with arms. The packs' cars are single models, not interchangeable chassis and wheels with standard mounting points. Our builder (5.5) and our animation (9.2) depend on both. **Open:** who makes the custom karts and drivers (made in code with Blender scripts, modelled by hand, or commissioned).
 
 ## 10. Controls
 
@@ -245,8 +291,8 @@ Adding a track means building the scene and adding one entry to the track list. 
 - **How it works:** hold the phone sideways like a steering wheel and turn it. The game measures which way gravity points across the screen. Turning the "wheel" changes that angle.
 - **Godot can't read phone sensors in a web build.** The Game Night page reads the motion sensor with JavaScript and passes the angle to the game through the bridge (13.1), roughly 60 times a second.
 - **iPhone permission:** iOS only allows motion sensors after the player taps a button and approves a prompt. So the kart builder has a **"Steer by tilting"** button that asks, on the main page rather than inside the game, which is the most reliable place on iOS. Android doesn't ask.
-- **Calibration:** the wheel's centre is set when the countdown starts, and there's a "re-centre" button.
-- **Feel:** a small dead zone (about 3°), full lock at about 30° (adjustable), light smoothing, and a choice between gentle and direct response.
+- **Centre (Decided): level is straight ahead.** When the phone's long edge is parallel to the ground, the kart goes straight. Everyone has a sense of what level feels like, so there's nothing to calibrate. The game measures how far the long edge tilts from level using gravity. That works whether the phone is held upright like a wheel or tipped back toward lying flat. Only a phone lying almost completely flat, screen up, becomes unreliable, and the game warns about that.
+- **Feel:** a small dead zone around level (about 3°), full lock at about 30° (adjustable), light smoothing, and a choice between gentle and direct response. An optional "trim" setting offsets level for anyone who holds their phone slightly tilted.
 - **Fallback:** if permission is refused or there's no sensor, the game switches to touch buttons and says so.
 
 ### 10.2 Control schemes (players choose in the builder or in settings)
@@ -261,6 +307,48 @@ Adding a track means building the scene and adding one entry to the track list. 
 
 Assists, which players can turn off: automatic gas, steering help that keeps you off the walls, and auto-drift for younger players.
 
+### 10.3 HUD and on-screen layout (Proposed; the minimap is Decided)
+Phones are held sideways in both hands, so controls go where the thumbs rest: the bottom corners. Information goes along the top edge, where it doesn't hide the road.
+
+**Tilt steering (only the thumbs press buttons)**
+```
+┌──────────────────────────────────────────────────────────────┐
+│ 3rd/8   Lap 2/3  1:24.6                         ┌─────────┐  │
+│ ▲ Otter -0.4                                    │ minimap │  │
+│ ▼ Corgi +1.1                                    └─────────┘  │
+│                                                              │
+│                        (the road)                            │
+│                                                              │
+│ ┌──────┐                                    ┌──────┐ ┌─────┐ │
+│ │BRAKE │                                    │DRIFT │ │ITEM │ │
+│ └──────┘                                    └──────┘ │ 🍯  │ │
+│                                                      └─────┘ │
+└──────────────────────────────────────────────────────────────┘
+```
+**Touch steering**
+```
+┌──────────────────────────────────────────────────────────────┐
+│ 3rd/8   Lap 2/3  1:24.6                         ┌─────────┐  │
+│                                                 │ minimap │  │
+│                                                 └─────────┘  │
+│                        (the road)                            │
+│ ┌─────┐ ┌─────┐                             ┌──────┐ ┌─────┐ │
+│ │  ◀  │ │  ▶  │                             │DRIFT │ │ITEM │ │
+│ └─────┘ └─────┘         ┌──────┐            └──────┘ │ 🍯  │ │
+│                         │BRAKE │                     └─────┘ │
+└─────────────────────────┴──────┴─────────────────────────────┘
+```
+- **Gas is automatic by default.** Turning it off adds a gas pedal on the far right, under the item button.
+- **Item button:** the largest button on the right; it shows the held item (6.1).
+- **Drift:** hold to drift; release to fire the charged boost.
+- **Brake:** hold to brake; keep holding when stopped to reverse.
+- **Top left:** your position and the gap to the karts just ahead of and behind you.
+- **Top centre:** lap and race time; "Final lap!" banner.
+- **Top right: the minimap (Decided).** The track outline is drawn from the racing line. Every kart is a coloured dot with its number; yours is larger, with an arrow showing your direction. Incoming items aimed at you show as a red blip.
+- **A small menu button** opens settings: controls, tilt sensitivity, the video call and leaving. The race doesn't pause for anyone else.
+- **Sizes and safety:** buttons at least 64 px; nothing under the phone's notch or the swipe-home bar; semi-transparent so the road shows through. Settings offer a left-handed swap and button-size options.
+- **Full screen:** the Game Night header hides during a race. iPhone browsers don't allow true full-screen pages, so the layout is designed around the browser's own bars too.
+
 ## 11. Audio
 - Engine sound with pitch tied to speed (different per chassis), tyre screech while sliding, bumps, item sounds, countdown beeps, a finish fanfare and animal voices (a happy chirp or grunt).
 - Music: **Open** (one looping track per course is the usual choice).
@@ -271,7 +359,7 @@ Assists, which players can turn off: automatic gas, steering help that keeps you
 
 ## 13. Networking
 
-**Open, to decide together: a single host or a mesh, and how many players.** The analysis is below; my recommendation is in 13.3.
+**Decided:** kart positions **and** items and abilities (anything thrown, dropped or used) travel **directly between phones (mesh)**, for the fastest updates. Race rules go through the host. The analysis behind it is below.
 
 ### 13.1 Fitting into Game Night (Proposed)
 The Next.js site keeps owning the room: lobby, joining, reconnects, video call and the relay (including the bot check). The Godot game runs **inside the game screen** and uses the site's connections through a small message bridge, which also carries the tilt sensor and the host clock.
@@ -284,7 +372,8 @@ Next.js game screen ──postMessage──► Godot (iframe)
 
 There are two lanes of traffic:
 - **Race rules lane (reliable):** a normal room-engine game module, run by the host. It holds the track vote, builds, the countdown start time, checkpoint progress, lap times, finishing order and results. Spectating, reconnecting and pausing when the host leaves all work as in the other games.
-- **Kart lane (fast, may drop packets):** each phone sends its own kart's position, rotation, speed, inputs and item state about 20 times a second. A late update is worthless, so this lane drops it rather than retrying.
+- **Kart lane (mesh, fast, may drop packets):** each phone sends its own kart's position, rotation, speed, inputs and held item to every other phone, about 20 times a second. A late update is worthless, so this lane drops it rather than retrying.
+- **Item lane (mesh, reliable):** item and ability events (used, dropped, thrown, hit, popped) go directly to every other phone over a reliable connection, because a missed "snowball thrown" would leave phones disagreeing.
 
 ### 13.2 Star vs mesh: what it costs
 
@@ -314,15 +403,15 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 - **Connections:** a mesh needs every pair of phones to connect, and every extra connection is another chance a pair can't connect and needs the relay. A star has the fewest connections.
 - **The real limits:** phone processor and drawing power (drawing 12–16 animated karts), track width and fun. Mario Kart itself tops out at 12.
 
-### 13.3 Recommendation (Proposed)
-- **A hybrid.** The race rules always go through the host, as a star. The kart lane uses a **mesh** for the lower delay. Any pair of phones that can't connect directly falls back to sending through the host, so nobody is left out.
+### 13.3 The setup
+- **Decided: a hybrid.** The race rules always go through the host, as a star. Kart positions and item events use a **mesh** for the lower delay. **Proposed:** any pair of phones that can't connect directly falls back to sending through the host, so nobody is left out.
 - **Start with 8 karts** (people plus bots). Test 12 once everything works; the networking can handle it, so phone performance will decide.
 - Bots run on the host and are sent out by the host; that's 4 bots × 7 players, still tiny.
 
 ### 13.4 Showing other karts and item hits (Proposed)
 - Other karts are drawn about **100 ms in the past**, smoothly blended between updates. If an update goes missing, the kart keeps moving along its last speed for up to 250 ms, then eases back into place.
 - **Your own kart always responds instantly**, never waiting on the network.
-- **Items:** using an item sends a reliable "spawned" message (what, where, when, which direction). Every phone simulates the item from that. **The phone of the kart that gets hit decides whether it was hit**, then tells everyone. So you never get hit by something that clearly missed on your own screen.
+- **Items:** using an item sends a reliable "spawned" message directly to every phone (what, where, when, which direction). Every phone simulates the item from that. **The phone of the kart that gets hit decides whether it was hit**, then tells everyone. So you never get hit by something that clearly missed on your own screen.
 - **Fair-ish:** the host checks checkpoints in order and a minimum lap time, and finish times come from the host's clock. A determined cheater could still drive faster than possible on their own phone. Among friends, that's acceptable.
 
 ## 14. Building and shipping
@@ -353,12 +442,12 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 
 ## 17. Open questions
 1. Working title (1).
-2. A third kart part, the motor (5.5)?
-3. The animal roster and weight classes (5.4).
-4. Which ~8 items for launch (6).
-5. The launch tracks: 1–2 from the candidate list (8.2).
-6. Where the 3D models come from (9).
-7. Star, mesh or hybrid, and the kart limit (13); recommended: hybrid with 8 karts.
+2. The animal roster and weight classes (5.4).
+3. The balancing rules for parts (5.1), later.
+4. The second launch track: Canyon Run or Frosty Pass (8.3).
+5. Showing the held item: on the item button, on the kart, or both (6.1).
+6. Who makes the custom karts and drivers (9.3).
+7. The kart limit: 8 at launch, 12 later (13.3).
 8. Cups and points across races (4).
 9. Music (11).
 
@@ -374,3 +463,12 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 | 2026-11-06 | Screen shake on crashes | The user's request; reduced-shake settings for comfort |
 | 2026-11-06 | Tilt-to-steer, with players free to choose their controls | The user's request; tilt is read by the page and passed to Godot |
 | 2026-11-06 | Cartoon art style with animal drivers, tuned for phone performance | The user's request |
+| 2026-11-06 | Builder parts are chassis and wheels only for now; every combination must work and look good | The user's request; later parts (a kite or glider) may come |
+| 2026-11-06 | No part or combination is obviously the best; balancing rules decided later | The user's request |
+| 2026-11-06 | Tilt centre is the phone held level (long edge parallel to the ground) | The user's request: everyone has a sense of balance, so nothing to calibrate |
+| 2026-11-06 | Kart positions and item events go phone to phone (mesh); race rules go through the host | The user's request; fastest updates |
+| 2026-11-06 | A minimap showing the track and every kart | The user's request |
+| 2026-11-06 | Drivers animate believably: leaning, hands on the wheel, floppy ears and tails, reactions | The user's request: not rigid |
+| 2026-11-06 | Every track has background scenery and scenery that affects play (trees, guardrails) | The user's request |
+| 2026-11-06 | Launch with Meadow Loop plus one terrain track | The user's agreement with the proposal |
+| 2026-11-06 | Launch items: honey puddle, tumbleweed, growing snowball (snowy tracks only) | The user's picks |

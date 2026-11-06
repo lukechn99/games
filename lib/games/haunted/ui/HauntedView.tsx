@@ -156,7 +156,7 @@ export default function HauntedView(props: GameViewProps<View, HauntedAction>) {
   })()
 
   return (
-    <div style={NIGHT} className="flex h-[calc(100dvh-3.25rem)] flex-col bg-[#120f16] text-[#f5efe6]">
+    <div style={NIGHT} className="flex h-[calc(100dvh-var(--shell-head,3.25rem))] flex-col bg-[#120f16] text-[#f5efe6]">
       {/* Floor tabs */}
       <div className="flex items-center gap-1 border-b border-white/10 px-2 py-1.5">
         {REGION_TABS.map((r) => {

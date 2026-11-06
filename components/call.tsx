@@ -246,7 +246,7 @@ export function CallDock() {
  * video or audio. Once you're in, it just shows or minimizes the call:
  * every call control lives in the call panel itself.
  */
-export function CallButton({ className = '' }: { className?: string }) {
+export function CallButton({ className = '', align = 'right' }: { className?: string; align?: 'left' | 'right' }) {
   const { call, callPeople, joinCall, callView, setCallView, videoFull } = useSession()
   const [menu, setMenu] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
@@ -303,7 +303,7 @@ export function CallButton({ className = '' }: { className?: string }) {
         {call.joining ? 'Joining…' : people.length ? `Call (${people.length})` : 'Call'}
       </button>
       {menu && (
-        <span role="menu" className="absolute right-0 top-full z-40 mt-1 flex w-60 flex-col gap-1 rounded-lg border bg-card p-1.5 text-left text-foreground shadow-lg">
+        <span role="menu" className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} top-full z-40 mt-1 flex w-60 max-w-[calc(100vw-1rem)] flex-col gap-1 whitespace-normal rounded-lg border bg-card p-1.5 text-left text-foreground shadow-lg`}>
           <span className="px-2 pb-1 pt-0.5 text-xs text-muted-foreground">
             {people.length ? `In the call: ${people.map((p) => p.name).join(', ')}. ` : 'See and hear each other while you play. '}
             Cameras: {cams}/{MAX_VIDEO}.

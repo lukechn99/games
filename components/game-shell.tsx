@@ -5,6 +5,7 @@ import { GAME_VIEWS } from '@/lib/games/ui'
 import { useSession } from '@/lib/session'
 import { TroubleBanner } from './status'
 import { CallButton } from './call'
+import { useEffect, useRef } from 'react'
 
 export default function GameShell() {
   const { room, act, leave, hostNow } = useSession()
@@ -22,49 +23,67 @@ export default function GameShell() {
     if (window.confirm(msg)) leave()
   }
 
+  // Games that fill the screen size themselves with calc(100dvh - var(--shell-head)).
+  const topRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = topRef.current
+    if (!el) return
+    const set = () => document.documentElement.style.setProperty('--shell-head', `${el.offsetHeight}px`)
+    set()
+    const ro = new ResizeObserver(set)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   function backToLobby() {
     act({ type: 'endGame' })
   }
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <TroubleBanner />
-      <header className="flex items-center gap-2 border-b px-3 py-2.5 whitespace-nowrap">
-        <span className="min-w-0 truncate font-display text-lg font-bold">{mod?.name ?? game.gameId}</span>
-        <span className="hidden shrink-0 rounded bg-ticket px-1.5 py-0.5 font-display text-sm font-bold tracking-widest text-ticket-ink min-[430px]:inline">
-          {snapshot.code}
-        </span>
-        <span className="flex-1" />
-        <CallButton />
-        {isHost && (
-          <button
-            type="button"
-            className="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-secondary"
-            onClick={() => {
-              if (window.confirm('End this game and go back to the lobby?')) backToLobby()
-            }}
-          >
-            End game
-          </button>
+      <div ref={topRef}>
+        <TroubleBanner />
+        <header className="border-b px-3 pb-1.5 pt-2.5">
+          <div className="flex items-baseline gap-2">
+            <h1 className="min-w-0 font-display text-lg font-bold leading-tight">{mod?.name ?? game.gameId}</h1>
+            <span className="shrink-0 rounded bg-ticket px-1.5 py-0.5 font-display text-sm font-bold tracking-widest text-ticket-ink">
+              {snapshot.code}
+            </span>
+          </div>
+          <nav aria-label="Room" className="-mx-2 mt-1 flex items-center gap-1 whitespace-nowrap">
+            <CallButton align="left" />
+            <span className="flex-1" />
+            {isHost && (
+              <button
+                type="button"
+                className="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-secondary"
+                onClick={() => {
+                  if (window.confirm('End this game and go back to the lobby?')) backToLobby()
+                }}
+              >
+                End game
+              </button>
+            )}
+            <button
+              type="button"
+              className="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-secondary hover:text-destructive"
+              onClick={onLeave}
+            >
+              {isHost ? 'Close room' : 'Leave'}
+            </button>
+          </nav>
+        </header>
+        {away.length > 0 && (
+          <p className="bg-secondary px-4 py-2 text-center text-sm" role="status">
+            Waiting for {away.join(', ')} to reconnect
+          </p>
         )}
-        <button
-          type="button"
-          className="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-secondary hover:text-destructive"
-          onClick={onLeave}
-        >
-          {isHost ? 'Close room' : 'Leave'}
-        </button>
-      </header>
-      {away.length > 0 && (
-        <p className="bg-secondary px-4 py-2 text-center text-sm" role="status">
-          Waiting for {away.join(', ')} to reconnect
-        </p>
-      )}
-      {!seated && (
-        <p className="bg-secondary px-4 py-2 text-center text-sm">
-          You joined mid-game, so you&apos;re watching this round. You&apos;ll be dealt in next round.
-        </p>
-      )}
+        {!seated && (
+          <p className="bg-secondary px-4 py-2 text-center text-sm">
+            You joined mid-game, so you&apos;re watching this round. You&apos;ll be dealt in next round.
+          </p>
+        )}
+      </div>
       <main className="flex-1">
         {View ? (
           <View

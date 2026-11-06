@@ -482,7 +482,7 @@ export default function SHView({ view, act, isHost, playAgain, backToLobby, name
   const last = lastElection(view)
   const showVote = last && view.phase !== 'vote'
   return (
-    <div style={PAPER} className="min-h-[calc(100dvh-3.25rem)] bg-[var(--sh-paper)] text-[var(--sh-ink)]">
+    <div style={PAPER} className="min-h-[calc(100dvh-var(--shell-head,3.25rem))] bg-[var(--sh-paper)] text-[var(--sh-ink)]">
       <div className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-5">
         <RoleCard view={view} nameOf={nameOf} />
         <Action key={view.log.length} view={view} act={act} nameOf={nameOf} />

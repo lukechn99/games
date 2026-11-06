@@ -639,7 +639,7 @@ static func _clouds(t: Track) -> void:
 
 
 static func _stone_mat() -> StandardMaterial3D:
-	return Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.MATTE, "stone", 2.0)
+	return Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.MATTE, "stone", 3.2)
 
 
 static func _rock_mat() -> StandardMaterial3D:

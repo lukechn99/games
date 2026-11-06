@@ -40,7 +40,21 @@ def wrap_line(img, x0, y0, x1, y1, value, width=1):
                     img[yi, xi] = min(img[yi, xi], 1.0 - (1.0 - value) * a)
 
 
+# How much of each texture's detail to keep. Low values keep colours and
+# shapes clear: the texture should read as a gentle surface, not grain.
+STRENGTH = {"asphalt": 0.45, "grass": 0.35, "dirt": 0.45, "ice": 0.5, "stone": 0.5, "rock": 0.35, "wood": 0.45}
+
+
+def soften(a, n_blur=1):
+    """Take the finest grain out with a small wrap-around blur."""
+    for _ in range(n_blur):
+        a = (a + np.roll(a, 1, 0) + np.roll(a, -1, 0) + np.roll(a, 1, 1) + np.roll(a, -1, 1)) / 5.0
+    return a
+
+
 def save(name, a):
+    a = soften(np.clip(a, 0, 1), 2 if name in ("asphalt", "grass", "dirt") else 1)
+    a = 1.0 - (1.0 - a) * STRENGTH[name]
     a = np.clip(a, 0, 1)
     Image.fromarray((a * 255).astype(np.uint8), "L").save(OUT / f"{name}.png", optimize=True)
     print(name, a.shape, round(float(a.mean()), 3))
@@ -48,11 +62,7 @@ def save(name, a):
 
 def asphalt():
     n = 512  # covers 14 x 14 m of road: across the road and the same along it
-    a = 0.93 + 0.035 * noise(n, 2.5) + 0.03 * noise(n, 40) + 0.025 * noise(n, 9)
-    # Aggregate: light and dark specks.
-    specks = rng.random((n, n))
-    a[specks > 0.985] += 0.07
-    a[specks < 0.02] -= 0.08
+    a = 0.93 + 0.04 * noise(n, 40) + 0.02 * noise(n, 12)
     # A repaired patch: a slightly darker, smoother rectangle with a seam.
     x0, y0, w, h = 300, 60, 150, 110
     patch = np.zeros((n, n), bool)
@@ -79,9 +89,9 @@ def asphalt():
 
 def grass():
     n = 256  # 8 x 8 m
-    a = 0.9 + 0.05 * noise(n, 30) + 0.03 * noise(n, 6)
+    a = 0.9 + 0.06 * noise(n, 30)
     # Tufts: little clusters of blades, a bright tip over a dark base.
-    for _ in range(900):
+    for _ in range(260):
         cx, cy = rng.random() * n, rng.random() * n
         for _ in range(rng.integers(3, 7)):
             ang = -np.pi / 2 + rng.normal(0, 0.5)
@@ -113,13 +123,13 @@ def stone():
                     e = min(yy - y0, y1 - 1 - yy, xx - x - 3, x + w - 4 - xx)
                     a[yy % n, xx % n] = shade * (0.82 + 0.18 * min(1.0, e / 5.0))
             x += w
-    a += 0.04 * noise(n, 20) + 0.03 * noise(n, 4)
+    a += 0.03 * noise(n, 20)
     save("stone", a)
 
 
 def rock():
     n = 256  # 6 x 6 m, used on cliffs and boulders (triplanar)
-    a = 0.88 + 0.06 * noise(n, 12) + 0.04 * noise(n, 3)
+    a = 0.9 + 0.06 * noise(n, 12)
     # Strata: soft horizontal bands.
     y = np.linspace(0, 1, n, endpoint=False)
     a += 0.05 * np.sin(y * np.pi * 2 * 5 + 0.8 * noise(n, 10))[...]
@@ -148,8 +158,8 @@ def wood():
 
 def dirt():
     n = 256  # 8 x 8 m
-    a = 0.9 + 0.06 * noise(n, 16) + 0.04 * noise(n, 3)
-    for _ in range(500):
+    a = 0.9 + 0.07 * noise(n, 16)
+    for _ in range(160):
         x, y = rng.integers(0, n, 2)
         r = rng.uniform(0.8, 2.2)
         yy, xx = np.ogrid[-3:4, -3:4]

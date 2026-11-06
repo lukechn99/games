@@ -44,6 +44,9 @@ func _physics_process(delta: float) -> void:
 	var look := 7.0 + spd * 0.55
 	var aim := track.transform_at(off + look)
 	var target := aim.origin + aim.basis.x * (lane + _noise.get_noise_1d(_t) * 3.0 * float(cfg["wobble"]) * 10.0)
+	# Where the road splits, each bot picks a side, and switches lap to lap.
+	if (kart.lap + get_index()) % 2 == 0:
+		target += aim.basis.x * track.branch_offset(off + look)
 
 	var to := target - kart.global_position
 	to.y = 0.0

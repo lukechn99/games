@@ -13,7 +13,7 @@ const KIT := {
 	"wood": Color(0.86, 0.56, 0.3),
 	"woodDark": Color(0.62, 0.37, 0.2),
 	"woodInner": Color(0.98, 0.86, 0.68),
-	"dirt": Color(0.72, 0.45, 0.25),
+	"dirt": Color(0.64, 0.6, 0.57),   # the kit's boulders use this one: grey rock
 	"red": Color(0.96, 0.22, 0.25),
 	"colorRed": Color(0.96, 0.22, 0.25),
 	"colorYellow": Color(1.0, 0.68, 0.1),
@@ -34,14 +34,28 @@ const OUTLINE := Color(0.13, 0.1, 0.16)
 enum Finish { MATTE, PAINT, METAL }
 
 const METAL_KIT := ["grey", "metal", "metalDark", "chrome"]
+## Detail textures for kit materials: [texture, metres per tile].
+const KIT_TEX := {
+	"dirt": ["rock", 2.5],
+	"woodBark": ["rock", 1.0],
+	"woodBarkDark": ["rock", 1.0],
+	"wood": ["wood", 1.5],
+	"woodDark": ["wood", 1.5],
+	"woodInner": ["wood", 1.0],
+	"grass": ["grass", 2.0],
+}
+const TEX_DIR := "res://assets/textures/"
 
 static var _cache := {}
 
 
 ## A flat cartoon-shaded material. `vertex_colors` uses per-vertex colours
 ## (for merged meshes); `outline` adds an ink outline around the shape.
-static func toon(c: Color, vertex_colors := false, outline := 0.0, finish := Finish.MATTE) -> StandardMaterial3D:
-	var key := "%s|%s|%s|%s" % [c.to_html(), vertex_colors, outline, finish]
+## `tex` adds a greyscale detail texture (assets/textures) over the colour.
+## With `tile_m` > 0 it is projected from the world (triplanar), one tile
+## every `tile_m` metres, so it works on models without texture coordinates.
+static func toon(c: Color, vertex_colors := false, outline := 0.0, finish := Finish.MATTE, tex := "", tile_m := 0.0) -> StandardMaterial3D:
+	var key := "%s|%s|%s|%s|%s|%s" % [c.to_html(), vertex_colors, outline, finish, tex, tile_m]
 	if _cache.has(key):
 		return _cache[key]
 	var m := StandardMaterial3D.new()
@@ -50,6 +64,14 @@ static func toon(c: Color, vertex_colors := false, outline := 0.0, finish := Fin
 	m.vertex_color_use_as_albedo = vertex_colors
 	m.vertex_color_is_srgb = true  # merged meshes store our colours as written
 	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	if tex != "":
+		m.albedo_texture = load(TEX_DIR + tex + ".png")
+		m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		if tile_m > 0.0:
+			m.uv1_triplanar = true
+			m.uv1_world_triplanar = true
+			m.uv1_scale = Vector3.ONE / tile_m
+			m.uv1_triplanar_sharpness = 4.0
 	match finish:
 		Finish.METAL:
 			m.metallic = 0.45
@@ -81,6 +103,19 @@ static func toon(c: Color, vertex_colors := false, outline := 0.0, finish := Fin
 	return m
 
 
+## Leaves that sway in the wind (shaders/leaves.gdshader).
+static func leaves(c: Color) -> ShaderMaterial:
+	var key := "leaves|" + c.to_html()
+	if _cache.has(key):
+		return _cache[key]
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/leaves.gdshader")
+	m.set_shader_parameter("color", c)
+	m.set_shader_parameter("detail", load(TEX_DIR + "grass.png"))
+	_cache[key] = m
+	return m
+
+
 ## A copy of a kit mesh with our colours in place of the kit's.
 static func restyle(mesh: Mesh) -> Mesh:
 	if mesh == null:
@@ -93,7 +128,11 @@ static func restyle(mesh: Mesh) -> Mesh:
 		var src := mesh.surface_get_material(i)
 		var name := src.resource_name if src else ""
 		var c: Color = KIT.get(name, (src as BaseMaterial3D).albedo_color if src is BaseMaterial3D else Color.WHITE)
-		out.surface_set_material(i, toon(c, false, 0.0, Finish.METAL if name in METAL_KIT else Finish.MATTE))
+		if name.begins_with("leafs"):
+			out.surface_set_material(i, leaves(c))
+			continue
+		var t: Array = KIT_TEX.get(name, ["", 0.0])
+		out.surface_set_material(i, toon(c, false, 0.0, Finish.METAL if name in METAL_KIT else Finish.MATTE, t[0], t[1]))
 	_cache[key] = out
 	return out
 

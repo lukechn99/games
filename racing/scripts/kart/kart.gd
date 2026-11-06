@@ -385,7 +385,7 @@ func _fallen_off() -> bool:
 	var frame: Transform3D = track.road_frame(track.offset_of(global_position))
 	var local: Vector3 = frame.affine_inverse() * global_position
 	var under_road: bool = local.y < -2.0 and absf(local.x) < Track.ROAD_WIDTH * 0.5 + 2.0
-	return under_road or local.y < -6.0 or absf(local.x) > 45.0
+	return under_road or local.y < -6.0 or absf(local.x) > 45.0 or track.in_water(global_position)
 
 
 func respawn() -> void:

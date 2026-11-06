@@ -56,6 +56,26 @@ func _ready() -> void:
 	var q := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else ""
 	if q.contains("showroom"):
 		_showroom(q)
+	elif q.contains("cam="):
+		_camera_view(q)
+
+
+## ?cam=OFFSET[,SIDE,HEIGHT,LOOK]: a still camera at that point of the lap,
+## for reviewing the track's scenery.
+func _camera_view(q: String) -> void:
+	var spec := q.split("cam=")[1].split("&")[0].split(",")
+	var off := float(spec[0])
+	var side := float(spec[1]) if spec.size() > 1 else 0.0
+	var height := float(spec[2]) if spec.size() > 2 else 3.0
+	var look := float(spec[3]) if spec.size() > 3 else 30.0
+	camera.set_process(false)
+	camera.set_physics_process(false)
+	var f := track.transform_at(off)
+	var lf := track.transform_at(off + look)
+	camera.global_position = f.origin + f.basis.x * side + Vector3.UP * height
+	camera.look_at(lf.origin + Vector3.UP * 1.5, Vector3.UP)
+	camera.fov = 70.0
+	hud.visible = false
 
 
 ## ?showroom: every chassis side by side, parked, for reviewing the models.
@@ -105,8 +125,8 @@ func _build_world() -> void:
 	env.ambient_light_energy = 0.45
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.66, 0.84, 1.0)
-	env.fog_density = 0.0007
+	env.fog_light_color = Color(0.62, 0.84, 1.0)  # the horizon colour, so distance fades into sky
+	env.fog_density = 0.0009
 	env.fog_sky_affect = 0.0
 	var we := WorldEnvironment.new()
 	we.environment = env
@@ -189,6 +209,7 @@ func _spawn_kart(chassis: String, tires: String, driver: String, slot: int) -> K
 	shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	shadow.material_override = _blob_material()
 	k.add_child(shadow)
+	k.add_child(TireDust.new(k))
 	k.crashed.connect(func(s): if k == player_kart and s > 0.5: hud.flash("Ouch!", 0.8))
 	k.lap_completed.connect(func(lap, _t): _on_lap(k, lap))
 	karts.append(k)

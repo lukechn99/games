@@ -35,6 +35,15 @@ const SURFACE_ZONES := [
 const RAIL_ZONES := [[0.0, 0.17], [0.93, 1.0], [0.52, 0.62]]
 const JUMP_AT := 0.59
 const LAPS := 3
+## Set pieces (design doc 9.4), as lap offsets in metres.
+const LEDGE := [255.0, 350.0]     # high ledge: cliff down to a lake outside, rock wall inside
+const TUNNEL := [172.0, 214.0]    # rock tunnel on the climb
+const BRIDGE_AT := 445.0          # stone bridge over the ice
+const GANTRIES := [118.0, 540.0]  # metal sign gantries over the highway
+const BRANCH := [30.0, 170.0]     # the road splits round a rocky island here
+const BRANCH_SHIFT := 26.0        # how far the second route swings out
+## Detail texture and tiling per road surface (UVs: one unit = 14 m).
+const SURFACE_TEX := {"asphalt": ["asphalt", 1.0], "boost": ["asphalt", 1.0], "dirt": ["dirt", 2.0], "ice": ["ice", 2.0]}
 
 var curve := Curve3D.new()
 var length := 0.0
@@ -44,16 +53,25 @@ var _samples: Array[Transform3D] = []   # every 2 m along the line
 var _bank: PackedFloat32Array = []       # bank angle every 2 m
 var _skirt: PackedFloat32Array = []      # embankment width every 2 m
 var _rng := RandomNumberGenerator.new()
+var lake_center := Vector3.ZERO
+var lake_radius := 0.0
+var ledge_out := 1.0          # which side of the road the lake is on (+1 right)
+var branch_side := 1.0        # which side the second route swings out to
+var _keep_clear: Array[Vector3] = []   # (x, z, radius): no scenery here
+var _branch_samples: Array[Vector3] = []
 
 
 func _ready() -> void:
 	_rng.seed = 42
 	_build_curve()
+	_plan_set_pieces()
 	_build_ground()
 	_build_road()
+	_build_branch()
 	_build_rails()
 	_build_jump()
 	_build_start()
+	SetPieces.build(self)
 	_build_scenery()
 
 
@@ -139,13 +157,26 @@ func surface_at_fraction(f: float) -> String:
 	return "asphalt"
 
 
-func _mat(c: Color) -> StandardMaterial3D:
+## Track material: our colours in the vertex colours, with an optional
+## detail texture. `uv` tiles it on the mesh's own UVs; `tri` (metres) projects
+## it from the world instead, for meshes without UVs.
+func _mat(c: Color, tex := "", uv := 1.0, tri := 0.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
 	m.vertex_color_use_as_albedo = true
 	m.vertex_color_is_srgb = true
 	m.roughness = 0.95
 	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	if tex != "":
+		m.albedo_texture = load(Palette.TEX_DIR + tex + ".png")
+		m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		if tri > 0.0:
+			m.uv1_triplanar = true
+			m.uv1_world_triplanar = true
+			m.uv1_scale = Vector3.ONE / tri
+			m.uv1_triplanar_sharpness = 4.0
+		else:
+			m.uv1_scale = Vector3(uv, uv, 1.0)
 	return m
 
 
@@ -169,7 +200,7 @@ func _build_ground() -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = plane
 	mi.position = Vector3(80, 0, -30)
-	mi.material_override = _mat(Parts.surface("grass")["color"])
+	mi.material_override = _mat(Parts.surface("grass")["color"], "grass", 1400.0 / 7.0)
 	b.add_child(mi)
 
 
@@ -188,20 +219,38 @@ func _build_road() -> void:
 		var st: SurfaceTool = groups[s]
 		var a := road_frame(d)
 		var b := road_frame(minf(d + step, length))
-		_quad_strip(st, a, b, s, int(d / step))
-		if not groups.has("grass"):
-			groups["grass"] = SurfaceTool.new()
-			(groups["grass"] as SurfaceTool).begin(Mesh.PRIMITIVE_TRIANGLES)
-		_embankment(groups["grass"], a, b, int(d / step))
+		_quad_strip(st, a, b, s, int(d / step), d)
+		_embankment(_group(groups, "grass"), _group(groups, "rock"), a, b, int(d / step), d)
 		d += step
-	for s in groups:
-		var st: SurfaceTool = groups[s]
+	_commit_groups(groups)
+
+
+func _group(groups: Dictionary, key: String) -> SurfaceTool:
+	if not groups.has(key):
+		groups[key] = SurfaceTool.new()
+		(groups[key] as SurfaceTool).begin(Mesh.PRIMITIVE_TRIANGLES)
+	return groups[key]
+
+
+## One static body per surface (keys may carry a "#tag" to keep meshes apart).
+func _commit_groups(groups: Dictionary) -> void:
+	for key in groups:
+		var s: String = String(key).split("#")[0]
+		var st: SurfaceTool = groups[key]
 		st.generate_normals()
 		var mesh := st.commit()
+		if mesh == null or mesh.get_surface_count() == 0:
+			continue
 		var body := _body(s)
 		var mi := MeshInstance3D.new()
 		mi.mesh = mesh
-		mi.material_override = _mat(Color.WHITE)
+		if s == "grass":
+			mi.material_override = _mat(Color.WHITE, "grass", 1.0, 7.0)
+		elif s == "rock":
+			mi.material_override = _mat(Color.WHITE, "rock", 1.0, 5.0)
+		else:
+			var t: Array = SURFACE_TEX.get(s, ["", 1.0])
+			mi.material_override = _mat(Color.WHITE, t[0], t[1])
 		body.add_child(mi)
 		var col := CollisionShape3D.new()
 		var shape := mesh.create_trimesh_shape()
@@ -213,12 +262,19 @@ func _build_road() -> void:
 
 
 ## Where the road sits above the ground, a grassy bank slopes down to meet it.
-func _embankment(st: SurfaceTool, a: Transform3D, b: Transform3D, index: int) -> void:
+func _embankment(st: SurfaceTool, rock: SurfaceTool, a: Transform3D, b: Transform3D, index: int, d := -1.0) -> void:
 	var edge := ROAD_WIDTH * 0.5 + 1.1
 	var widest := 0.0
+	var on_ledge := d >= LEDGE[0] and d < LEDGE[1]
 	for side in [-1.0, 1.0]:
 		var ea: Vector3 = a.origin + a.basis.x * side * edge
 		var eb: Vector3 = b.origin + b.basis.x * side * edge
+		if on_ledge:
+			# Carved into the hillside: a sheer cliff down to the lake on the
+			# outside, a rock wall rising on the inside (design doc 9.4).
+			_rock_side(rock, ea, eb, (a.basis.x * Vector3(1, 0, 1)).normalized() * side, (b.basis.x * Vector3(1, 0, 1)).normalized() * side, side == ledge_out, index, side)
+			widest = maxf(widest, 14.0)
+			continue
 		var h := maxf(ea.y, eb.y)
 		if h < 0.08:
 			continue
@@ -230,7 +286,7 @@ func _embankment(st: SurfaceTool, a: Transform3D, b: Transform3D, index: int) ->
 		var gb := Vector3(eb.x, -0.02, eb.z) + out_b * w
 		var c: Color = Parts.surface("grass")["color"]
 		c = c.darkened(0.06) if index % 2 == 0 else c
-		var tri := [ea, ga, gb, ea, gb, eb] if side > 0 else [ea, gb, ga, ea, eb, gb]
+		var tri := [ea, gb, ga, ea, eb, gb] if side > 0 else [ea, ga, gb, ea, gb, eb]
 		for v in tri:
 			st.set_color(c)
 			st.add_vertex(v)
@@ -238,24 +294,71 @@ func _embankment(st: SurfaceTool, a: Transform3D, b: Transform3D, index: int) ->
 		_skirt[index] = widest
 
 
-func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, index: int) -> void:
+## The rock's cross-section at one point: (outward, height above the edge).
+## Smoothly varying lumps so the face reads as natural rock.
+func _rock_profile(cliff: bool, edge_y: float, index: int) -> Array[Vector2]:
+	var bump := sin(index * 0.37) * 0.7 + sin(index * 0.11) * 1.4
+	if cliff:
+		return [Vector2(0, 0), Vector2(0.6, -1.2), Vector2(1.4 + bump * 0.3, -edge_y * 0.55), Vector2(2.4 + bump * 0.2, -edge_y - 0.8)]
+	var top := 7.5 + bump
+	return [Vector2(0, 0), Vector2(0.4, 0.5), Vector2(1.4 + bump * 0.3, top), Vector2(5.0, top + 1.2), Vector2(9.0 + (edge_y + top) * 1.1, -edge_y - 0.02)]
+
+
+## A rock cross-section along one road edge: `cliff` drops to the water,
+## otherwise a wall rises from the kerb and slopes away behind.
+func _rock_side(st: SurfaceTool, ea: Vector3, eb: Vector3, out_a: Vector3, out_b: Vector3, cliff: bool, index: int, side: float) -> void:
+	var pa := _rock_profile(cliff, ea.y, index)
+	var pb := _rock_profile(cliff, eb.y, index + 1)
+	var c := Color(0.66, 0.63, 0.6)
+	for k in pa.size() - 1:
+		var p0: Vector2 = pa[k]
+		var p1: Vector2 = pa[k + 1]
+		var q0: Vector2 = pb[k]
+		var q1: Vector2 = pb[k + 1]
+		var a0 := ea + out_a * p0.x + Vector3.UP * p0.y
+		var a1 := ea + out_a * p1.x + Vector3.UP * p1.y
+		var b0 := eb + out_b * q0.x + Vector3.UP * q0.y
+		var b1 := eb + out_b * q1.x + Vector3.UP * q1.y
+		# Darker low down and in the creases where light doesn't reach.
+		var c0 := c.darkened(0.25 if p0.y < -1.0 or k == 0 else 0.0)
+		var c1 := c.darkened(0.25 if p1.y < -1.0 else 0.0)
+		var quad := [[a0, c0], [b1, c1], [a1, c1], [a0, c0], [b0, c0], [b1, c1]] if side > 0 else [[a0, c0], [a1, c1], [b1, c1], [a0, c0], [b1, c1], [b0, c0]]
+		for q in quad:
+			st.set_color(q[1])
+			st.add_vertex(q[0])
+
+
+func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, index: int, d := 0.0, skip_kerb := 0.0, lift_extra := 0.0) -> void:
 	var half := ROAD_WIDTH * 0.5
 	var base: Color = Parts.surface(s)["color"]
-	var lift := Vector3.UP * 0.04
+	var lift := Vector3.UP * (0.04 + lift_extra)
 	# Road, then a kerb on each side (red and white blocks every 2 m).
 	var kerb := Color(0.92, 0.22, 0.2) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
-	var bands := [[-half, half, base], [-half - 1.1, -half, kerb], [half, half + 1.1, kerb]]
+	var bands := [[-half, half, base]]
+	if skip_kerb >= 0.0:
+		bands.append([-half - 1.1, -half, kerb])
+	if skip_kerb <= 0.0:
+		bands.append([half, half + 1.1, kerb])
+	# Texture coordinates: across the road and along it, 14 m per tile.
+	var va := d / 14.0
+	var vb := (d + a.origin.distance_to(b.origin)) / 14.0
 	for band in bands:
 		var c: Color = band[2]
-		var p0 := a.origin + a.basis.x * float(band[0]) + lift
-		var p1 := a.origin + a.basis.x * float(band[1]) + lift
-		var p2 := b.origin + b.basis.x * float(band[1]) + lift
-		var p3 := b.origin + b.basis.x * float(band[0]) + lift
+		var x0 := float(band[0])
+		var x1 := float(band[1])
+		var p0 := a.origin + a.basis.x * x0 + lift
+		var p1 := a.origin + a.basis.x * x1 + lift
+		var p2 := b.origin + b.basis.x * x1 + lift
+		var p3 := b.origin + b.basis.x * x0 + lift
+		var u0 := x0 / ROAD_WIDTH + 0.5
+		var u1 := x1 / ROAD_WIDTH + 0.5
+		var uvs := {p0: Vector2(u0, va), p1: Vector2(u1, va), p2: Vector2(u1, vb), p3: Vector2(u0, vb)}
 		# Subtle stripes so speed reads on a plain road.
 		if band[0] == -half and s == "asphalt" and index % 8 == 0:
 			c = c.lightened(0.05)
 		for v in [p0, p2, p1, p0, p3, p2]:
 			st.set_color(c)
+			st.set_uv(uvs[v])
 			st.add_vertex(v)
 
 
@@ -320,6 +423,8 @@ func _build_rails() -> void:
 		if _in_rail_zone(f):
 			var a := road_frame(d)
 			for side in [-1.0, 1.0]:
+				if side == branch_side and d > BRANCH[0] - 6.0 and d < BRANCH[1] + 2.0:
+					continue  # leave the way open into the second route
 				var pos: Vector3 = a.origin + a.basis.x * side * (ROAD_WIDTH * 0.5 + 1.8)
 				var col := CollisionShape3D.new()
 				var box := BoxShape3D.new()
@@ -430,7 +535,109 @@ func _distance_to_line(p: Vector3) -> float:
 		var dd := Vector2(p.x - s.origin.x, p.z - s.origin.z).length() - (_skirt[i] if i < _skirt.size() else 0.0)
 		if dd < best:
 			best = dd
+	for b in _branch_samples:
+		best = minf(best, Vector2(p.x - b.x, p.z - b.z).length())
 	return best
+
+
+## Places scenery must stay out of (the lake, set pieces).
+func _blocked(p: Vector3) -> bool:
+	for c in _keep_clear:
+		if Vector2(p.x - c.x, p.z - c.y).length() < c.z:
+			return true
+	return false
+
+
+func keep_clear(p: Vector3, radius: float) -> void:
+	_keep_clear.append(Vector3(p.x, p.z, radius))
+
+
+# --- Set-piece planning ----------------------------------------------------
+
+func _plan_set_pieces() -> void:
+	var centroid := Vector3.ZERO
+	for t in _samples:
+		centroid += t.origin
+	centroid /= maxf(1.0, _samples.size())
+	# The lake lies outside the high ledge.
+	var mid := transform_at((LEDGE[0] + LEDGE[1]) * 0.5)
+	ledge_out = 1.0 if (mid.origin + mid.basis.x * 10.0).distance_to(centroid) > (mid.origin - mid.basis.x * 10.0).distance_to(centroid) else -1.0
+	var d := LEDGE[0]
+	while d <= LEDGE[1]:
+		var t := transform_at(d)
+		for k in 6:
+			keep_clear(t.origin + t.basis.x * ledge_out * (ROAD_WIDTH * 0.5 + 6.0 + k * 10.0), 9.0)
+			keep_clear(t.origin - t.basis.x * ledge_out * (ROAD_WIDTH * 0.5 + 6.0 + k * 3.0), 5.0)
+		d += 8.0
+	# The second route swings out to whichever side has more room.
+	var room := {}
+	for side in [-1.0, 1.0]:
+		var bm := transform_at((BRANCH[0] + BRANCH[1]) * 0.5)
+		var p: Vector3 = bm.origin + bm.basis.x * float(side) * (BRANCH_SHIFT + 10.0)
+		var best := INF
+		for i in _samples.size():
+			var dd := absf(i * 2.0 - (BRANCH[0] + BRANCH[1]) * 0.5)
+			if minf(dd, length - dd) > 120.0:
+				best = minf(best, p.distance_to(_samples[i].origin))
+		room[side] = best
+	branch_side = 1.0 if room[1.0] > room[-1.0] else -1.0
+	d = BRANCH[0]
+	while d <= BRANCH[1]:
+		var bt := branch_frame(d)
+		_branch_samples.append(bt.origin)
+		d += 2.0
+
+
+## How far the second route is from the racing line at `offset` (signed:
+## + is to the right). Zero outside the split.
+func branch_offset(offset: float) -> float:
+	var o := fposmod(offset, length)
+	if o <= BRANCH[0] or o >= BRANCH[1]:
+		return 0.0
+	var t := (o - BRANCH[0]) / (BRANCH[1] - BRANCH[0])
+	return branch_side * BRANCH_SHIFT * smoothstep(0.0, 0.4, t) * (1.0 - smoothstep(0.6, 1.0, t))
+
+
+## The second route's road frame: swung out sideways, facing along itself.
+func branch_frame(offset: float) -> Transform3D:
+	var a := transform_at(offset)
+	var b := transform_at(offset + 1.0)
+	var pa := a.origin + a.basis.x * branch_offset(offset)
+	var pb := b.origin + b.basis.x * branch_offset(offset + 1.0)
+	var f := pb - pa
+	f.y = 0.0
+	return Transform3D(Basis.looking_at(f.normalized(), Vector3.UP), pa)
+
+
+## The second route: asphalt round the island, with a ramp of its own
+## (the main road has the boost pad), so neither way is clearly faster.
+func _build_branch() -> void:
+	var groups := {}
+	var d := BRANCH[0]
+	var step := 2.0
+	while d < BRANCH[1]:
+		var shift := absf(branch_offset(d))
+		if shift > 1.5:
+			var a := branch_frame(d)
+			var b := branch_frame(minf(d + step, BRANCH[1]))
+			# While the two roads still overlap, leave out the kerb on the
+			# inner side and sit a touch higher, so they blend into one.
+			var overlap := shift < ROAD_WIDTH + 2.2
+			var skip := (-branch_side if overlap else 0.0)
+			_quad_strip(_group(groups, "asphalt#branch"), a, b, "asphalt", int(d / step), d, skip, 0.02 if overlap else 0.0)
+		d += step
+	_commit_groups(groups)
+
+
+## Water: falling in counts as out of bounds (kart.gd).
+func in_water(pos: Vector3) -> bool:
+	if pos.y > 1.2:
+		return false
+	var off := offset_of(pos)
+	if off < LEDGE[0] - 10.0 or off > LEDGE[1] + 10.0:
+		return false
+	var local := transform_at(off).affine_inverse() * pos
+	return local.x * ledge_out > ROAD_WIDTH * 0.5 + 1.0
 
 
 ## Background and scenery (design doc 8.2): far mountains, trees and rocks.
@@ -444,17 +651,19 @@ func _build_scenery() -> void:
 	var bushes: Array[Transform3D] = []
 	var flowers: Array[Transform3D] = []
 	var solid := _body("grass")
+	var shade := []   # soft shade under every tree and rock (design doc 9.4)
 	var tries := 0
 	var placed := 0
 	while placed < 340 and tries < 4000:
 		tries += 1
 		var p := Vector3(_rng.randf_range(-260, 420), 0, _rng.randf_range(-420, 360))
 		var dist := _distance_to_line(p)
-		if dist < ROAD_WIDTH * 0.5 + 7.0:
+		if dist < ROAD_WIDTH * 0.5 + 7.0 or _blocked(p):
 			continue
 		var kind: String = kinds[_rng.randi() % kinds.size()]
 		var sc := _rng.randf_range(5.5, 8.5)
 		(trees[kind] as Array).append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * sc), p))
+		shade.append([p, 0.3 * sc, 1.3 * sc])
 		if dist < trees_hit_radius:
 			var col := CollisionShape3D.new()
 			var cyl := CylinderShape3D.new()
@@ -471,7 +680,7 @@ func _build_scenery() -> void:
 	for i in 70:
 		var p := Vector3(_rng.randf_range(-200, 380), 0, _rng.randf_range(-360, 300))
 		var dist := _distance_to_line(p)
-		if dist < ROAD_WIDTH * 0.5 + 4.0:
+		if dist < ROAD_WIDTH * 0.5 + 4.0 or _blocked(p):
 			continue
 		if i % 3 == 0:
 			# Boulders: taller than a kart, with straight sides, so you bump
@@ -479,6 +688,7 @@ func _build_scenery() -> void:
 			# threw karts into the air.)
 			var sc := _rng.randf_range(3.0, 5.0)
 			rocks.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3(sc, sc * 2.6, sc)), p))
+			shade.append([p, 0.4 * sc, 0.68 * sc])
 			if dist < trees_hit_radius:
 				var col := CollisionShape3D.new()
 				var cyl := CylinderShape3D.new()
@@ -494,6 +704,7 @@ func _build_scenery() -> void:
 	_scatter(KIT_NATURE + "rock_largeA.glb", rocks)
 	_scatter(KIT_NATURE + "plant_bushLarge.glb", bushes)
 	_scatter(KIT_NATURE + "flower_yellowA.glb", flowers)
+	SetPieces.ground_shade(self, shade)
 	_build_mountains()
 
 
@@ -501,13 +712,19 @@ func _build_mountains() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var center := Vector3(80, 0, -30)
-	var colors := [Color(0.48, 0.62, 0.78), Color(0.55, 0.68, 0.82), Color(0.42, 0.56, 0.72)]
-	for i in 26:
-		var a := TAU * i / 26.0 + _rng.randf() * 0.1
-		var r := _rng.randf_range(560, 640)
+	# Two rings: the far one is paler and bluer, fading toward the sky, so
+	# the world has layers instead of one flat backdrop (design doc 9.4).
+	var near_colors := [Color(0.42, 0.56, 0.7), Color(0.47, 0.6, 0.74), Color(0.38, 0.52, 0.66)]
+	var far_colors := [Color(0.62, 0.76, 0.92), Color(0.66, 0.79, 0.94), Color(0.6, 0.74, 0.9)]
+	for i in 60:
+		var far := i >= 26
+		var colors: Array = far_colors if far else near_colors
+		var n_ring := 34 if far else 26
+		var a := TAU * (i - (26 if far else 0)) / n_ring + _rng.randf() * 0.1 + (0.09 if far else 0.0)
+		var r := _rng.randf_range(820, 900) if far else _rng.randf_range(560, 640)
 		var base := center + Vector3(cos(a) * r, 0, sin(a) * r)
-		var h := _rng.randf_range(70, 160)
-		var w := _rng.randf_range(90, 160)
+		var h := _rng.randf_range(130, 230) if far else _rng.randf_range(70, 160)
+		var w := _rng.randf_range(140, 220) if far else _rng.randf_range(90, 160)
 		var side := Vector3(-sin(a), 0, cos(a)) * w
 		var c: Color = colors[i % colors.size()]
 		var peak := base + Vector3.UP * h

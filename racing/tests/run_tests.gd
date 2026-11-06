@@ -280,6 +280,8 @@ func _test_bots_lap_the_track() -> void:
 		var idx := i
 		bots[i].respawned.connect(func(): respawns[idx] += 1)
 	var lap_time := [0.0, 0.0, 0.0, 0.0]
+	var took_branch := [0]
+	var took_main := [0]
 	var t := 0.0
 	var limit := 180.0
 	while t < limit:
@@ -292,6 +294,13 @@ func _test_bots_lap_the_track() -> void:
 				lap_time[i] = t + lap_time[i]
 		for i in bots.size():
 			var k := bots[i]
+			var o := track.offset_of(k.global_position)
+			if absf(track.branch_offset(o)) > Track.BRANCH_SHIFT * 0.9:
+				var lx: float = (track.transform_at(o).affine_inverse() * k.global_position).x
+				if absf(lx) > Track.BRANCH_SHIFT * 0.6:
+					took_branch[0] += 1
+				else:
+					took_main[0] += 1
 			var road := -track.transform_at(track.offset_of(k.global_position)).basis.z
 			var fwd := -k.global_transform.basis.z
 			fwd.y = 0.0
@@ -305,6 +314,7 @@ func _test_bots_lap_the_track() -> void:
 		check(lap_time[i] > 0.0 and avg > 13.0, "%s bot (%s, %s) laps at a racing pace" % [builds[i][2], builds[i][0], builds[i][1]],
 			"lap %.1f s, avg %.1f m/s, %d respawns" % [lap_time[i], avg, respawns[i]])
 	check(spins[0] == 0, "nobody gets spun round in the pack (hills, banks, bumps)", "%d spins" % spins[0])
+	check(took_branch[0] > 0 and took_main[0] > 0, "bots use both routes where the road splits", "%d frames on the second route, %d on the main road" % [took_branch[0], took_main[0]])
 	print("  lap length %.0f m" % track.length)
 
 

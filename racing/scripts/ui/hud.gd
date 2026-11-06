@@ -158,9 +158,6 @@ func _build_garage(root: Control) -> void:
 		Controls.auto_gas = not Controls.auto_gas
 		gas.text = "Auto gas: " + ("on" if Controls.auto_gas else "off")
 		touch._layout())
-	var shadows := _button(row2, "Shadows: on" if Controls.shadows else "Shadows: off")
-	shadows.pressed.connect(func(): Controls.set_shadows(not Controls.shadows))
-	Controls.quality_changed.connect(func(): shadows.text = "Shadows: on" if Controls.shadows else "Shadows: off")
 	var restart := _button(row2, "Restart race")
 	restart.pressed.connect(func():
 		_garage.visible = false

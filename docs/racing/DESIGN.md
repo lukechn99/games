@@ -254,6 +254,13 @@ Every track has three layers:
 | **Frosty Pass** | Snow and ice | Icy hairpins, sliding snowballs, a frozen lake shortcut | Studded |
 | **Bayou Boardwalk** | Mud and wooden planks | Swinging lanterns, mud pits, logs rolling across | Balloon |
 | **Kitchen Counter** | Countertop, a tablecloth | Toy-scale race past rolling fruit and a spinning lazy Susan | Any |
+| **Mine Shaft** (the user's idea) | Rock, wooden planks, mine-cart rails | See below | Knobby |
+
+**Mine Shaft (Idea, for a future track).** The course weaves in and out of a mountain:
+- **Outside**, it runs along cliff ledges where one side drops away and the other side is the mountain face.
+- **Inside**, it runs through tunnels held up by old wooden beam supports, lit by flaming wall torches that flicker.
+- **Coal piles** in the tunnels slow you a little if you drive into them. Coal dust splatters across your screen and slowly blows away.
+- **A mine-cart rail section** crosses a deep, dark cavern. Stay on the rails or fall into the cavern (and get put back on the track).
 
 **Decided launch tracks:** **Meadow Loop** (asphalt and grass, highway guardrails, tumbleweeds) and **Frosty Pass** (snow and ice, where the growing snowball appears and studded tires shine). The rest stay on the list for later.
 
@@ -315,7 +322,16 @@ What makes the reference look alive, and our phone-friendly version of each:
 | **Depth in the distance.** Mountains fade into blue haze, and far scenery is layered, so the world goes on past the track. | Height fog plus distance fog tinted to the sky, and two or three layers of backdrop silhouettes. |
 | **Polish on the karts.** Rims shine, tires are chunky with tread, and each kart carries a number and its driver's colours. | Rim highlights from the *metal* preset, tread notches on tires, numbers and simple decals on the nose plate. |
 
-**Order of work (Proposed):** 1) shadows and material presets (biggest change for least work); 2) detail textures on the road and ground; 3) drop-off edges and one bridge; 4) life (sway, flags, crowd, dust); 5) a split section. Each step is checked on a phone for frame rate before the next.
+**Decided:** build all of the above (the user's request). **What's in Meadow Loop now:**
+- **Textures:** tiling greyscale detail textures (`assets/textures`, made by `racing/tools/make_textures.py`) multiplied over our colours: asphalt with grain, patches and sealed cracks; grass with tufts; dirt; ice with cracks; stone blocks and mortar; rock with dark creases; wooden planks. The road has proper texture coordinates; everything else is projected from the world (triplanar), so kit models need none.
+- **Materials:** metal shines sharply, paint softly; wood, rock, grass and fur are matte.
+- **Shade:** a soft dark patch under every kart, tree, rock, boulder and the bleachers, stretched away from the sun, plus shade across the road under the bridge and gantries and a darker road inside the tunnel. Real-time shadows stay off. In Godot's Compatibility renderer they brighten the whole scene (seen on a real GPU too), and the fake shade works on every phone.
+- **Carved into the land:** the high ledge (the climb's top) has a sheer rock cliff down to a lake on the outside and a rock wall rising on the inside. Falling into the lake puts you back on the road.
+- **Route choice:** just after the start, the road splits round a rocky island. The main road has the boost pad; the second route is a little longer and has a ramp. Bots take either, switching lap to lap.
+- **Overhead:** a rock tunnel with lamps on the climb, a stone bridge between castle towers over the ice, and two metal sign gantries.
+- **Motion:** leaves sway (each tree on its own timing), flags ripple along the start, fans in two bleachers hop and cheer, the lake has moving waves and glints, clouds drift, and tires kick up dust on dirt and grass, and smoke when drifting.
+- **Haze:** two rings of mountains, the far ring paler and bluer, and fog tinted to the horizon colour.
+- **Reviewing scenery:** `/games/racing/?cam=OFFSET,SIDE,HEIGHT,LOOK` puts a still camera anywhere on the lap.
 
 ## 10. Controls
 
@@ -483,9 +499,10 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - **No launches off walls.** Wheels only roll on ground (surfaces flatter than about 53°), and when the kart's body touches a wall, rock or tree, any upward speed and pitching or rolling it picks up is removed. Before this, a hit at speed tipped the nose up and threw karts several metres into the air. Boulders have straight-sided hit shapes and tree trunks match the trunk, not the leaves.
 - **Out of bounds.** A kart under the road, more than 6 m below it, or more than 45 m from it is put back on the road after 0.4 seconds, like falling off the course in Mario Kart. The road and banks are also solid from both sides, so karts can't slip through.
 - **Finishes (9.4).** Metal shines sharply, paint softly, rubber and fur stay matte; each kart is merged into one mesh per finish. Every kart has a soft blob shadow. Real sun shadows exist behind `?shadows=on` and a garage toggle, but stay off by default for now: turning them on brightens the whole scene in Godot's Compatibility renderer (seen on a real GPU too), which needs fixing first.
+- **Winding fix.** The grassy banks were built facing the wrong way: invisible from above (you saw the flat ground through them) though still solid. That's part of why the road looked like it floated and why karts could seem to drive "under" it. They now face up and are lit properly.
 - **Kart meshes are merged** into one vertex-coloured mesh per moving group, with an ink outline. Stretched shells (nose cones, pods, the soapbox egg) stay separate pieces, because merging them shaded wrongly.
 
-**Automated tests (38), run on every deploy:**
+**Automated tests (39), run on every deploy:**
 - All four chassis settle on four wheels.
 - Each reaches its top speed, and 72 km/h in a fair time.
 - The soapbox turns tightest and the hauler and racer widest.
@@ -497,6 +514,7 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - Bots of every level lap the test track at racing pace.
 - A rear-end bump shoves a kart without spinning it, and a full pack laps the hilly, banked track with no spins.
 - Hitting a boulder at speed doesn't launch the kart, and a kart under the road is put back on it.
+- Bots use both routes where the road splits.
 
 ## 17. Open questions
 1. Working title (1).
@@ -539,3 +557,6 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Kart-to-kart bumps are soft pushes, never spins | The user's report of unexpected 180° spins |
 | 2026-11-06 | Falling off or under the course puts you back on the road | The user's request, as in Mario Kart |
 | 2026-11-06 | The garage closes with an X in its top-right corner (or Escape) | The user's request: the old Close button was hidden among the options |
+| 2026-11-06 | World pass: textures, materials, shade, cliff and lake, split route, tunnel, bridge, gantries, crowd, flags, sway, dust, haze | The user's request, from the Mario Kart World reference |
+| 2026-11-06 | Shade is drawn as soft patches, not real-time shadows | Real shadows brighten the scene in the Compatibility renderer; patches are cheap on phones |
+| 2026-11-06 | Mine Shaft added as a future track idea | The user's idea |

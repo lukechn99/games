@@ -72,6 +72,7 @@ const DRIFT_EXIT := 0.35
 
 
 func _ready() -> void:
+	add_to_group("karts")
 	continuous_cd = true
 	# Karts live on layer 2 and only collide with the world (layer 1);
 	# kart-to-kart bumps are handled gently by KartBumps instead.
@@ -150,6 +151,10 @@ func top_speed() -> float:
 var held_item := ""        # "honey", "tumbleweed" or "" (see items.gd)
 var item_spin := 0.0       # seconds left of the "what did I get?" spin
 var sticky_time := 0.0     # in honey: slow and sluggish
+
+
+## Coal dust on your screen (hud.gd shows it on the player's kart).
+signal splattered
 
 
 ## Driven into honey: slow and sluggish for a couple of seconds.
@@ -512,8 +517,7 @@ func _check_recovery(delta: float) -> void:
 func _fallen_off() -> bool:
 	if track == null:
 		return false
-	var frame: Transform3D = track.road_frame(track.offset_of(global_position))
-	var local: Vector3 = frame.affine_inverse() * global_position
+	var local: Vector3 = track.road_local(global_position)
 	var under_road: bool = local.y < -2.0 and absf(local.x) < Track.ROAD_WIDTH * 0.5 + 2.0
 	return under_road or local.y < -6.0 or absf(local.x) > 45.0 or track.in_water(global_position)
 

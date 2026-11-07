@@ -46,6 +46,14 @@ const BRANCH_SPLIT := ROAD_WIDTH + 2.2   # past this, the routes are separate ro
 ## Detail texture and tiling per road surface (UVs: one unit = 14 m).
 const SURFACE_TEX := {"asphalt": ["asphalt", 1.0], "boost": ["asphalt", 1.0], "dirt": ["dirt", 2.0], "ice": ["ice", 2.0]}
 
+## Which track this is: "meadow" (Meadow Loop) or "mine" (Mining Mountain).
+var layout := "meadow"
+var points: Array = POINTS
+var surface_zones: Array = SURFACE_ZONES
+var rail_zones: Array = RAIL_ZONES
+## Other routes that leave the main road and rejoin it: each is
+## {from, to, shift: PackedFloat32Array (sideways offset every metre), kind}.
+var branches: Array[Dictionary] = []
 var curve := Curve3D.new()
 var length := 0.0
 var laps := LAPS
@@ -64,11 +72,20 @@ var _branch_samples: Array[Vector3] = []
 
 func _ready() -> void:
 	_rng.seed = 42
+	if layout == "mine":
+		MineTrack.configure(self)
+		_build_curve()
+		MineTrack.plan(self)
+		_build_ground()
+		_build_road()
+		_build_start(false)
+		MineTrack.build(self)
+		_build_scenery()
+		return
 	_build_curve()
 	_plan_set_pieces()
 	_build_ground()
 	_build_road()
-	_build_branch()
 	_build_rails()
 	_build_jump()
 	_build_start()
@@ -77,11 +94,11 @@ func _ready() -> void:
 
 
 func _build_curve() -> void:
-	var n := POINTS.size()
+	var n := points.size()
 	for i in n + 1:
-		var p: Vector3 = POINTS[i % n]
-		var prev: Vector3 = POINTS[(i - 1 + n) % n]
-		var next: Vector3 = POINTS[(i + 1) % n]
+		var p: Vector3 = points[i % n]
+		var prev: Vector3 = points[(i - 1 + n) % n]
+		var next: Vector3 = points[(i + 1) % n]
 		var handle := (next - prev) / 6.0
 		curve.add_point(p, -handle, handle)
 	curve.bake_interval = 1.0
@@ -152,7 +169,7 @@ func offset_of(pos: Vector3) -> float:
 
 
 func surface_at_fraction(f: float) -> String:
-	for z in SURFACE_ZONES:
+	for z in surface_zones:
 		if f >= z["from"] and f < z["to"]:
 			return z["surface"]
 	return "asphalt"
@@ -225,16 +242,18 @@ func _build_road() -> void:
 		var st: SurfaceTool = groups[s]
 		var a := road_frame(d)
 		var b := road_frame(minf(d + step, length))
-		var shift := absf(branch_offset(d))
+		var bi := branch_at(d)
+		var shift := absf(branch_offset(d, bi)) if bi >= 0 else 0.0
 		if shift > 0.3 and shift < BRANCH_SPLIT:
 			# Where the routes part, one wide piece of road covers both, so
 			# there are no overlapping layers and no seams (design doc 9.4).
-			_merged_strip(st, d, minf(d + step, length), int(d / step))
+			_merged_strip(st, d, minf(d + step, length), int(d / step), bi)
 		else:
 			_quad_strip(st, a, b, s, int(d / step), d)
-			if shift >= BRANCH_SPLIT:
-				var ba := branch_frame(d)
-				var bb := branch_frame(minf(d + step, BRANCH[1]))
+			if shift >= BRANCH_SPLIT and _branch_has_road(bi, d):
+				var bend: float = branches[bi]["to"]
+				var ba := _branch_strip_frame(d, bi)
+				var bb := _branch_strip_frame(minf(d + step, bend), bi)
 				var bs := "boost" if _in_moss(d) else "asphalt"
 				# The moss glows green rather than boost-pad orange.
 				var moss := Color(0.35, 1.0, 0.45) if bs == "boost" else Color(0, 0, 0, 0)
@@ -244,26 +263,50 @@ func _build_road() -> void:
 	_commit_groups(groups)
 
 
+## Whether route `i` has ordinary road at `d` (the mine's rope bridge and
+## cavern rails are built separately).
+func _branch_has_road(i: int, d: float) -> bool:
+	if layout == "mine":
+		return MineTrack.has_road(self, i, d)
+	return true
+
+
 ## Glowing moss strips that boost you, inside the cave route.
 func _in_moss(d: float) -> bool:
+	if layout != "meadow":
+		return false
 	var u := (d - BRANCH[0]) / (BRANCH[1] - BRANCH[0])
 	return (u > 0.42 and u < 0.47) or (u > 0.6 and u < 0.65)
 
 
 ## One road surface from the main road's far edge to the second route's far
 ## edge, with kerbs only on the outside.
-func _merged_strip(st: SurfaceTool, da: float, db: float, index: int) -> void:
-	var side := branch_side
+func _merged_strip(st: SurfaceTool, da: float, db: float, index: int, bi := 0) -> void:
+	var side := signf(branch_offset(da, bi) + branch_offset(db, bi))
+	if side == 0.0:
+		side = 1.0
 	var half := ROAD_WIDTH * 0.5
 	var lift := Vector3.UP * 0.04
 	var ma := road_frame(da)
 	var mb := road_frame(db)
-	var aa := branch_frame(da)
-	var ab := branch_frame(db)
+	var aa := branch_frame(da, bi)
+	var ab := branch_frame(db, bi)
 	var near_a := ma.origin - ma.basis.x * side * half
 	var near_b := mb.origin - mb.basis.x * side * half
-	var far_a := aa.origin + aa.basis.x * side * half
-	var far_b := ab.origin + ab.basis.x * side * half
+	# The far edge stays on the main road's cross-line, so this piece meets
+	# the main road and the separate route without a gap even where the
+	# route comes in at a steep angle.
+	var xa := _flat(ma.basis.x)
+	var xb := _flat(mb.basis.x)
+	aa.basis.x = xa
+	ab.basis.x = xb
+	var far_a := aa.origin + xa * side * half
+	var far_b := ab.origin + xb * side * half
+	# Close in, the far edge follows the main road's bank, so the piece meets
+	# the plain road after the merge level (no lip); out at the split it is
+	# level with the separate route.
+	far_a.y = lerpf((ma.origin + ma.basis.x * (branch_offset(da, bi) + side * half)).y, far_a.y, clampf(absf(branch_offset(da, bi)) / BRANCH_SPLIT, 0.0, 1.0))
+	far_b.y = lerpf((mb.origin + mb.basis.x * (branch_offset(db, bi) + side * half)).y, far_b.y, clampf(absf(branch_offset(db, bi)) / BRANCH_SPLIT, 0.0, 1.0))
 	var base: Color = Parts.surface("asphalt")["color"]
 	var kerb := Color(0.92, 0.22, 0.2) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
 	var va := da / 14.0
@@ -287,6 +330,22 @@ func _merged_strip(st: SurfaceTool, da: float, db: float, index: int) -> void:
 			st.set_color(c)
 			st.set_uv(uvs[v])
 			st.add_vertex(v)
+
+
+func _flat(v: Vector3) -> Vector3:
+	v.y = 0.0
+	return v.normalized()
+
+
+## Route `i`'s frame for its own road strip. Near where it joins the main
+## road it turns to square up with the main road's cross-line, so its end
+## lines up with the merged piece (see _merged_strip).
+func _branch_strip_frame(d: float, i: int) -> Transform3D:
+	var f := branch_frame(d, i)
+	var t := clampf((absf(branch_offset(d, i)) - BRANCH_SPLIT) / 10.0, 0.0, 1.0)
+	var x := _flat(road_frame(d).basis.x).slerp(f.basis.x, t).normalized()
+	f.basis = Basis(x, Vector3.UP, x.cross(Vector3.UP))
+	return f
 
 
 func _group(groups: Dictionary, key: String) -> SurfaceTool:
@@ -329,13 +388,16 @@ func _commit_groups(groups: Dictionary) -> void:
 func _embankment(st: SurfaceTool, rock: SurfaceTool, a: Transform3D, b: Transform3D, index: int, d := -1.0) -> void:
 	var edge := ROAD_WIDTH * 0.5 + 1.1
 	var widest := 0.0
-	var on_ledge := d >= LEDGE[0] and d < LEDGE[1]
+	var on_ledge := (d >= LEDGE[0] and d < LEDGE[1]) if layout == "meadow" else true
 	for side in [-1.0, 1.0]:
 		var ea: Vector3 = a.origin + a.basis.x * side * edge
 		var eb: Vector3 = b.origin + b.basis.x * side * edge
 		if on_ledge:
 			# Carved into the hillside: a sheer cliff down to the lake on the
 			# outside, a rock wall rising on the inside (design doc 9.4).
+			# On the mountain the inside is the mountain itself (mine_track.gd).
+			if layout == "mine" and side != ledge_out:
+				continue
 			_rock_side(rock, ea, eb, (a.basis.x * Vector3(1, 0, 1)).normalized() * side, (b.basis.x * Vector3(1, 0, 1)).normalized() * side, side == ledge_out, index, side)
 			widest = maxf(widest, 14.0)
 			continue
@@ -480,7 +542,7 @@ func _scatter(path: String, xforms: Array[Transform3D], far := 0.0) -> void:
 
 
 func _in_rail_zone(f: float) -> bool:
-	for z in RAIL_ZONES:
+	for z in rail_zones:
 		if f >= z[0] and f <= z[1]:
 			return true
 	return false
@@ -562,7 +624,7 @@ func _place(path: String, xf: Transform3D) -> void:
 	add_child(n)
 
 
-func _build_start() -> void:
+func _build_start(stands := true) -> void:
 	var a := transform_at(0.0)
 	# Checkered start line painted across the road.
 	var st := SurfaceTool.new()
@@ -588,6 +650,8 @@ func _build_start() -> void:
 	_place(KIT_RACING + "overhead.glb", Transform3D(_sl(a.basis, Vector3(s, s * 0.9, s)), a.origin - a.basis.x * (ROAD_WIDTH / 2 + 2.0) + a.basis.x * 0.16 * s))
 	for side in [-1.0, 1.0]:
 		_place(KIT_RACING + "flagCheckers.glb", Transform3D(_sl(a.basis, Vector3.ONE * 3.0), a.origin + a.basis.x * side * (ROAD_WIDTH / 2 + 3.0) + a.basis.z * 6.0))
+	if not stands:
+		return
 	# Grandstands face the road from beyond the guardrail. The kit's stand is
 	# 1×1 with its back along +X, so turn it to face the track.
 	for spot in [[length - 45.0, 1.0], [30.0, 1.0], [length - 20.0, -1.0]]:
@@ -628,7 +692,12 @@ func distance_to_road(p: Vector3) -> float:
 
 
 ## Places scenery must stay out of (the lake, set pieces).
+var no_scenery := PackedVector2Array()   # an area kept clear (the mountain)
+
+
 func _blocked(p: Vector3) -> bool:
+	if no_scenery.size() > 2 and Geometry2D.is_point_in_polygon(Vector2(p.x, p.z), no_scenery):
+		return true
 	for c in _keep_clear:
 		if Vector2(p.x - c.x, p.z - c.y).length() < c.z:
 			return true
@@ -668,32 +737,87 @@ func _plan_set_pieces() -> void:
 				best = minf(best, p.distance_to(_samples[i].origin))
 		room[side] = best
 	branch_side = 1.0 if room[1.0] > room[-1.0] else -1.0
+	var shift := PackedFloat32Array()
 	d = BRANCH[0]
-	while d <= BRANCH[1]:
-		var bt := branch_frame(d)
-		_branch_samples.append(bt.origin)
+	while d <= BRANCH[1] + 1.0:
+		var t := (d - BRANCH[0]) / (BRANCH[1] - BRANCH[0])
+		shift.append(branch_side * BRANCH_SHIFT * smoothstep(0.0, 0.4, t) * (1.0 - smoothstep(0.6, 1.0, t)))
+		d += 1.0
+	add_branch(BRANCH[0], BRANCH[1], shift, "cave")
+
+
+## Register another route: sideways offsets from the main road every metre
+## from `from` to `to` (signed: + is to the right).
+func add_branch(from: float, to: float, shift: PackedFloat32Array, kind: String) -> void:
+	branches.append({"from": from, "to": to, "shift": shift, "kind": kind})
+	var d := from
+	while d <= to:
+		_branch_samples.append(branch_frame(d, branches.size() - 1).origin)
 		d += 2.0
 
 
-## How far the second route is from the racing line at `offset` (signed:
-## + is to the right). Zero outside the split.
-func branch_offset(offset: float) -> float:
-	var o := fposmod(offset, length)
-	if o <= BRANCH[0] or o >= BRANCH[1]:
+## How far route `i` is from the racing line at `offset` (signed: + is to
+## the right). Zero outside its stretch.
+func branch_offset(offset: float, i := 0) -> float:
+	if i >= branches.size():
 		return 0.0
-	var t := (o - BRANCH[0]) / (BRANCH[1] - BRANCH[0])
-	return branch_side * BRANCH_SHIFT * smoothstep(0.0, 0.4, t) * (1.0 - smoothstep(0.6, 1.0, t))
+	var b: Dictionary = branches[i]
+	var o := fposmod(offset, length)
+	if o <= b["from"] or o >= b["to"]:
+		return 0.0
+	var tab: PackedFloat32Array = b["shift"]
+	var x := o - float(b["from"])
+	var k := int(x)
+	if k + 1 >= tab.size():
+		return tab[tab.size() - 1] if not tab.is_empty() else 0.0
+	return lerpf(tab[k], tab[k + 1], x - k)
 
 
-## The second route's road frame: swung out sideways, facing along itself.
-func branch_frame(offset: float) -> Transform3D:
+## Which route is beside the main road at `offset`, or -1.
+func branch_at(offset: float) -> int:
+	var o := fposmod(offset, length)
+	for i in branches.size():
+		if o > branches[i]["from"] and o < branches[i]["to"]:
+			return i
+	return -1
+
+
+## Route `i`'s road frame: swung out sideways, facing along itself.
+func branch_frame(offset: float, i := 0) -> Transform3D:
 	var a := transform_at(offset)
 	var b := transform_at(offset + 1.0)
-	var pa := a.origin + a.basis.x * branch_offset(offset)
-	var pb := b.origin + b.basis.x * branch_offset(offset + 1.0)
+	var pa := a.origin + a.basis.x * branch_offset(offset, i)
+	var pb := b.origin + b.basis.x * branch_offset(offset + 1.0, i)
 	var f := pb - pa
 	f.y = 0.0
+	if f.length() < 0.01:
+		return Transform3D(a.basis, pa)
 	return Transform3D(Basis.looking_at(f.normalized(), Vector3.UP), pa)
+
+
+## Where a kart is relative to the nearest road (the main road or a route
+## beside it): local position in that road's frame.
+func road_local(pos: Vector3) -> Vector3:
+	var off := offset_of(pos)
+	var best := road_frame(off).affine_inverse() * pos
+	var i := branch_at(off)
+	if i >= 0:
+		var alt := branch_frame(off, i)
+		alt.basis = road_frame(off).basis
+		var l := alt.affine_inverse() * pos
+		if absf(l.x) < absf(best.x):
+			best = l
+	return best
+
+
+## Rows of item crates: a frame for each row, across the road it's on.
+func crate_frames() -> Array[Transform3D]:
+	var out: Array[Transform3D] = []
+	if layout == "mine":
+		return MineTrack.crate_frames(self)
+	for u in [0.36, 0.72]:
+		out.append(branch_frame(lerpf(BRANCH[0], BRANCH[1], u)))
+	return out
 
 
 ## The second route: asphalt round the island, with a ramp of its own
@@ -704,7 +828,7 @@ func _build_branch() -> void:
 
 ## Water: falling in counts as out of bounds (kart.gd).
 func in_water(pos: Vector3) -> bool:
-	if pos.y > 1.2:
+	if layout != "meadow" or pos.y > 1.2:
 		return false
 	var off := offset_of(pos)
 	if off < LEDGE[0] - 10.0 or off > LEDGE[1] + 10.0:
@@ -824,6 +948,15 @@ func _build_mountains() -> void:
 func respawn_transform(pos: Vector3) -> Transform3D:
 	var off := offset_of(pos) - 6.0
 	var t := transform_at(off)
+	# Fell off a route beside the main road (the mine's cavern trestle, say):
+	# back onto that route, not across on the main road. The rope bridge is
+	# the exception: you're put back on the main road below it.
+	var bi := branch_at(off)
+	if bi >= 0 and branches[bi]["kind"] != "bridge":
+		var bf := branch_frame(off, bi)
+		var flat := Vector2(pos.x, pos.z)
+		if flat.distance_to(Vector2(bf.origin.x, bf.origin.z)) < flat.distance_to(Vector2(t.origin.x, t.origin.z)):
+			t = bf
 	t.origin += Vector3.UP * 1.2
 	return t
 
@@ -841,9 +974,13 @@ func grid_transform(slot: int) -> Transform3D:
 func update_progress(kart: Kart) -> void:
 	var off := offset_of(kart.global_position)
 	var cp_len := length / CHECKPOINTS
-	var target := kart.next_checkpoint * cp_len
-	var past := fposmod(off - target, length)
-	if past < 25.0:
+	# A loop, because a shortcut can carry a kart past more than one
+	# checkpoint at once (they still all count, in order).
+	for guard in 3:
+		var target := kart.next_checkpoint * cp_len
+		var past := fposmod(off - target, length)
+		if past >= 60.0:
+			break
 		if kart.next_checkpoint == 0:
 			kart.lap += 1
 			if kart.lap > laps:

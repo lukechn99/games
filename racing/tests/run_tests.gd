@@ -28,6 +28,7 @@ func _run() -> void:
 	await _test_fall_off_respawns()
 	await _test_clean_start()
 	await _test_items()
+	await _test_mine()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
 
@@ -462,3 +463,74 @@ func _pad_under(p: Vector3) -> void:
 	c.position = Vector3(p.x, -1, p.z)
 	b.add_child(c)
 	_world.add_child(b)
+
+
+## Mining Mountain: bots get round, someone uses the tunnel and someone the
+## swaying bridge, and nobody falls off more than now and then.
+func _test_mine() -> void:
+	print("Mining Mountain")
+	if _world:
+		_world.free()
+	_world = Node3D.new()
+	root.add_child(_world)
+	var track := Track.new()
+	track.layout = "mine"
+	_world.add_child(track)
+	var bots: Array[Kart] = []
+	var builds := [["frame", "slicks", "hard"], ["hauler", "knobby", "medium"], ["soapbox", "balloon", "easy"], ["racer", "studded", "hard"]]
+	var respawns := [0, 0, 0, 0]
+	for i in builds.size():
+		var k := Kart.new()
+		k.configure(builds[i][0], builds[i][1], "fox")
+		k.track = track
+		_world.add_child(k)
+		k.global_transform = track.grid_transform(i)
+		_world.add_child(BotDriver.new(k, track, builds[i][2], i + 7))
+		bots.append(k)
+		var idx := i
+		k.respawned.connect(func(): respawns[idx] += 1)
+	var bumps := KartBumps.new()
+	bumps.karts = bots
+	_world.add_child(bumps)
+	var on_branch := {}
+	var lap_time := [0.0, 0.0, 0.0, 0.0]
+	var t := 0.0
+	while t < 200.0:
+		await physics_frame
+		t += 1.0 / 60.0
+		for i in bots.size():
+			var k := bots[i]
+			if k.lap >= 1 and lap_time[i] == 0.0:
+				lap_time[i] = -t
+			elif k.lap >= 2 and lap_time[i] < 0.0:
+				lap_time[i] = t + lap_time[i]
+			var o := track.offset_of(k.global_position)
+			var b := track.branch_at(o)
+			if b >= 0 and absf(track.branch_offset(o, b)) > 20.0:
+				var f := track.branch_frame(o, b)
+				if Vector2(f.origin.x - k.global_position.x, f.origin.z - k.global_position.z).length() < Track.ROAD_WIDTH * 0.5:
+					on_branch[track.branches[b]["kind"]] = true
+		if lap_time.all(func(x): return x > 0.0):
+			break
+	for i in bots.size():
+		check(lap_time[i] > 0.0, "%s bot (%s) laps Mining Mountain" % [builds[i][2], builds[i][0]],
+			"lap %.1f s, %d falls, now lap %d at %d m" % [lap_time[i], respawns[i], bots[i].lap, int(track.offset_of(bots[i].global_position))])
+	check(respawns.reduce(func(a, x): return a + x, 0) <= 4, "bots rarely fall off the ledge or bridge", "%s" % [respawns])
+	check(on_branch.size() >= 2, "bots take both the tunnel and the rope bridge", "%s" % [on_branch.keys()])
+	print("  lap length %.0f m" % track.length)
+	# A lone kart from pole, straight down the road: nothing to hit.
+	bumps.queue_free()
+	for b in bots:
+		b.queue_free()
+	await physics_frame
+	var k := Kart.new()
+	k.configure("frame", "slicks", "fox")
+	k.track = track
+	_world.add_child(k)
+	k.global_transform = track.grid_transform(0)
+	var hits := []
+	k.crashed.connect(func(sp): hits.append("%.2f at %d m" % [sp, int(track.offset_of(k.global_position))]))
+	for i in 360:
+		k.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+		await physics_frame
+	check(hits.is_empty(), "a clean start on Mining Mountain", "%s" % [hits])

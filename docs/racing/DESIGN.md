@@ -264,9 +264,9 @@ Every track has three layers:
 | **Frosty Pass** | Snow and ice | Icy hairpins, sliding snowballs, a frozen lake shortcut | Studded |
 | **Bayou Boardwalk** | Mud and wooden planks | Swinging lanterns, mud pits, logs rolling across | Balloon |
 | **Kitchen Counter** | Countertop, a tablecloth | Toy-scale race past rolling fruit and a spinning lazy Susan | Any |
-| **Mine Shaft** (the user's idea) | Rock, wooden planks, mine-cart rails | See below | Knobby |
+| **Mining Mountain** (the user's idea, built) | Rock, dirt, wooden planks, mine-cart rails | See below | Knobby |
 
-**Mine Shaft (Idea, for a future track).** The course weaves in and out of a mountain:
+**Mining Mountain (Built; first named Mine Shaft).** The course weaves in and out of a mountain:
 - **Outside**, it runs along cliff ledges where one side drops away and the other side is the mountain face.
 - **Inside**, it runs through tunnels held up by old wooden beam supports, lit by flaming wall torches that flicker.
 - **Coal piles** in the tunnels slow you a little if you drive into them. Coal dust splatters across your screen and slowly blows away.
@@ -279,6 +279,13 @@ Every track has three layers:
 - **Brown, the main loop:** runs round the outside of the mountain on a ledge, with the cliff dropping away on the right.
 - **Blue, through the mountain:** the mine tunnel, with a cavern in the middle. It's shorter, but you have to dodge coal piles and other obstacles.
 - **Red, the bridge shortcut:** a wooden rope bridge on the other side. It sways back and forth in the wind, which makes it easy to fall off.
+
+**As built** (`racing/scripts/track/mine_track.gd`, with `sway_bridge.gd`, `coal_piles.gd`, `flicker_light.gd`):
+- **The ledge:** about 1,350 m round, climbing and dipping along the mountain's side. The mountain is a heightfield rising from the road's inside edge to snow at the top; the outside edge has fences on the corners and a drop to the valley.
+- **The tunnel:** a timber-framed rock tunnel through the mountain, lit by flickering torches, with item crates, coal piles (slow you and splatter your screen) and a cavern in the middle crossed on a narrow mine-cart trestle over a dark pit. Fall off and you're put back on the trestle's route a few metres back.
+- **The rope bridge:** plank segments that sway sideways, roll and sag in a slow wind cycle. Fall off and you're put back on the ledge below it.
+- **Computer drivers:** split between the routes lap by lap. Easy drivers leave the bridge alone, anyone who falls off it keeps to the ledge for the rest of that lap, and on the trestle and bridge they drive down the middle.
+- **Joining roads:** where a route comes back in at a steep angle, the shared piece of road squares up with the main road and follows its bank, so there's no gap or lip at the join (this also fixed a hole karts could fall through).
 
 **Decided launch tracks:** **Meadow Loop** (asphalt and grass, highway guardrails, tumbleweeds) and **Frosty Pass** (snow and ice, where the growing snowball appears and studded tires shine). The rest stay on the list for later.
 
@@ -487,7 +494,7 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 - **Finishes:** each game reports its own finish, and the host's game reports the computer drivers'.
 - **Race again:** the host starts another round, and the game reloads fresh for it.
 - **Mesh for fast data (Decided, built):** players link directly to each other for kart positions and items, so each update takes one hop instead of two and the host's phone isn't passing on everyone's data. The host was already one hop from everyone. If a pair can't link directly (some home routers), their data goes through the host as before. The links don't resend lost updates, because a newer position is always on its way. The room rules (ready-up, start time, finishes) stay with the host.
-- **Map selection (Planned):** a page to pick the track, before the kart builder and the map load. The rules already carry a `track` (only Meadow Loop for now).
+- **Track picker (Built):** each race starts with the host picking **Meadow Loop** or **Mining Mountain** on the room page (a picture and a line about each); everyone else sees who is picking. Then the game loads that track and the kart builder opens. If the host is only watching, any racer can pick. **Race again** comes back to the picker. On its own (outside a room), the game takes `?track=mine`.
 
 ## 14. Building and shipping
 **Proposed**
@@ -649,3 +656,4 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | The game is called Karts & Wheels | The user's decision |
 | 2026-11-06 | Items in play: crates in the cave route, honey puddle and tumbleweed; held item shown on the item button and on the back of the kart | The user's request |
 | 2026-11-06 | Kart data goes player to player (mesh), with the host as fallback | The user's question: a mesh is faster and spreads the load; the host was only the quickest first version |
+| 2026-11-06 | Mining Mountain built and offered alongside Meadow Loop; the host picks the track before the kart builder | The user's request |

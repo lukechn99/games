@@ -10,7 +10,10 @@ import type { GameModule, PlayerId, RuleResult } from '@/lib/engine/types'
  * room's relay instead.
  */
 
-export const TRACKS = [{ id: 'meadow', name: 'Meadow Loop' }] as const
+export const TRACKS = [
+  { id: 'meadow', name: 'Meadow Loop' },
+  { id: 'mine', name: 'Mining Mountain' },
+] as const
 export type TrackId = (typeof TRACKS)[number]['id']
 
 export interface Pick {
@@ -23,7 +26,8 @@ export interface Pick {
 }
 
 export interface RacingState {
-  phase: 'pick' | 'race' | 'done'
+  /** 'track': the host picks the track; 'pick': everyone builds a kart. */
+  phase: 'track' | 'pick' | 'race' | 'done'
   track: TrackId
   laps: number
   seats: PlayerId[]
@@ -37,6 +41,7 @@ export interface RacingState {
 }
 
 export type RacingAction =
+  | { type: 'track'; id: TrackId }
   | { type: 'pick'; chassis: string; tires: string; driver: string; bot?: boolean }
   | { type: 'ready' }
   | { type: 'finish'; time: number; who?: PlayerId }
@@ -69,12 +74,20 @@ export const racing: GameModule<RacingState, RacingAction, RacingView> = {
       picks[id] = { chassis: 'frame', tires: 'slicks', driver: DRIVERS[i % DRIVERS.length]!, ready: false, bot: false }
     })
     void ctx
-    return { phase: 'pick', track: 'meadow', laps: 3, seats: [...players], picks, startAt: null, finish: {}, firstFinishAt: null }
+    return { phase: 'track', track: 'meadow', laps: 3, seats: [...players], picks, startAt: null, finish: {}, firstFinishAt: null }
   },
 
   action(s, pid, a, ctx): RuleResult<RacingState> {
     if (!s.seats.includes(pid)) return { error: "You're watching this race." }
     switch (a?.type) {
+      case 'track': {
+        // Picked before anyone builds a kart. The page offers it to the room's
+        // host; the rules only check it comes from someone in the race.
+        if (s.phase !== 'track') return { error: 'The track is already picked.' }
+        if (!s.seats.includes(pid)) return { error: 'Only racers can pick the track.' }
+        if (!TRACKS.some((t) => t.id === a.id)) return { error: 'Unknown track.' }
+        return { state: { ...s, track: a.id, phase: 'pick' } }
+      }
       case 'pick': {
         if (s.phase !== 'pick') return { error: 'The race has started.' }
         if (!CHASSIS.includes(a.chassis) || !TIRES.includes(a.tires) || !DRIVERS.includes(a.driver)) return { error: 'Unknown kart part.' }

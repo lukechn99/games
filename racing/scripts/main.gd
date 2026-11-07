@@ -32,6 +32,9 @@ var _fps_frames := 0
 func _ready() -> void:
 	_build_world()
 	track = Track.new()
+	var q0 := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else ""
+	if q0.contains("track=mine"):
+		track.layout = "mine"
 	add_child(track)
 	camera = ChaseCamera.new()
 	add_child(camera)
@@ -333,6 +336,11 @@ func _camera_view(q: String) -> void:
 	camera.set_physics_process(false)
 	var f := track.transform_at(off)
 	var lf := track.transform_at(off + look)
+	# A fifth value "b": along the route beside the main road there.
+	if spec.size() > 4 and spec[4] == "b" and track.branch_at(off) >= 0:
+		var bi := track.branch_at(off)
+		f = track.branch_frame(off, bi)
+		lf = track.branch_frame(off + look, bi)
 	camera.global_position = f.origin + f.basis.x * side + Vector3.UP * height
 	camera.look_at(lf.origin + Vector3.UP * 1.5, Vector3.UP)
 	camera.fov = 70.0

@@ -222,6 +222,8 @@ func flash(text: String, seconds := 2.0) -> void:
 
 ## Lay everything out from the real screen size (it changes when phones rotate).
 var _item: Label
+var _splat: SplatOverlay
+var _splat_kart: Kart
 
 
 func _layout(vs: Vector2) -> void:
@@ -250,6 +252,16 @@ func _process(delta: float) -> void:
 	var me: Kart = race.player_kart
 	if me == null:
 		return
+	if _splat == null:
+		_splat = SplatOverlay.new()
+		_root.add_child(_splat)
+		_root.move_child(_splat, 0)
+	if _splat_kart != me:
+		if _splat_kart and _splat_kart.splattered.is_connected(_splat.splat):
+			_splat_kart.splattered.disconnect(_splat.splat)
+		_splat_kart = me
+		me.splattered.connect(_splat.splat)
+	_splat.size = _root.size
 	var place: int = race.place_of(me)
 	_place.text = "%d%s/%d" % [place, _ordinal(place), race.karts.size()]
 	_speed.text = "%d km/h" % int(absf(me.speed) * 3.6)

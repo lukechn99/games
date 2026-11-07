@@ -8,9 +8,24 @@ function ok(r: ReturnType<typeof racing.action>): RacingState {
   return r.state
 }
 
+/** A new race with the track already picked (Meadow Loop). */
+function setup(players: string[]) {
+  return ok(racing.action(racing.setup(players, ctx()), players[0]!, { type: 'track', id: 'meadow' }, ctx()))
+}
+
 describe('racing rules', () => {
+  it('the track is picked first', () => {
+    const s = racing.setup(['h', 'g'], ctx())
+    expect(s.phase).toBe('track')
+    expect('error' in racing.action(s, 'x', { type: 'track', id: 'mine' }, ctx())).toBe(true)
+    expect('error' in racing.action(s, 'h', { type: 'track', id: 'moon' } as never, ctx())).toBe(true)
+    expect('error' in racing.action(s, 'h', { type: 'pick', chassis: 'frame', tires: 'slicks', driver: 'fox' }, ctx())).toBe(true)
+    const t = ok(racing.action(s, 'h', { type: 'track', id: 'mine' }, ctx()))
+    expect(t).toMatchObject({ track: 'mine', phase: 'pick' })
+  })
+
   it('starts the countdown once everyone is ready', () => {
-    let s = racing.setup(['a', 'b'], ctx())
+    let s = setup(['a', 'b'])
     expect(s.phase).toBe('pick')
     s = ok(racing.action(s, 'a', { type: 'pick', chassis: 'racer', tires: 'knobby', driver: 'deer' }, ctx()))
     expect(s.picks.a).toMatchObject({ chassis: 'racer', tires: 'knobby', driver: 'deer' })
@@ -22,14 +37,14 @@ describe('racing rules', () => {
   })
 
   it('rejects unknown parts and picks after the start', () => {
-    const s = racing.setup(['a'], ctx())
+    const s = setup(['a'])
     expect('error' in racing.action(s, 'a', { type: 'pick', chassis: 'tank', tires: 'slicks', driver: 'fox' }, ctx())).toBe(true)
     const started = ok(racing.action(s, 'a', { type: 'ready' }, ctx()))
     expect('error' in racing.action(started, 'a', { type: 'pick', chassis: 'frame', tires: 'slicks', driver: 'fox' }, ctx())).toBe(true)
   })
 
   it('records finishes, lets a game report its computer drivers, and ends', () => {
-    let s = racing.setup(['a', 'bot'], ctx())
+    let s = setup(['a', 'bot'])
     s = ok(racing.action(s, 'bot', { type: 'pick', chassis: 'frame', tires: 'slicks', driver: 'frog', bot: true }, ctx()))
     s = ok(racing.action(s, 'bot', { type: 'ready' }, ctx()))
     s = ok(racing.action(s, 'a', { type: 'ready' }, ctx()))
@@ -43,7 +58,7 @@ describe('racing rules', () => {
   })
 
   it('ends the race a while after the first finisher', () => {
-    let s = racing.setup(['a', 'b'], ctx())
+    let s = setup(['a', 'b'])
     s = ok(racing.action(s, 'a', { type: 'ready' }, ctx()))
     s = ok(racing.action(s, 'b', { type: 'ready' }, ctx()))
     s = ok(racing.action(s, 'a', { type: 'finish', time: 60 }, ctx(10000)))
@@ -52,7 +67,7 @@ describe('racing rules', () => {
   })
 
   it('computer drivers pick a kart and get ready', () => {
-    let s = racing.setup(['h', 'bot'], ctx())
+    let s = setup(['h', 'bot'])
     const a1 = racing.bot!(racing.view(s, 'bot'), ctx(), 'easy', 0)
     expect(a1?.type).toBe('pick')
     s = ok(racing.action(s, 'bot', a1!, ctx()))

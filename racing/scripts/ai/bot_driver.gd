@@ -18,6 +18,7 @@ var lane := 0.0              # preferred offset from the racing line, metres
 var _noise := FastNoiseLite.new()
 var _t := 0.0
 var _stuck := 0.0
+var _fell_on_lap := -1        # after a fall, stay on the main road for the lap
 
 
 func _init(k: Kart, t: Track, lvl := "medium", seed_value := 0) -> void:
@@ -32,6 +33,7 @@ func _init(k: Kart, t: Track, lvl := "medium", seed_value := 0) -> void:
 
 func _ready() -> void:
 	lane = (float(get_index() % 3) - 1.0) * float(LEVELS[level]["lane"])
+	kart.respawned.connect(func(): _fell_on_lap = kart.lap)
 
 
 func _physics_process(delta: float) -> void:
@@ -43,10 +45,22 @@ func _physics_process(delta: float) -> void:
 	var spd := maxf(kart.speed, 0.0)
 	var look := 7.0 + spd * 0.55
 	var aim := track.transform_at(off + look)
-	var target := aim.origin + aim.basis.x * (lane + _noise.get_noise_1d(_t) * 3.0 * float(cfg["wobble"]) * 10.0)
+	var wander := lane + _noise.get_noise_1d(_t) * 3.0 * float(cfg["wobble"]) * 10.0
 	# Where the road splits, each bot picks a side, and switches lap to lap.
-	if (kart.lap + get_index()) % 2 == 0:
-		target += aim.basis.x * track.branch_offset(off + look)
+	# Easy bots leave the rope bridge alone, and anyone who has just fallen
+	# off keeps to the main road for the rest of that lap.
+	var bi := track.branch_at(off + look)
+	var bridge: bool = bi >= 0 and track.branches[bi]["kind"] == "bridge"
+	# Narrow: the bridge, or the mine's trestle over the cavern.
+	var narrow: bool = bi >= 0 and not track._branch_has_road(bi, off + look)
+	var take := bi >= 0 and (kart.lap + get_index() + bi) % 2 == 0
+	if bridge and (level == "easy" or _fell_on_lap == kart.lap):
+		take = false
+	if take and narrow:
+		wander *= 0.15   # down the middle of the planks
+	var target := aim.origin + aim.basis.x * wander
+	if take:
+		target += aim.basis.x * track.branch_offset(off + look, bi)
 
 	var to := target - kart.global_position
 	to.y = 0.0

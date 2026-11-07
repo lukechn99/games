@@ -39,9 +39,7 @@ func setup(t: Track, all: Array[Kart], mine: Array[Kart]) -> void:
 	karts = all
 	owned = mine
 	_rng.seed = 99
-	for u in CRATE_ROWS:
-		var d: float = lerpf(Track.BRANCH[0], Track.BRANCH[1], u)
-		var f := track.branch_frame(d)
+	for f in track.crate_frames():
 		for x in CRATE_LANES:
 			var p: Vector3 = f.origin + f.basis.x * x + Vector3.UP * 1.0
 			var n := _crate_mesh()

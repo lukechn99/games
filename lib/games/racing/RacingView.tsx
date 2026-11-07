@@ -3,7 +3,8 @@
 import { useEffect, useRef } from 'react'
 import type { GameViewProps } from '@/lib/games/ui'
 import { useSession } from '@/lib/session'
-import type { RacingAction, RacingView as View } from './rules'
+import { Button } from '@/components/ui/button'
+import { TRACKS, type RacingAction, type RacingView as View } from './rules'
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
@@ -16,7 +17,50 @@ const BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
  * Messages to the game:  { source: 'game-night', kind: 'state' | 'relay', ... }
  * Messages from the game: { source: 'racing', kind: 'ready' | 'act' | 'relay', ... }
  */
-export default function RacingView({ view, snapshot, me, isHost, act, hostNow, playAgain }: GameViewProps<View, RacingAction>) {
+/** What each track is like, for the picker. */
+const ABOUT: Record<string, string> = {
+  meadow: 'Rolling hills, a lake and a stone bridge. The fork drops into a glowing cave.',
+  mine: 'A cliff-edge ledge round the mountain, a coal mine through it, and a swaying rope bridge.',
+}
+
+export default function RacingView(props: GameViewProps<View, RacingAction>) {
+  // The host picks the track first; the game loads once it's chosen.
+  if (props.view.phase === 'track') return <TrackPicker {...props} />
+  return <Race {...props} />
+}
+
+function TrackPicker({ view, snapshot, me, isHost, act }: GameViewProps<View, RacingAction>) {
+  const hostId = snapshot.hostId
+  // The host picks; if the host is only watching, any racer can.
+  const canPick = isHost || (!!me && view.seats.includes(me) && !view.seats.includes(hostId ?? ''))
+  const host = snapshot.players.find((p) => p.id === hostId)?.name ?? 'The host'
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-8">
+      <h2 className="text-2xl font-semibold">{canPick ? 'Pick a track' : `${host} is picking the track`}</h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {TRACKS.map((t) => (
+          <div key={t.id} className="flex flex-col gap-3 rounded-xl border p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a static export, no image optimiser */}
+            <img
+              src={`${BASE}/tracks/${t.id}.jpg`}
+              alt=""
+              className="aspect-video w-full rounded-lg bg-muted object-cover"
+            />
+            <div>
+              <div className="font-medium">{t.name}</div>
+              <p className="text-sm text-muted-foreground">{ABOUT[t.id]}</p>
+            </div>
+            {canPick && (
+              <Button onClick={() => act({ type: 'track', id: t.id })}>Race on {t.name}</Button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Race({ view, snapshot, me, isHost, act, hostNow, playAgain }: GameViewProps<View, RacingAction>) {
   const frame = useRef<HTMLIFrameElement>(null)
   const { relay, onRelay } = useSession()
   const latest = useRef({ view, snapshot, me, isHost })
@@ -68,7 +112,7 @@ export default function RacingView({ view, snapshot, me, isHost, act, hostNow, p
       key={snapshot.game?.round ?? 0}
       ref={frame}
       title="Karts & Wheels"
-      src={`${BASE}/racing/index.html?room=1`}
+      src={`${BASE}/racing/index.html?room=1&track=${view.track}`}
       className="block w-full border-0 bg-[#88c6f2]"
       style={{ height: 'calc(100dvh - var(--shell-head, 0px))' }}
       allow="fullscreen; accelerometer; gyroscope; autoplay"

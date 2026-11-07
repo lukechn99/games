@@ -157,19 +157,23 @@ func _chevron(c: Vector2, dir: float, k: float, col: Color) -> void:
 
 ## Icons for abilities (design doc 6). Empty: a dashed ring, waiting for a crate.
 func _item_icon(c: Vector2, s: float, item: String) -> void:
+	draw_item_icon(self, c, s, item)
+
+
+static func draw_item_icon(ci: CanvasItem, c: Vector2, s: float, item: String) -> void:
 	match item:
 		"honey":
-			draw_circle(c + Vector2(0, s * 0.15), s * 0.75, Color(1.0, 0.72, 0.15))
-			draw_rect(Rect2(c + Vector2(-s * 0.5, -s * 0.85), Vector2(s, s * 0.35)), Color(0.85, 0.55, 0.2))
-			draw_circle(c + Vector2(s * 0.25, s * 0.05), s * 0.15, Color(1, 0.9, 0.6))
+			ci.draw_circle(c + Vector2(0, s * 0.15), s * 0.75, Color(1.0, 0.72, 0.15))
+			ci.draw_rect(Rect2(c + Vector2(-s * 0.5, -s * 0.85), Vector2(s, s * 0.35)), Color(0.85, 0.55, 0.2))
+			ci.draw_circle(c + Vector2(s * 0.25, s * 0.05), s * 0.15, Color(1, 0.9, 0.6))
 		"tumbleweed":
 			for i in 7:
 				var a := TAU * i / 7.0
-				draw_arc(c + Vector2(cos(a), sin(a)) * s * 0.25, s * 0.55, a, a + PI * 1.3, 12, Color(0.85, 0.68, 0.4), 3.0, true)
+				ci.draw_arc(c + Vector2(cos(a), sin(a)) * s * 0.25, s * 0.55, a, a + PI * 1.3, 12, Color(0.85, 0.68, 0.4), 3.0, true)
 		"snowball":
-			draw_circle(c, s * 0.8, Color(0.95, 0.97, 1.0))
-			draw_arc(c, s * 0.8, PI * 0.1, PI * 0.9, 12, Color(0.7, 0.8, 0.95), 4.0, true)
+			ci.draw_circle(c, s * 0.8, Color(0.95, 0.97, 1.0))
+			ci.draw_arc(c, s * 0.8, PI * 0.1, PI * 0.9, 12, Color(0.7, 0.8, 0.95), 4.0, true)
 		_:
 			for i in 12:
 				var a := TAU * i / 12.0
-				draw_arc(c, s * 0.8, a, a + TAU / 24.0, 4, Color(1, 1, 1, 0.55), 3.0, true)
+				ci.draw_arc(c, s * 0.8, a, a + TAU / 24.0, 4, Color(1, 1, 1, 0.55), 3.0, true)

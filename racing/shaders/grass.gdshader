@@ -11,6 +11,12 @@ uniform vec3 fresh : source_color = vec3(0.42, 0.78, 0.26);
 uniform vec3 dry : source_color = vec3(0.66, 0.78, 0.3);
 uniform float tile_m = 7.0;
 uniform bool use_vertex = false;
+// How far the ground is from the road's edge (track.gd _bake_road_distance).
+uniform sampler2D road_dist : filter_linear, repeat_disable;
+uniform vec2 dist_origin;
+uniform vec2 dist_size = vec2(1.0);
+uniform bool use_dist = false;
+uniform vec3 sand : source_color = vec3(0.86, 0.66, 0.44);
 
 varying vec3 wpos;
 
@@ -39,6 +45,22 @@ void fragment() {
 	if (use_vertex) {
 		// Banks: their vertex colour shades them (darker low down).
 		c *= COLOR.rgb / vec3(0.4, 0.8, 0.26);
+	}
+	if (use_dist) {
+		// Sand and dust blown over the verge: a ragged band beside the
+		// road, with a few pebbles and the grass thinning into it.
+		vec2 uv = (p - dist_origin) / dist_size;
+		float edge = texture(road_dist, uv).r * 12.0;
+		if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) edge = 12.0;
+		float rag = vnoise(p / 2.2) * 0.6 + vnoise(p / 7.0) * 0.4;
+		float s = 1.0 - smoothstep(2.4 + rag * 2.6, 3.8 + rag * 4.2, edge);
+		vec3 sc = sand * (0.88 + 0.2 * vnoise(p * 1.7));
+		float pebble = smoothstep(0.8, 0.86, vnoise(p * 2.6)) * s;
+		sc = mix(sc, sc * 0.62, pebble);
+		// A darker, lusher fringe where the grass meets the sand.
+		float fringe = (1.0 - smoothstep(2.0 + rag * 3.0, 6.0 + rag * 4.0, edge)) * (1.0 - s);
+		c *= 1.0 - fringe * 0.18;
+		c = mix(c, sc, s);
 	}
 	float tex = texture(detail, p / tile_m).r;
 	ALBEDO = c * mix(0.75, 1.0, tex);

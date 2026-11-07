@@ -36,8 +36,14 @@ func _ready() -> void:
 	touch.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	touch.visible = Controls.is_touch_device() or _query_has("touch")
 
-	_place = _label(root, 54, Vector2(20, 10))
-	_speed = _label(root, 20, Vector2(24, 76))
+	_item_box = ItemBox.new()
+	_item_box.size = Vector2(92, 92)
+	_item_box.position = Vector2(16, 14)
+	_item_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_item_box)
+	_place = _label(root, 64, Vector2(122, 2))
+	_place.add_theme_constant_override("outline_size", 14)
+	_speed = _label(root, 20, Vector2(128, 82))
 	_lap = _label(root, 26, Vector2(0, 14))
 	_lap.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_lap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -61,8 +67,8 @@ func _ready() -> void:
 
 	minimap = Minimap.new()
 	minimap.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	minimap.size = Vector2(200, 160)
-	minimap.position = Vector2(-216, 12)
+	minimap.size = Vector2(230, 190)
+	minimap.position = Vector2(-246, 8)
 	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(minimap)
 
@@ -222,6 +228,8 @@ func flash(text: String, seconds := 2.0) -> void:
 
 ## Lay everything out from the real screen size (it changes when phones rotate).
 var _item: Label
+var _item_box: ItemBox
+var _lines: SpeedLines
 var _splat: SplatOverlay
 var _splat_kart: Kart
 
@@ -256,6 +264,12 @@ func _process(delta: float) -> void:
 		_splat = SplatOverlay.new()
 		_root.add_child(_splat)
 		_root.move_child(_splat, 0)
+	if _lines == null:
+		_lines = SpeedLines.new()
+		_root.add_child(_lines)
+		_root.move_child(_lines, 0)
+	_lines.kart = me
+	_lines.size = _root.size
 	if _splat_kart != me:
 		if _splat_kart and _splat_kart.splattered.is_connected(_splat.splat):
 			_splat_kart.splattered.disconnect(_splat.splat)
@@ -263,7 +277,9 @@ func _process(delta: float) -> void:
 		me.splattered.connect(_splat.splat)
 	_splat.size = _root.size
 	var place: int = race.place_of(me)
-	_place.text = "%d%s/%d" % [place, _ordinal(place), race.karts.size()]
+	_place.text = "%d%s" % [place, _ordinal(place)]
+	# Gold, silver, bronze, then white.
+	_place.add_theme_color_override("font_color", [Color(1.0, 0.84, 0.2), Color(0.86, 0.9, 0.96), Color(0.95, 0.62, 0.35)][place - 1] if place <= 3 else Color.WHITE)
 	_speed.text = "%d km/h" % int(absf(me.speed) * 3.6)
 	var t: float = me.race_time
 	_lap.text = "Lap %d/%d   %d:%04.1f" % [clampi(me.lap, 1, race.track.laps), race.track.laps, int(t / 60.0), fmod(t, 60.0)]
@@ -274,8 +290,11 @@ func _process(delta: float) -> void:
 	if me.item_spin > 0.0:
 		shown = Items.KINDS[int(me.item_spin * 12.0) % Items.KINDS.size()]
 	touch.held_item = shown
-	if not touch.visible:
-		_item.text = ("Item: %s  (E)" % {"honey": "Honey puddle", "tumbleweed": "Tumbleweed"}.get(shown, shown)) if shown != "" else ""
+	_item.text = ""
+	if _item_box.item != shown:
+		_item_box.item = shown
+		_item_box.hint = "" if touch.visible else "E"
+		_item_box.queue_redraw()
 	if touch.visible:
 		touch.queue_redraw()
 	_banner_time -= delta

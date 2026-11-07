@@ -25,6 +25,7 @@ static func build(t: Track) -> void:
 	_bleachers(t, t.length - 72.0, -1.0)
 	_start_flags(t)
 	_clouds(t)
+	SetDressing.build(t)
 
 
 # --- Shade -------------------------------------------------------------------
@@ -746,34 +747,69 @@ static func _start_flags(t: Track) -> void:
 	_commit(t, poles, Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.METAL))
 
 
-## Puffy clouds drifting slowly round the sky.
+## Big cumulus clouds drifting slowly round the sky (design doc 9.4): each
+## a flat-bottomed heap of puffs, piled higher in the middle, bright white
+## on top and on the sunny side, shading to a soft blue-grey underneath.
 static func _clouds(t: Track) -> void:
 	var st := _new_st()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
 	var center := Vector3(80, 0, -30)
-	for c in 11:
-		var a := TAU * c / 11.0 + rng.randf() * 0.3
-		var r := rng.randf_range(260, 480)
-		var p := center + Vector3(cos(a) * r, rng.randf_range(95, 150), sin(a) * r)
-		for k in 5:
-			var s := SphereMesh.new()
-			var size := rng.randf_range(16, 28)
-			s.radius = size
-			s.height = size * 1.1
-			s.radial_segments = 10
-			s.rings = 5
-			var off := Vector3(rng.randf_range(-30, 30), rng.randf_range(-3, 6), rng.randf_range(-12, 12))
-			st.append_from(s, 0, Transform3D(Basis.from_scale(Vector3(1.4, 0.6, 1.0)).rotated(Vector3.UP, a), p + off.rotated(Vector3.UP, a)))
+	var sun := -KartVisual.sun_dir
+	var top := Color(1.0, 1.0, 1.0)
+	var belly := Color(0.7, 0.77, 0.9)
+	for c in 13:
+		var a := TAU * c / 13.0 + rng.randf() * 0.25
+		var low := c % 3 == 0     # some sit low on the horizon, behind the hills
+		var r := rng.randf_range(560, 700) if low else rng.randf_range(380, 540)
+		var base := center + Vector3(cos(a) * r, rng.randf_range(30, 60) if low else rng.randf_range(95, 150), sin(a) * r)
+		var w := rng.randf_range(90, 190) * (1.4 if low else 1.0)
+		var tall := w * rng.randf_range(0.35, 0.7)
+		var along := Vector3(-sin(a), 0, cos(a))
+		var puffs := []
+		# A broad flat base...
+		var n_base := int(w / 24.0) + 3
+		for k in n_base:
+			var x := lerpf(-w * 0.5, w * 0.5, float(k) / float(n_base - 1)) + rng.randf_range(-4, 4)
+			var rad := rng.randf_range(20, 30) * (1.0 - absf(x) / w * 0.6)
+			puffs.append([Vector3(x, rad * 0.35, rng.randf_range(-8, 8)), rad])
+		# ...then puffs piled on it, highest near the middle.
+		for k in rng.randi_range(5, 9):
+			var x := rng.randf_range(-0.38, 0.38) * w
+			var hgt := tall * (1.0 - absf(x) / (w * 0.5)) * rng.randf_range(0.55, 1.0)
+			puffs.append([Vector3(x, hgt, rng.randf_range(-10, 10)), rng.randf_range(22, 36) * (0.7 + hgt / tall * 0.5)])
+		for pf in puffs:
+			var sph := SphereMesh.new()
+			sph.radius = pf[1]
+			sph.height = pf[1] * 2.0
+			sph.radial_segments = 14
+			sph.rings = 7
+			var arr := sph.get_mesh_arrays()
+			var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var norms: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+			var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+			var o: Vector3 = pf[0]
+			var origin := base + along * o.x + Vector3.UP * o.y + along.cross(Vector3.UP) * o.z
+			for vi in idx:
+				var v := verts[vi]
+				var p := origin + v
+				p.y = maxf(p.y, base.y - 2.0)   # flat underneath
+				var hf := clampf((p.y - base.y) / (tall + 36.0), 0.0, 1.0)
+				var col := belly.lerp(top, smoothstep(0.0, 0.55, hf))
+				var lit := clampf(norms[vi].dot(sun) * 0.5 + 0.5, 0.0, 1.0)
+				col = col.lerp(top, lit * 0.35).darkened((1.0 - lit) * 0.08)
+				if low:
+					col = col.lerp(Color(0.85, 0.92, 1.0), 0.3)   # hazier far away
+				st.set_color(col)
+				st.set_normal(norms[vi])
+				st.add_vertex(p)
 	var mesh := st.commit()
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(1, 1, 1)
-	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	m.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
-	m.emission_enabled = true
-	m.emission = Color(0.55, 0.62, 0.75)
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	m.disable_fog = true
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

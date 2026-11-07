@@ -33,7 +33,10 @@ const OUTLINE := Color(0.13, 0.1, 0.16)
 ## METAL: tubes, rims, rails. A sharp bright highlight.
 enum Finish { MATTE, PAINT, METAL }
 
-const METAL_KIT := ["grey", "metal", "metalDark", "chrome"]
+## (The kit's "grey" is painted steel, not chrome: as chrome it mirrored the
+## sky and the start arch and rails looked like blue glass.)
+const METAL_KIT := ["metal", "metalDark", "chrome"]
+const PAINT_KIT := ["grey"]
 ## Detail textures for kit materials: [texture, metres per tile].
 const KIT_TEX := {
 	"dirt": ["rock", 2.5],
@@ -182,7 +185,7 @@ static func restyle(mesh: Mesh) -> Mesh:
 			out.surface_set_material(i, leaves(c))
 			continue
 		var t: Array = KIT_TEX.get(name, ["", 0.0])
-		out.surface_set_material(i, toon(c, false, 0.0, Finish.METAL if name in METAL_KIT else Finish.MATTE, t[0], t[1]))
+		out.surface_set_material(i, toon(c, false, 0.0, Finish.METAL if name in METAL_KIT else (Finish.PAINT if name in PAINT_KIT else Finish.MATTE), t[0], t[1]))
 	_cache[key] = out
 	return out
 

@@ -80,6 +80,8 @@ func _ready() -> void:
 		# drives your kart while the chase camera follows it.
 		player.set_physics_process(false)
 		add_child(BotDriver.new(player_kart, track, "hard", 99))
+		if q.contains("view=side"):
+			ChaseCamera.review_offset = Vector2(4.0, 2.5)
 	else:
 		_open_lobby()
 	# Compile every shader now, behind the lobby, instead of mid-race (once
@@ -405,8 +407,8 @@ func _build_world() -> void:
 	var sky := Sky.new()
 	var mat := ProceduralSkyMaterial.new()
 	# Deep blue overhead, paling to a bright haze at the horizon.
-	mat.sky_top_color = Color(0.13, 0.42, 0.95)
-	mat.sky_horizon_color = Color(0.78, 0.9, 1.0)
+	mat.sky_top_color = Color(0.18, 0.55, 0.96)
+	mat.sky_horizon_color = Color(0.8, 0.93, 1.0)
 	mat.sky_curve = 0.11
 	mat.ground_horizon_color = Color(0.78, 0.9, 1.0)
 	mat.ground_bottom_color = Color(0.4, 0.6, 0.35)
@@ -414,7 +416,11 @@ func _build_world() -> void:
 	sky.sky_material = mat
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.4
+	env.ambient_light_energy = 0.42
+	# Part sky, part a neutral warm grey: all-sky light tinted grey roads
+	# and rock purple, where Mario Kart's read neutral.
+	env.ambient_light_color = Color(0.86, 0.84, 0.8)
+	env.ambient_light_sky_contribution = 0.5
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY  # metal and water reflect the sky
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	# A soft glow around the brightest things: lamps, glints, boost flames.

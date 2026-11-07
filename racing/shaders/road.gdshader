@@ -34,18 +34,38 @@ void fragment() {
 	float tex = texture(detail, UV).r;
 	float rough = 0.92;
 	if (UV.x >= 0.0 && UV.x <= 1.0) {
+		// Coarse tarmac: stones in the mix show as light and dark grit.
+		float grit = texture(detail, wpos.xz / 3.0).r;
+		float speck = vnoise(wpos.xz * 6.0) * 0.6 + vnoise(wpos.xz * 2.3) * 0.4;
+		c *= mix(0.84, 1.14, speck * 0.6 + grit * 0.4);
 		float n = vnoise(wpos.xz / 38.0) * 0.6 + vnoise(wpos.xz / 7.0) * 0.4;
 		c *= mix(0.86, 1.12, n);
+		// Sealed patches of fresher, darker tar.
+		float patch = smoothstep(0.8, 0.83, vnoise(wpos.xz / 3.5 + 31.0));
+		c = mix(c, c * 0.8, patch * wear * 1.4);
+		// Cracks in some stretches.
+		// A few long, wandering hairline cracks: where a slow noise crosses
+		// one value, with a finer wobble so it isn't smooth.
+		float cn = vnoise(wpos.xz / 9.0 + 3.0) * 0.8 + vnoise(wpos.xz / 1.7) * 0.2;
+		float cw = fwidth(cn) * 1.2 + 0.002;
+		float cr = 1.0 - smoothstep(cw * 0.4, cw, abs(cn - 0.5));
+		cr *= smoothstep(0.55, 0.7, vnoise(wpos.xz / 30.0 + 11.0)) * (1.0 - patch);
+		c = mix(c, c * 0.55, cr * wear * 1.6);
 		float lanes = exp(-pow((UV.x - 0.33) / 0.07, 2.0)) + exp(-pow((UV.x - 0.67) / 0.07, 2.0));
 		lanes *= 0.55 + 0.45 * vnoise(wpos.xz / 2.5);
 		c = mix(c, c * 0.68, lanes * wear);
 		rough -= lanes * wear * 0.3;
 		if (paint) {
 			float aa = fwidth(UV.x) * 1.5;
-			float e = smoothstep(0.022 - aa, 0.022, UV.x) * (1.0 - smoothstep(0.042, 0.042 + aa, UV.x))
-				+ smoothstep(0.958 - aa, 0.958, UV.x) * (1.0 - smoothstep(0.978, 0.978 + aa, UV.x));
+			// Bold edge lines, and a dashed line down the middle.
+			float e = smoothstep(0.024 - aa, 0.024, UV.x) * (1.0 - smoothstep(0.062, 0.062 + aa, UV.x))
+				+ smoothstep(0.938 - aa, 0.938, UV.x) * (1.0 - smoothstep(0.976, 0.976 + aa, UV.x));
+			float along = fract(UV.y * 14.0 / 10.0);
+			float dash = (1.0 - smoothstep(0.011, 0.011 + aa, abs(UV.x - 0.5))) * step(along, 0.38);
+			e = max(e, dash);
 			// Worn a little, so it's paint, not plastic.
-			e *= 0.75 + 0.25 * vnoise(wpos.xz * 1.3);
+			e *= 0.72 + 0.28 * vnoise(wpos.xz * 1.3);
+			e *= 1.0 - cr * 0.7;
 			c = mix(c, paint_color, e);
 			tex = mix(tex, 1.0, e * 0.6);
 		}

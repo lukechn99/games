@@ -195,7 +195,69 @@ func _grass_mat(banks: bool) -> ShaderMaterial:
 	m.shader = load("res://shaders/grass.gdshader")
 	m.set_shader_parameter("detail", load(Palette.TEX_DIR + "grass.png"))
 	m.set_shader_parameter("use_vertex", banks)
+	_grass_mats.append(m)
+	if _road_dist:
+		_apply_road_distance(m)
 	return m
+
+
+var _grass_mats: Array[ShaderMaterial] = []
+var _road_dist: ImageTexture
+var _road_dist_rect := Rect2()
+
+## A small map of how far each spot of ground is from the road's edge (1 px
+## a metre, up to 12 m), so the grass shader can drift sand and dust over
+## the verge right beside the road, as on a real circuit (design doc 9.4).
+## Skipped without a screen (tests).
+func _bake_road_distance() -> void:
+	if DisplayServer.get_name() == "headless" or layout != "meadow":
+		return
+	var pts: Array[Vector3] = []
+	var d := 0.0
+	while d < length:
+		pts.append(road_frame(d).origin)
+		var bi := branch_at(d)
+		if bi >= 0 and absf(branch_offset(d, bi)) > 1.0:
+			pts.append(branch_frame(d, bi).origin)
+		d += 1.5
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for p in pts:
+		lo = lo.min(Vector2(p.x, p.z))
+		hi = hi.max(Vector2(p.x, p.z))
+	lo -= Vector2(24, 24)
+	hi += Vector2(24, 24)
+	var w := int(hi.x - lo.x)
+	var h := int(hi.y - lo.y)
+	var px := PackedByteArray()
+	px.resize(w * h)
+	px.fill(255)
+	var half := ROAD_WIDTH * 0.5
+	const REACH := 12.0
+	var r := int(half + REACH) + 1
+	for p in pts:
+		var cx := int(p.x - lo.x)
+		var cz := int(p.z - lo.y)
+		for z in range(maxi(cz - r, 0), mini(cz + r + 1, h)):
+			var dz := float(z) + 0.5 - (p.z - lo.y)
+			var row := z * w
+			for x in range(maxi(cx - r, 0), mini(cx + r + 1, w)):
+				var dx := float(x) + 0.5 - (p.x - lo.x)
+				var e := sqrt(dx * dx + dz * dz) - half
+				var v := int(clampf(e / REACH, 0.0, 1.0) * 255.0)
+				if v < px[row + x]:
+					px[row + x] = v
+	_road_dist = ImageTexture.create_from_image(Image.create_from_data(w, h, false, Image.FORMAT_L8, px))
+	_road_dist_rect = Rect2(lo, Vector2(w, h))
+	for m in _grass_mats:
+		_apply_road_distance(m)
+
+
+func _apply_road_distance(m: ShaderMaterial) -> void:
+	m.set_shader_parameter("road_dist", _road_dist)
+	m.set_shader_parameter("dist_origin", _road_dist_rect.position)
+	m.set_shader_parameter("dist_size", _road_dist_rect.size)
+	m.set_shader_parameter("use_dist", true)
 
 
 ## Track material: our colours in the vertex colours, with an optional
@@ -248,6 +310,7 @@ func _build_ground() -> void:
 	mi.position = Vector3(80, 0, -30)
 	mi.material_override = _grass_mat(false)
 	b.add_child(mi)
+	_bake_road_distance()
 
 
 ## The road ribbon, split into one body per surface so the physics knows what
@@ -691,6 +754,18 @@ func _build_start(stands := true) -> void:
 			for v in [Vector3(x0, 0.06, z0), Vector3(x1, 0.06, z1), Vector3(x1, 0.06, z0), Vector3(x0, 0.06, z0), Vector3(x0, 0.06, z1), Vector3(x1, 0.06, z1)]:
 				st.set_color(c)
 				st.add_vertex(a * v)
+	# A painted bracket in front of every grid slot, like a real circuit.
+	if layout == "meadow":
+		for slot in 8:
+			var g := grid_transform(slot)
+			g.origin -= Vector3.UP * 0.6
+			var w := 1.35
+			for r in [[Vector2(-w, -1.55), Vector2(w, -1.25)], [Vector2(-w, -1.55), Vector2(-w + 0.28, 0.1)], [Vector2(w - 0.28, -1.55), Vector2(w, 0.1)]]:
+				var p0: Vector2 = r[0]
+				var p1: Vector2 = r[1]
+				for v in [Vector3(p0.x, 0.13, p0.y), Vector3(p1.x, 0.13, p1.y), Vector3(p1.x, 0.13, p0.y), Vector3(p0.x, 0.13, p0.y), Vector3(p0.x, 0.13, p1.y), Vector3(p1.x, 0.13, p1.y)]:
+					st.set_color(Color(0.95, 0.95, 0.92))
+					st.add_vertex(g * v)
 	st.generate_normals()
 	var line := MeshInstance3D.new()
 	line.mesh = st.commit()
@@ -699,6 +774,8 @@ func _build_start(stands := true) -> void:
 	# Overhead banner (the kit's is ~1.26 wide), towers, flags, a grandstand.
 	var s := (ROAD_WIDTH + 4.0) / 1.26
 	_place(KIT_RACING + "overhead.glb", Transform3D(_sl(a.basis, Vector3(s, s * 0.9, s)), a.origin - a.basis.x * (ROAD_WIDTH / 2 + 2.0) + a.basis.x * 0.16 * s))
+	if layout == "meadow":
+		_start_sign(a)
 	for side in [-1.0, 1.0]:
 		_place(KIT_RACING + "flagCheckers.glb", Transform3D(_sl(a.basis, Vector3.ONE * 3.0), a.origin + a.basis.x * side * (ROAD_WIDTH / 2 + 3.0) + a.basis.z * 6.0))
 	if not stands:
@@ -1098,6 +1175,29 @@ func respawn_transform(pos: Vector3) -> Transform3D:
 
 
 ## Grid slots behind the start line, two abreast.
+## The game's name in big letters across the start arch, on a green board
+## with a red and white trim, facing the grid.
+func _start_sign(a: Transform3D) -> void:
+	var st := SetPieces._new_st()
+	var c := a.origin + Vector3.UP * 7.1 + a.basis.z * 0.55
+	var w := ROAD_WIDTH + 3.2
+	SetPieces._box(st, Transform3D(a.basis, c), Vector3(w + 0.5, 2.7, 0.3), Color(0.97, 0.97, 0.97))
+	SetPieces._box(st, Transform3D(a.basis, c + a.basis.z * 0.03), Vector3(w, 2.3, 0.32), Color(0.12, 0.6, 0.32))
+	SetPieces._box(st, Transform3D(a.basis, c + a.basis.z * 0.04 - Vector3.UP * 0.95), Vector3(w, 0.28, 0.33), Color(0.92, 0.18, 0.18))
+	SetPieces._commit(self, st, Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.PAINT))
+	var label := Label3D.new()
+	label.text = "KARTS & WHEELS"
+	label.font_size = 200
+	label.pixel_size = 0.0085
+	label.outline_size = 44
+	label.modulate = Color(0.98, 0.25, 0.2)
+	label.outline_modulate = Color(1, 1, 1)
+	label.shaded = false
+	label.double_sided = false
+	label.transform = Transform3D(a.basis, c + a.basis.z * 0.22 + Vector3.UP * 0.12)
+	add_child(label)
+
+
 func grid_transform(slot: int) -> Transform3D:
 	var row := slot / 2
 	var side := -1.0 if slot % 2 == 0 else 1.0

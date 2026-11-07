@@ -17,6 +17,8 @@ var _wobble_vel: Array[Vector2] = []
 var _wobble_pos: Array[Vector2] = []
 var _wheel_ring: Node3D
 var _boost_flame: MeshInstance3D
+var _exhaust_tips: Array[Vector3] = []
+var _exhaust_flames: Array[MeshInstance3D] = []
 var _sparks: MeshInstance3D
 var _lean := 0.0
 var _bob := 0.0
@@ -42,6 +44,22 @@ func _ready() -> void:
 	rebuild()
 	if not standing and get_meta("nomerge", false) == false:
 		_add_contact_shadow()
+
+
+## Exhaust flames: small and flickery while driving, big on a boost or a
+## mini-turbo, out when stopped.
+func _update_exhaust() -> void:
+	if _exhaust_flames.is_empty():
+		return
+	var go: bool = absf(kart.speed) > 1.0 or float(kart.input.get("throttle", 0.0)) > 0.1
+	var size := 0.0
+	if kart.boost_time > 0.0:
+		size = 1.15 + randf() * 0.35
+	elif go:
+		size = 0.32 + randf() * 0.12
+	for fl in _exhaust_flames:
+		fl.visible = size > 0.0
+		fl.scale = Vector3(0.9, 1.0, 0.9) * size
 
 
 # --- Contact shadow ---------------------------------------------------------
@@ -98,16 +116,24 @@ func _update_shadow() -> void:
 	var hit := kart.get_world_3d().direct_space_state.intersect_ray(q)
 	if hit.is_empty() or (hit["normal"] as Vector3).dot(Vector3.UP) < 0.5:
 		_shadow.visible = false
+		if _cast:
+			_cast.visible = false
 		return
 	var n: Vector3 = hit["normal"]
-	var h := maxf(0.0, from.y - 0.6 - (hit["position"] as Vector3).y)
+	# Height of the kart above its usual ride height.
+	var h := maxf(0.0, from.y - 0.6 - (hit["position"] as Vector3).y - 0.6)
 	var fwd := -kart.global_transform.basis.z
 	fwd = (fwd - n * fwd.dot(n)).normalized()
 	var right := fwd.cross(n).normalized()
 	var grow := 1.0 + h * 0.25
-	_shadow.global_transform = Transform3D(Basis(right * size.x * grow, n, -fwd * size.y * grow), hit["position"] + n * 0.05)
-	_shadow_mat.albedo_color = Color(1, 1, 1, clampf(1.35 - h * 0.35, 0.0, 1.0))
+	_shadow.global_transform = Transform3D(Basis(right * size.x * grow, n, -fwd * size.y * grow), hit["position"] + n * 0.09)
+	_shadow_mat.albedo_color = Color(1, 1, 1, clampf(1.0 - h * 0.35, 0.0, 1.0) * 0.7)
 	_shadow.visible = true
+	if _cast:
+		_cast_mat.set_shader_parameter("plane_point", hit["position"])
+		_cast_mat.set_shader_parameter("plane_normal", n)
+		_cast_mat.set_shader_parameter("strength", 0.6 * clampf(1.2 - h * 0.25, 0.0, 1.0))
+		_cast.visible = true
 
 
 ## Paintwork shines softly, metal sharply, rubber and fur not at all (9.4).
@@ -168,7 +194,10 @@ func _cone(r: float, h: float) -> CylinderMesh:
 ## Rebuild everything, e.g. after the player swaps a part.
 func rebuild() -> void:
 	for c in get_children():
-		c.queue_free()
+		if c != _shadow:
+			c.queue_free()
+	_inks.clear()
+	_cast = null
 	_wheels.clear()
 	_rack = null
 	_rack_item = ""
@@ -181,6 +210,8 @@ func rebuild() -> void:
 	_head = null
 	_driver = null
 	_boost_flame = null
+	_exhaust_tips.clear()
+	_exhaust_flames.clear()
 	_sparks = null
 	if standing:
 		_build_standing()
@@ -212,43 +243,86 @@ func rebuild() -> void:
 	_boost_flame.material_override = _glow(Color(1.0, 0.62, 0.2))
 	_boost_flame.visible = false
 	_boost_flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Little flames at each exhaust: a flicker at idle, a roar on a boost.
+	if not _exhaust_tips.is_empty():
+		_boost_flame.scale = Vector3.ZERO   # the exhausts carry the boost now
+		var fst := SurfaceTool.new()
+		fst.begin(Mesh.PRIMITIVE_TRIANGLES)
+		MineTrack._flame(fst, Vector3.ZERO)
+		var fmesh := fst.commit()
+		var fmat := ShaderMaterial.new()
+		fmat.shader = load("res://shaders/flame.gdshader")
+		for tip in _exhaust_tips:
+			var fl := MeshInstance3D.new()
+			fl.mesh = fmesh
+			fl.material_override = fmat
+			fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			fl.set_meta("keep", true)
+			fl.visibility_range_end = 60.0
+			# Point the flame back and a little up, out of the pipe.
+			var up := Vector3(0, 0.34, 1).normalized()
+			fl.transform = Transform3D(Basis(Vector3.RIGHT, up, Vector3.RIGHT.cross(up)), tip)
+			add_child(fl)
+			_exhaust_flames.append(fl)
 	_sparks = _mesh(_sphere(0.12, 4, 6), Color(0.4, 0.75, 1.0), self, Vector3(0, 0.1, size.z * 0.5))
 	_sparks.material_override = _glow(Color(0.45, 0.8, 1.0))
 	_sparks.visible = false
 	_sparks.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	# Wheels snap to the chassis's mounting points.
+	# Fat, chunky tyres like a cartoon racer's (design doc 9.4): wider than
+	# the physics wheel (looks only), rounded shoulders, tread blocks all the
+	# way round and a bright painted rim.
 	var r := kart.wheel_radius()
 	var tire_color: Color = kart.tires["color"]
-	var width: float = kart.tires["width"]
+	var width: float = kart.tires["width"] * 1.35
+	var rim_color := Color(0.98, 0.8, 0.18) if kart.tires_id != "studded" else CHROME
 	for i in 4:
 		var pivot := Node3D.new()
 		pivot.position = kart.wheel_mount(i)
 		add_child(pivot)
 		var spin := Node3D.new()
+		# Grow outward, so the wider tyre doesn't eat into the bodywork.
+		spin.position.x = signf(kart.wheel_mount(i).x) * kart.tires["width"] * 0.17
 		pivot.add_child(spin)
-		var cyl := CylinderMesh.new()
-		cyl.top_radius = r
-		cyl.bottom_radius = r
-		cyl.height = width
-		cyl.radial_segments = 14
-		cyl.rings = 1
 		_finish = Palette.Finish.MATTE  # rubber
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = r * 0.97
+		cyl.bottom_radius = r * 0.97
+		cyl.height = width * 0.78
+		cyl.radial_segments = 18
+		cyl.rings = 1
 		_mesh(cyl, tire_color, spin, Vector3.ZERO, Vector3.ONE, Vector3(0, 0, PI / 2))
+		for sx: float in [-1.0, 1.0]:
+			var side := TorusMesh.new()
+			side.inner_radius = r * 0.56
+			side.outer_radius = r * 0.97
+			side.rings = 18
+			side.ring_segments = 8
+			_mesh(side, tire_color, spin, Vector3(sx * width * 0.36, 0, 0), Vector3.ONE, Vector3(0, 0, PI / 2))
+		var n_tread := 14
+		var tall := 0.07 if kart.tires_id == "knobby" or kart.tires_id == "studded" else 0.035
+		for k in n_tread:
+			var a := TAU * k / n_tread
+			for sx: float in [-1.0, 1.0]:
+				var blk := Vector3(width * 0.34, tall, r * 0.17)
+				_mesh(_box(blk), tire_color.lightened(0.06), spin, Vector3(sx * width * 0.19, cos(a) * (r * 0.97 + tall * 0.3), sin(a) * (r * 0.97 + tall * 0.3)), Vector3.ONE, Vector3(a + sx * 0.12, 0, 0))
 		_finish = Palette.Finish.PAINT
 		var rim := CylinderMesh.new()
-		rim.top_radius = r * 0.55
-		rim.bottom_radius = r * 0.55
-		rim.height = width * 1.04
-		rim.radial_segments = 10
+		rim.top_radius = r * 0.56
+		rim.bottom_radius = r * 0.56
+		rim.height = width * 0.92
+		rim.radial_segments = 14
 		rim.rings = 1
-		_mesh(rim, CHROME, spin, Vector3.ZERO, Vector3.ONE, Vector3(0, 0, PI / 2))  # shiny rim
-		_mesh(_box(Vector3(width * 1.08, r * 0.7, r * 0.16)), DARK, spin)  # spokes, show the spin
-		if kart.tires_id == "knobby" or kart.tires_id == "studded":
-			for k in 6:
-				var a := TAU * k / 6.0
-				_finish = Palette.Finish.MATTE
-				_mesh(_box(Vector3(width * 1.05, 0.06, 0.08)), tire_color.lightened(0.25), spin, Vector3(0, cos(a) * r, sin(a) * r), Vector3.ONE, Vector3(a, 0, 0))
+		_mesh(rim, rim_color, spin, Vector3.ZERO, Vector3.ONE, Vector3(0, 0, PI / 2))
+		var hub := CylinderMesh.new()
+		hub.top_radius = r * 0.2
+		hub.bottom_radius = r * 0.2
+		hub.height = width * 0.98
+		hub.radial_segments = 8
+		hub.rings = 1
+		_mesh(hub, CHROME, spin, Vector3.ZERO, Vector3.ONE, Vector3(0, 0, PI / 2))
+		_mesh(_box(Vector3(width * 0.95, r * 0.75, r * 0.14)), rim_color.darkened(0.25), spin)  # spokes, show the spin
 		_wheels.append(pivot)
 
 	if not empty:
@@ -368,7 +442,20 @@ func _build_frame(style: String, color: Color) -> Dictionary:
 	if style != "soapbox":
 		_mesh(_box(Vector3(0.24, 0.22, 0.28)), Color(0.45, 0.47, 0.52), self, Vector3(rail_x + 0.05, low + 0.15, rz - 0.05))
 		_mesh(_box(Vector3(0.2, 0.06, 0.24)), DARK, self, Vector3(rail_x + 0.05, low + 0.28, rz - 0.05))
-		_bent([Vector3(rail_x + 0.12, low + 0.15, rz + 0.1), Vector3(rail_x + 0.2, low + 0.2, rz + 0.35), Vector3(rail_x + 0.2, low + 0.26, rz + 0.5)], 0.035, Color(0.6, 0.6, 0.64))
+		# Twin chrome exhausts poking out the back, with flared tips that
+		# spit flame (see _update_exhaust).
+		for sx: float in [-1.0, 1.0]:
+			var x := sx * 0.2
+			var tip := Vector3(x, low + 0.34, rz + 0.52)
+			_bent([Vector3(rail_x * 0.0 + x * 0.6, low + 0.15, rz + 0.05), Vector3(x, low + 0.22, rz + 0.3), tip], 0.045, CHROME)
+			var bell := CylinderMesh.new()
+			bell.top_radius = 0.05
+			bell.bottom_radius = 0.075
+			bell.height = 0.12
+			bell.radial_segments = 10
+			bell.rings = 1
+			_mesh(bell, CHROME, self, tip + Vector3(0, 0.02, 0.04), Vector3.ONE, Vector3(deg_to_rad(70), 0, 0))
+			_exhaust_tips.append(tip + Vector3(0, 0.04, 0.1))
 
 	# Bucket seat and the steering column.
 	var seat_z := (fz + rz) * 0.5 + (rz - fz) * 0.12
@@ -397,6 +484,61 @@ func _merge_all() -> void:
 	groups.append_array(_wobbly)
 	for g in groups:
 		_merge(g)
+	if not standing and get_meta("nomerge", false) == false:
+		_build_cast_shadow()
+
+
+# --- Cast shadow ------------------------------------------------------------
+# The whole kart and driver as one silhouette mesh, flattened onto the ground
+# along the sun by shaders/kart_shadow.gdshader. One extra draw per kart.
+
+## Which way the sunlight travels for kart shadows: from the same side as
+## the sun in main.gd, but lower in the sky, so shadows reach out to the
+## side where you can see them (as in Mario Kart), not hide under the kart.
+static var sun_dir := Basis.from_euler(Vector3(deg_to_rad(-36), deg_to_rad(-35), 0)) * Vector3.FORWARD
+
+var _inks: Array = []
+var _cast: MeshInstance3D
+var _cast_mat: ShaderMaterial
+
+
+func _build_cast_shadow() -> void:
+	var verts := PackedVector3Array()
+	for pair in _inks:
+		var mesh: ArrayMesh = pair[0]
+		var xf := Transform3D.IDENTITY
+		var n: Node = pair[1]
+		while n != null and n != self:
+			xf = (n as Node3D).transform * xf
+			n = n.get_parent()
+		var arr := mesh.surface_get_arrays(0)
+		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var idx = arr[Mesh.ARRAY_INDEX]
+		if idx is PackedInt32Array and (idx as PackedInt32Array).size() > 0:
+			for i in idx:
+				verts.append(xf * v[i])
+		else:
+			for p in v:
+				verts.append(xf * p)
+	if verts.is_empty():
+		return
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	_cast_mat = ShaderMaterial.new()
+	_cast_mat.shader = load("res://shaders/kart_shadow.gdshader")
+	_cast_mat.set_shader_parameter("light_dir", sun_dir)
+	_cast = MeshInstance3D.new()
+	_cast.mesh = m
+	_cast.material_override = _cast_mat
+	_cast.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_cast.visibility_range_end = 70.0
+	_cast.visible = false
+	# Huge bounds: the vertices move to the ground in the shader.
+	_cast.extra_cull_margin = 4.0
+	add_child(_cast)
 
 
 func _merge(group: Node3D) -> void:
@@ -436,6 +578,7 @@ func _merge(group: Node3D) -> void:
 	outline.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	outline.visibility_range_end = 28.0
 	group.add_child(outline)
+	_inks.append([ink, group])
 
 
 func _combine(parts: Array[MeshInstance3D], xforms: Array[Transform3D], which: Array) -> Array:
@@ -706,9 +849,10 @@ func _process(delta: float) -> void:
 		var base: Vector3 = _wobbly[i].get_meta("base_rot")
 		_wobbly[i].rotation = base + Vector3(p.y, 0, p.x)
 
-	_boost_flame.visible = kart.boost_time > 0.0
+	_boost_flame.visible = kart.boost_time > 0.0 and _exhaust_flames.is_empty()
 	if _boost_flame.visible:
 		_boost_flame.scale = Vector3.ONE * (0.8 + randf() * 0.5)
+	_update_exhaust()
 	var stage := kart.drift_stage()
 	_sparks.visible = kart.drifting
 	if _sparks.visible:

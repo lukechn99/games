@@ -369,7 +369,19 @@ What makes the reference look alive, and our phone-friendly version of each:
 - **Backdrop:** a new ring of rolling green hills in front of the mountains. Every mountain has a sunlit face and a shaded face, and its foot fades into the haze.
 - **Fixes:** torch flames in the mine were huge yellow wedges (the flame shader was moving whole world-space meshes); they're small flickering teardrops now. Coal piles were blue blobs (they reflected the sky); they're heaps of black lumps now. A thin green line showed across the road where the cave route rejoins; the grass bank under the shared road was poking through.
 
-**Still short of the reference (next):** the start gantry and guardrails look like plastic; the karts and drivers need more detail and shine; there's no motion blur, speed lines or boost trails; clouds are flat; and the HUD is plain text where Mario Kart has a bold position badge and an item box.
+**Third pass, against real Mario Kart World frames (2026-11-07).** The user attached five screenshots, and our race camera was compared against them frame by frame. Changes:
+- **Framing:** a lower, wider camera (3.5 m back, 70° view), so the horizon sits about 45% down and the kart near the bottom edge.
+- **Kart shadows:** each kart casts a sharp shadow of its own shape, flattened onto the ground along the sun (`shaders/kart_shadow.gdshader`, one extra draw per kart), on top of the soft patch underneath. The shadows use a lower sun than the scene so they fall out to the side where you can see them.
+- **Road:** neutral charcoal tarmac with grit, a few long hairline cracks, small sealed patches, bold edge lines, a dashed centre line and painted brackets for each grid slot.
+- **Verges:** a ragged band of sand and dust blown onto the grass beside the road, with pebbles and a darker fringe where the grass starts. A small map of distance from the road, baked when the track loads, drives it.
+- **Light:** the sky light is now half a neutral warm grey, which took the purple tint out of the road and rock; the sky is a brighter cyan-blue.
+- **Clouds:** big cumulus heaps, flat underneath and piled up in the middle, white on top and on the sunny side, blue-grey underneath.
+- **Clutter:** red chevron boards on the outside of every sharp corner, feather banners along the straights, cones at the apexes, billboards for made-up sponsors, and a green **KARTS & WHEELS** sign across the start arch. The arch and guardrails are painted steel now (as chrome they mirrored the sky and looked like blue glass).
+- **Karts:** fat tyres with tread blocks and rounded shoulders, yellow rims, and twin chrome exhausts that flicker with flame while driving and roar on a boost.
+- **Screen:** a glossy item box at the top left, the place in gold, silver or bronze, the minimap as a see-through white ribbon with no panel, and speed lines rushing in from the edges when flat out or boosting.
+- **Reviewing:** `?autodrive&view=side` moves the chase camera off to one side, to look at karts and their shadows.
+
+**Still short of Mario Kart World:** its scenery is far denser and more detailed (buildings, crowds, pipes, signage everywhere), it has real shadows from every building, and its warm, hazy light and bloom are richer. Its characters and karts are high-detail models where ours are built from simple shapes, and it has depth of field and motion blur.
 
 ## 10. Controls
 
@@ -671,3 +683,4 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Kart data goes player to player (mesh), with the host as fallback | The user's question: a mesh is faster and spreads the load; the host was only the quickest first version |
 | 2026-11-06 | Mining Mountain built and offered alongside Meadow Loop; the host picks the track before the kart builder | The user's request |
 | 2026-11-07 | Visual pass against Mario Kart World: closer camera, road, grass and rock shaders, verge plants, kart contact shadows, warmer light, layered backdrop | The user's request |
+| 2026-11-07 | Third visual pass against the user's Mario Kart World frames: camera, kart-shaped shadows, road paint and grit, sandy verges, cumulus clouds, roadside clutter, fatter karts with exhaust flames, new HUD | The user's request |

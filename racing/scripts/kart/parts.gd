@@ -6,7 +6,7 @@ class_name Parts
 ## Surfaces: `grip` multiplies tire grip, `drag` slows the kart (per second),
 ## `color` paints the track so players can read it.
 const SURFACES := {
-	"asphalt": {"grip": 1.0, "drag": 0.02, "color": Color(0.36, 0.36, 0.38)},
+	"asphalt": {"grip": 1.0, "drag": 0.02, "color": Color(0.32, 0.31, 0.31)},
 	"dirt": {"grip": 0.8, "drag": 0.25, "color": Color(0.76, 0.5, 0.28)},
 	"grass": {"grip": 0.7, "drag": 0.9, "color": Color(0.4, 0.8, 0.26)},
 	"sand": {"grip": 0.65, "drag": 1.2, "color": Color(0.93, 0.83, 0.58)},

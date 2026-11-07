@@ -152,6 +152,7 @@ static func build(t: Track) -> void:
 		bridge.build(t, bi)
 	_fences(t)
 	_props(t)
+	SetPieces._clouds(t)
 
 
 # --- The mountain ------------------------------------------------------------

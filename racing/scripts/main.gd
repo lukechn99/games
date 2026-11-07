@@ -150,7 +150,7 @@ func _build_online_karts(seats: Array, picks: Dictionary) -> void:
 			player = PlayerDriver.new(k)
 			add_child(player)
 			_owned.append(k)
-		elif bool(p.get("bot", false)) and Net.is_host:
+		elif Net.is_bot(id) and Net.is_host:
 			k.display_name = Net.name_of(id)
 			var bot := BotDriver.new(k, track, "medium", i + 3)
 			add_child(bot)

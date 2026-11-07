@@ -77,3 +77,11 @@ func name_of(id: String) -> String:
 		if str(p.get("id", "")) == id:
 			return str(p.get("name", "?"))
 	return "?"
+
+
+## A computer driver (from the room's player list).
+func is_bot(id: String) -> bool:
+	for p in players:
+		if str(p.get("id", "")) == id:
+			return bool(p.get("bot", false))
+	return false

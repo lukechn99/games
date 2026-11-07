@@ -52,7 +52,7 @@ const CHASSIS = ['frame', 'soapbox', 'hauler', 'racer']
 const TIRES = ['slicks', 'knobby', 'balloon', 'studded']
 const DRIVERS = ['fox', 'frog', 'rhino', 'deer']
 
-const COUNTDOWN_MS = 8000   // 5 s fly-in round the map, then 3, 2, 1
+const COUNTDOWN_MS = 11500   // 8 s fly-in round the map, then 3, 2, 1
 /** After the first racer finishes, how long the others get before results. */
 const FINISH_GRACE_MS = 30000
 

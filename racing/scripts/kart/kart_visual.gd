@@ -461,47 +461,84 @@ func _build_driver(seat_y: float, size: Vector3, seat_z: float, seated := true) 
 	_driver.scale = Vector3.ONE * s
 	add_child(_driver)
 
+	# Cute, not realistic (design doc 5.4): a big round head on a small
+	# body, big glossy eyes with a sparkle, pink cheeks, a little snout and
+	# smile. Same base for every animal; features make the animal.
 	_torso = Node3D.new()
 	_driver.add_child(_torso)
-	_mesh(_capsule(0.28, 0.75), body_c, _torso, Vector3(0, 0.3, 0))
-	_mesh(_sphere(0.2), belly_c, _torso, Vector3(0, 0.25, -0.13), Vector3(1.0, 1.2, 0.5))
-	# Arms reach forward to the wheel.
-	for side in [-1.0, 1.0]:
+	_mesh(_capsule(0.26, 0.64), body_c, _torso, Vector3(0, 0.26, 0))
+	_mesh(_sphere(0.19), belly_c, _torso, Vector3(0, 0.22, -0.16), Vector3(1.0, 1.15, 0.38))  # tummy
+	for side: float in [-1.0, 1.0]:
+		var arm: MeshInstance3D
 		if seated:
-			_mesh(_capsule(0.07, 0.42), body_c, _torso, Vector3(0.22 * side, 0.38, -0.2), Vector3.ONE, Vector3(deg_to_rad(-70), 0, side * 0.35))
+			# Arms reach forward to the wheel.
+			arm = _mesh(_capsule(0.075, 0.36), body_c, _torso, Vector3(0.21 * side, 0.34, -0.19), Vector3.ONE, Vector3(deg_to_rad(-70), 0, side * 0.35))
 		else:
-			# Arms at its sides, one raised in a little wave.
 			var wave: bool = side > 0.0
-			_mesh(_capsule(0.07, 0.42), body_c, _torso, Vector3(0.3 * side, 0.45 if wave else 0.22, -0.02), Vector3.ONE, Vector3(0, 0, side * (2.4 if wave else 0.35)))
+			arm = _mesh(_capsule(0.075, 0.36), body_c, _torso, Vector3(0.28 * side, 0.4 if wave else 0.2, -0.02), Vector3.ONE, Vector3(0, 0, side * (2.4 if wave else 0.35)))
+		_mesh(_sphere(0.075), belly_c, arm, Vector3(0, -0.2, 0))  # paw
 	_head = Node3D.new()
-	_head.position = Vector3(0, 0.78, 0)
+	_head.position = Vector3(0, 0.72, 0)
 	_torso.add_child(_head)
-	_mesh(_sphere(0.3, 10, 14), body_c, _head)
-	_mesh(_sphere(0.17), belly_c, _head, Vector3(0, -0.06, -0.22), Vector3(1.1, 0.8, 0.6))  # face patch
-	for side in [-1.0, 1.0]:
-		_mesh(_sphere(0.05, 4, 6), Color(0.08, 0.08, 0.1), _head, Vector3(0.11 * side, 0.05, -0.27))  # eyes
+	_mesh(_sphere(0.34, 12, 18), body_c, _head, Vector3.ZERO, Vector3(1.08, 0.95, 1.0))
+	var feats: Array = d["features"]
+	var frog := feats.has("top_eyes")
+	# Snout and nose (the frog has a wide smiling face instead).
+	if not frog:
+		var snout_c := belly_c if not feats.has("horn") else body_c.lightened(0.18)
+		_mesh(_sphere(0.13), snout_c, _head, Vector3(0, -0.11, -0.27), Vector3(1.25, 0.78, 0.95))
+		_finish = Palette.Finish.PAINT
+		_mesh(_sphere(0.045, 4, 8), Color(0.12, 0.08, 0.1), _head, Vector3(0, -0.06, -0.385), Vector3(1.3, 0.85, 0.9))
+		_finish = Palette.Finish.MATTE
+	# A small "w" smile; the frog gets a wide one.
+	if frog:
+		_mesh(_capsule(0.014, 0.3), Color(0.18, 0.1, 0.12), _head, Vector3(0, -0.14, -0.33), Vector3.ONE, Vector3(0, 0, PI / 2))
+	else:
+		for side: float in [-1.0, 1.0]:
+			_mesh(_capsule(0.011, 0.07), Color(0.18, 0.1, 0.12), _head, Vector3(0.025 * side, -0.17, -0.355), Vector3.ONE, Vector3(0, 0, side * 1.0))
+	# Pink cheeks.
+	for side: float in [-1.0, 1.0]:
+		_mesh(_sphere(0.06, 4, 8), Color(1.0, 0.55, 0.62), _head, Vector3(0.2 * side, -0.08, -0.26), Vector3(1.3, 0.7, 0.4))
+	# Big glossy eyes, each with a white sparkle.
+	if not frog:
+		for side: float in [-1.0, 1.0]:
+			_eye(_head, Vector3(0.135 * side, 0.03, -0.29), side)
 
-	for f in d["features"]:
+	for f in feats:
 		match f:
 			"pointed_ears":
-				for side in [-1.0, 1.0]:
-					_wobbly_part(_cone(0.11, 0.3), body_c, _head, Vector3(0.17 * side, 0.3, 0), Vector3(0, 0, -side * 0.25))
+				for side: float in [-1.0, 1.0]:
+					var ear := _wobbly_part(_cone(0.12, 0.3), body_c, _head, Vector3(0.18 * side, 0.27, 0.02), Vector3(0, 0, -side * 0.3))
+					_mesh(_cone(0.07, 0.2), belly_c, ear, Vector3(0, 0.1, -0.05))  # inner ear
 			"round_ears":
-				for side in [-1.0, 1.0]:
-					_wobbly_part(_sphere(0.09), body_c.darkened(0.1), _head, Vector3(0.24 * side, 0.22, 0.02), Vector3.ZERO)
+				for side: float in [-1.0, 1.0]:
+					var ear := _wobbly_part(_sphere(0.1), body_c.darkened(0.08), _head, Vector3(0.27 * side, 0.2, 0.02), Vector3.ZERO)
+					_mesh(_sphere(0.06), Color(1.0, 0.75, 0.75), ear, Vector3(0, 0.12, -0.05), Vector3(1.0, 1.0, 0.4))
 			"bushy_tail":
-				var tail := _wobbly_part(_capsule(0.12, 0.6), body_c, _torso, Vector3(0, 0.15, 0.32), Vector3(deg_to_rad(60), 0, 0))
-				_mesh(_sphere(0.1), Color(1, 0.97, 0.92), tail, Vector3(0, 0.27, 0))
+				var tail := _wobbly_part(_capsule(0.13, 0.6), body_c, _torso, Vector3(0, 0.12, 0.3), Vector3(deg_to_rad(60), 0, 0))
+				_mesh(_sphere(0.11), Color(1, 0.97, 0.92), tail, Vector3(0, 0.27, 0))
 			"top_eyes":
-				for side in [-1.0, 1.0]:
-					var eye := _mesh(_sphere(0.1), body_c, _head, Vector3(0.13 * side, 0.26, -0.12))
-					_mesh(_sphere(0.05, 4, 6), Color(0.08, 0.08, 0.1), eye, Vector3(0, 0.02, -0.08))
+				# Frog: big round eyes sitting on top of the head.
+				for side: float in [-1.0, 1.0]:
+					_mesh(_sphere(0.15), body_c, _head, Vector3(0.16 * side, 0.2, -0.1))
+					_eye(_head, Vector3(0.16 * side, 0.2, -0.25), side, 1.25)
 			"horn":
-				_mesh(_cone(0.08, 0.28), Color(0.92, 0.9, 0.82), _head, Vector3(0, 0.02, -0.38), Vector3.ONE, Vector3(deg_to_rad(-70), 0, 0))
+				_mesh(_cone(0.085, 0.26), Color(0.95, 0.93, 0.86), _head, Vector3(0, 0.0, -0.4), Vector3.ONE, Vector3(deg_to_rad(-62), 0, 0))
 			"antlers":
-				for side in [-1.0, 1.0]:
-					var a := _wobbly_part(_capsule(0.03, 0.4), Color(0.55, 0.38, 0.22), _head, Vector3(0.12 * side, 0.32, 0.02), Vector3(0, 0, -side * 0.4))
-					_mesh(_capsule(0.025, 0.2), Color(0.55, 0.38, 0.22), a, Vector3(0.05 * side, 0.1, 0), Vector3.ONE, Vector3(0, 0, -side * 0.9))
+				for side: float in [-1.0, 1.0]:
+					var a := _wobbly_part(_capsule(0.03, 0.38), Color(0.6, 0.42, 0.25), _head, Vector3(0.13 * side, 0.3, 0.04), Vector3(0, 0, -side * 0.4))
+					_mesh(_capsule(0.025, 0.2), Color(0.6, 0.42, 0.25), a, Vector3(0.05 * side, 0.1, 0), Vector3.ONE, Vector3(0, 0, -side * 0.9))
+
+
+## A big cartoon eye: a glossy dark oval with a white sparkle up and out.
+func _eye(parent: Node3D, pos: Vector3, side: float, k := 1.0) -> void:
+	var keep := _finish
+	_finish = Palette.Finish.MATTE  # the white sparkles do the shine
+	_mesh(_sphere(0.075 * k, 6, 10), Color(0.07, 0.05, 0.09), parent, pos, Vector3(0.85, 1.15, 0.6))
+	_finish = Palette.Finish.MATTE
+	_mesh(_sphere(0.026 * k, 4, 6), Color(1, 1, 1), parent, pos + Vector3(0.025 * side, 0.04, -0.04) * k)
+	_mesh(_sphere(0.012 * k, 3, 5), Color(1, 1, 1), parent, pos + Vector3(-0.02 * side, -0.035, -0.04) * k)
+	_finish = keep
 
 
 func _wobbly_part(mesh: Mesh, c: Color, parent: Node3D, pos: Vector3, rot: Vector3) -> Node3D:

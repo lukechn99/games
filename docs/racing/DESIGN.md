@@ -133,6 +133,8 @@ Tires set **grip, handling and drift**, and how much grip they keep **on each su
 
 **Proposed:** launch with 8 of these. If one turns out hard to make readable, swap it for another (**Decided**: the roster can change). Features are separate small parts that attach to standard points on the base body (head top, face, back, tail). So a new animal is mostly new features, new colours and a name. Each driver has a light weight class (small, medium or large). It changes the base body's scale a little and adds weight to the kart.
 
+**Cute, not uncanny (Decided).** Chibi proportions: a big round head on a small body. Big glossy eyes with white sparkles, pink cheeks, a small snout and nose, a little "w" smile (the frog gets a wide one), and paws on the arms. Animal features sit on top: inner ears, round ears, horn, antlers, a tail. Close-ups for checking them: `/games/racing/?showroom&drivers&face=0` (0 to 3).
+
 ### 5.5 Every combination works and looks good (Decided)
 Any chassis with any wheels and any driver has to drive properly and look right. **Proposed** rules that guarantee it:
 - **Standard mounting points.** Every chassis model has named attachment points: four wheel mounts, a driver seat, a rear item rack, and a top mount reserved for future parts like a kite. Wheels and drivers snap to those points, so nothing floats or clips.
@@ -529,7 +531,7 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
   - any sideways push from the floor itself is undone.
 
   A test drives straight from pole through the first 165 m and must hit nothing.
-- **Kart selection (4).** Every race starts in a lobby: a see-through menu over a slow aerial tour of the whole track. Chassis, wheels, driver and steering (joystick or tilt) are on the left. The chosen kart slowly turns on the right, just the kart. Ready is in the bottom-right corner, and the race starts when everyone is ready (bots always are; online players will come from the room).
+- **Kart selection (4).** Every race starts in a lobby: a see-through menu over a slow aerial tour of the whole track. Chassis, wheels, driver and steering (joystick or tilt) are on the left. The chosen kart, with the chosen animal in the driver's seat, slowly turns on the right; drag it to spin it. Ready is in the bottom-right corner, and the race starts when everyone is ready (bots always are; online players will come from the room).
 - **Landscape only on phones.** On the first tap, Android browsers go full screen and lock to landscape. iPhones can't lock, so a "turn your phone sideways" card covers the game while it's upright. Full tilt lock is now 25°, so there's no need to tip the phone far.
 - **Kart meshes are merged** into one vertex-coloured mesh per moving group, with an ink outline. Stretched shells (nose cones, pods, the soapbox egg) stay separate pieces, because merging them shaded wrongly.
 
@@ -601,3 +603,5 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Performance strategy 14.1 | The user's request, from research and measurement |
 | 2026-11-06 | Next: review the road and environment pieces one by one and build our own asset set from the CC0 kits (mine rails and more) | The user's direction |
 | 2026-11-06 | Lobby preview shows just the kart, no stand or standing animal | The user's direction: the standing animal looked odd |
+| 2026-11-06 | Drivers redesigned to look cute (chibi proportions, big sparkly eyes, cheeks, snout, smile) | The user's direction: they looked uncanny |
+| 2026-11-06 | Lobby shows the chosen animal seated in the kart | The user's direction |

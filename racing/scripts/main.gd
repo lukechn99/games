@@ -151,6 +151,19 @@ func _showroom(q: String) -> void:
 	camera.global_position = base.origin - base.basis.z * 6.5 + base.basis.x * 1.5 + Vector3.UP * 2.6
 	camera.look_at(base.origin + Vector3.UP * 0.4, Vector3.UP)
 	camera.fov = 52.0
+	# &drivers: every animal, one per kart. &face=N: close-up of kart N's driver.
+	if q.contains("drivers"):
+		var dids := Parts.DRIVERS.keys()
+		for i in karts.size():
+			karts[i].configure(ids[i % ids.size()], tires, dids[i % dids.size()])
+			(karts[i].get_meta("visual") as KartVisual).rebuild()
+	if q.contains("face="):
+		var n := int(q.split("face=")[1].substr(0, 1))
+		var kx := karts[clampi(n, 0, karts.size() - 1)].global_transform
+		var head := kx.origin + kx.basis.y * 1.05
+		camera.global_position = head - kx.basis.z * 1.5 + kx.basis.y * 0.15
+		camera.look_at(head, Vector3.UP)
+		camera.fov = 40.0
 
 
 func _build_world() -> void:

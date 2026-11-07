@@ -108,7 +108,6 @@ func _build_preview() -> void:
 	_kart.configure(choice["chassis"], choice["tires"], choice["driver"])
 	_turn.add_child(_kart)
 	_kart_vis = KartVisual.new(_kart)
-	_kart_vis.empty = true
 	_kart.add_child(_kart_vis)
 	_kart.position = Vector3(0, 0.12, 0)
 	var cam := Camera3D.new()

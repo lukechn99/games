@@ -25,6 +25,9 @@ const SKETCH := [
 ## The tunnel (blue) and the rope bridge (red), in sketch pixels.
 const TUNNEL := [Vector2(490, 1460), Vector2(565, 1420), Vector2(612, 1340), Vector2(640, 1220), Vector2(645, 1130), Vector2(628, 1015)]
 const BRIDGE := [Vector2(206, 790), Vector2(203, 1160)]
+## The valley floor, far below the ledge (the ledge is about two thirds of
+## the way up the mountain).
+const FLOOR := -32.0
 const SCALE := 0.64   # (0.5 at first; stretched for a longer run through the tunnel)
 const CAVERN := [0.42, 0.6]      # the cavern, as a fraction of the tunnel
 const COAL := [0.2, 0.3, 0.7, 0.8]
@@ -53,6 +56,7 @@ static func configure(t: Track) -> void:
 		{"from": 0.06, "to": 0.075, "surface": "boost"},
 	]
 	t.rail_zones = []
+	t.ground_y = FLOOR
 	t.trees_hit_radius = 0.0
 
 
@@ -613,15 +617,16 @@ static func _fences(t: Track) -> void:
 ## down, instead of a sheer drop straight onto grass. Not under the rope
 ## bridge, which spans a real gap.
 static func _outer_slope(t: Track, bi: int) -> void:
+	# Outside the ledge the mountain keeps falling, as steep as the face
+	# above: bare rock in rough steps all the way down to the valley floor
+	# far below. Drive off and you tumble down it (and are put back).
 	var rock := SurfaceTool.new()
 	rock.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var grass := SurfaceTool.new()
-	grass.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var noise := FastNoiseLite.new()
 	noise.seed = 12
-	noise.frequency = 0.05
+	noise.frequency = 0.06
 	var edge := Track.ROAD_WIDTH * 0.5 + 1.0
-	var xs := [0.0, 1.5, 4.0, 8.0, 13.0, 19.0, 27.0, 37.0, 50.0, 66.0]
+	var xs := [0.0, 1.0, 2.5, 5.0, 8.0, 11.5, 15.5, 20.0, 25.0, 30.5, 36.5, 43.0, 50.0]
 	var step := 4.0
 	var rows := []
 	var d := 0.0
@@ -629,13 +634,15 @@ static func _outer_slope(t: Track, bi: int) -> void:
 		var f := t.road_frame(fmod(d, t.length))
 		var out := (f.basis.x * Vector3(1, 0, 1)).normalized() * t.ledge_out
 		var e := f.origin + f.basis.x * t.ledge_out * edge
-		var reach := e.y * 2.4 + 14.0
 		var row := []
 		for x: float in xs:
-			var k := clampf(x / reach, 0.0, 1.0)
-			var y := e.y * pow(1.0 - smoothstep(0.0, 1.0, k), 1.15) - 0.25
-			y += noise.get_noise_2d(e.x + out.x * x, e.z + out.z * x) * minf(x * 0.25, 2.0)
-			row.append(Vector3(e.x + out.x * x * (reach / 40.0), maxf(y, -0.3), e.z + out.z * x * (reach / 40.0)))
+			var p := e + out * x
+			# About 1.6 down for every 1 out, in rough ledges and bulges.
+			var drop := x * 1.6 + noise.get_noise_2d(p.x, p.z) * minf(x * 0.35, 4.0)
+			drop += floor(x / 6.0) * 0.8 * (0.5 + 0.5 * noise.get_noise_2d(p.z, p.x))
+			var y := maxf(e.y - 0.25 - drop, FLOOR - 0.5)
+			p += out * noise.get_noise_2d(p.x * 2.0, p.z * 2.0) * minf(x * 0.15, 2.5)
+			row.append(Vector3(p.x, y, p.z))
 		var gap := false
 		if bi >= 0:
 			var b: Dictionary = t.branches[bi]
@@ -648,35 +655,25 @@ static func _outer_slope(t: Track, bi: int) -> void:
 		var ra: Array = rows[r][0]
 		var rb: Array = rows[r + 1][0]
 		for k in xs.size() - 1:
-			var lower := k >= 3
-			var st := grass if lower else rock
 			var c := Color(0.62, 0.55, 0.47, 1.0 if k == 0 else 0.0)
 			var quad := [ra[k], rb[k], rb[k + 1], ra[k], rb[k + 1], ra[k + 1]] if t.ledge_out > 0 else [ra[k], rb[k + 1], rb[k], ra[k], ra[k + 1], rb[k + 1]]
 			for v in quad:
-				st.set_color(c)
-				st.add_vertex(v)
-	for pair in [[rock, rock_material()], [grass, null]]:
-		var st: SurfaceTool = pair[0]
-		st.generate_normals()
-		var mesh := st.commit()
-		if mesh.get_surface_count() == 0:
-			continue
-		var mi := MeshInstance3D.new()
-		mi.mesh = mesh
-		var body := StaticBody3D.new()
-		body.set_meta("surface", "dirt" if pair[1] else "grass")
-		body.set_meta("floor", true)
-		t.add_child(body)
-		if pair[1]:
-			mi.material_override = pair[1]
-		else:
-			mi.material_override = t._grass_mat(false)
-		body.add_child(mi)
-		var col := CollisionShape3D.new()
-		var shape := mesh.create_trimesh_shape()
-		shape.backface_collision = true
-		col.shape = shape
-		body.add_child(col)
+				rock.set_color(c)
+				rock.add_vertex(v)
+	rock.generate_normals()
+	var mesh := rock.commit()
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = rock_material()
+	var body := StaticBody3D.new()
+	body.set_meta("surface", "dirt")
+	t.add_child(body)
+	body.add_child(mi)
+	var col := CollisionShape3D.new()
+	var shape := mesh.create_trimesh_shape()
+	shape.backface_collision = true
+	col.shape = shape
+	body.add_child(col)
 
 
 ## Where the rope bridge leaves the ledge: a solid barrier along the split,

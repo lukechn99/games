@@ -69,6 +69,9 @@ var ledge_out := 1.0          # which side of the road the lake is on (+1 right)
 ## Item crates that ride on something moving (the mine's rope bridge):
 ## {node, local} pairs, read by items.gd.
 var moving_crates: Array = []
+## Height of the land under everything (Mining Mountain's ledge is high up
+## the mountain, so its valley floor is far below).
+var ground_y := 0.0
 ## How far small scenery draws, as a share of its usual range (0.45 on Low
 ## graphics; main.gd sets it).
 static var detail_reach := 1.0
@@ -325,13 +328,13 @@ func _build_ground() -> void:
 	var box := BoxShape3D.new()
 	box.size = Vector3(1400, 2, 1400)
 	shape.shape = box
-	shape.position = Vector3(80, -1, -30)
+	shape.position = Vector3(80, ground_y - 1.0, -30)
 	b.add_child(shape)
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(1400, 1400)
 	var mi := MeshInstance3D.new()
 	mi.mesh = plane
-	mi.position = Vector3(80, 0, -30)
+	mi.position = Vector3(80, ground_y, -30)
 	mi.material_override = _grass_mat(false)
 	b.add_child(mi)
 	_bake_road_distance()
@@ -534,7 +537,9 @@ func _embankment(st: SurfaceTool, rock: SurfaceTool, a: Transform3D, b: Transfor
 			# Carved into the hillside: a sheer cliff down to the lake on the
 			# outside, a rock wall rising on the inside (design doc 9.4).
 			# On the mountain the inside is the mountain itself (mine_track.gd).
-			if layout == "mine" and side != ledge_out:
+			# (On the mountain both sides are the mountain itself: mine_track.gd
+			# builds the face above and the fall below.)
+			if layout == "mine":
 				continue
 			var out_a: Vector3 = (a.basis.x * Vector3(1, 0, 1)).normalized() * side
 			var out_b: Vector3 = (b.basis.x * Vector3(1, 0, 1)).normalized() * side
@@ -1135,7 +1140,7 @@ func _build_scenery() -> void:
 	var placed := 0
 	while placed < 340 and tries < 4000:
 		tries += 1
-		var p := Vector3(_rng.randf_range(-260, 420), 0, _rng.randf_range(-420, 360))
+		var p := Vector3(_rng.randf_range(-260, 420), ground_y, _rng.randf_range(-420, 360))
 		var dist := _distance_to_line(p)
 		if dist < ROAD_WIDTH * 0.5 + 7.0 or _blocked(p):
 			continue
@@ -1157,7 +1162,7 @@ func _build_scenery() -> void:
 		arr.assign(trees[k])
 		_scatter(KIT_NATURE + k + ".glb", arr)
 	for i in 70:
-		var p := Vector3(_rng.randf_range(-200, 380), 0, _rng.randf_range(-360, 300))
+		var p := Vector3(_rng.randf_range(-200, 380), ground_y, _rng.randf_range(-360, 300))
 		var dist := _distance_to_line(p)
 		if dist < ROAD_WIDTH * 0.5 + 4.0 or _blocked(p):
 			continue
@@ -1201,7 +1206,7 @@ func _puffy_trees(shade: Array) -> void:
 	var tries := 0
 	while xs.size() < 70 and tries < 3000:
 		tries += 1
-		var p := Vector3(_rng.randf_range(-260, 420), 0, _rng.randf_range(-420, 360))
+		var p := Vector3(_rng.randf_range(-260, 420), ground_y, _rng.randf_range(-420, 360))
 		var dist := _distance_to_line(p)
 		if dist < ROAD_WIDTH * 0.5 + 6.0 or dist > 140.0 or _blocked(p) or in_water(p):
 			continue
@@ -1277,7 +1282,7 @@ func _roadside_flora() -> void:
 func _build_mountains() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var center := Vector3(80, 0, -30)
+	var center := Vector3(80, ground_y, -30)
 	var haze := Color(0.78, 0.9, 1.0)
 	# Three layers, each paler toward the sky (design doc 9.4): rolling green
 	# hills close in, then blue mountains, then pale far peaks. Every

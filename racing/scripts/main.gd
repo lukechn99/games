@@ -35,6 +35,9 @@ func _ready() -> void:
 	var q0 := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else ""
 	if q0.contains("track=mine"):
 		track.layout = "mine"
+		# The valley far below fades into haze.
+		_env.fog_height = MineTrack.FLOOR + 22.0
+		_env.fog_height_density = 0.06
 	add_child(track)
 	camera = ChaseCamera.new()
 	add_child(camera)

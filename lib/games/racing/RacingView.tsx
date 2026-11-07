@@ -67,7 +67,7 @@ export default function RacingView({ view, snapshot, me, isHost, act, hostNow, p
       // A new round reloads the game, so it starts fresh with the new seats.
       key={snapshot.game?.round ?? 0}
       ref={frame}
-      title="Game Night Karts"
+      title="Karts & Wheels"
       src={`${BASE}/racing/index.html?room=1`}
       className="block w-full border-0 bg-[#88c6f2]"
       style={{ height: 'calc(100dvh - var(--shell-head, 0px))' }}

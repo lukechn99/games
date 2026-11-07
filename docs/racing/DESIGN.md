@@ -1,4 +1,4 @@
-# Kart racer: design document
+# Karts & Wheels: design document
 
 A cartoon kart racer for Game Night, built in Godot. Friends in the same room build
 their own karts, pick an animal driver, and race each other from their phones,
@@ -26,7 +26,7 @@ decision changes, change it here first.
 - **It feels dynamic:** screen shake on crashes, big hits and bumpy landings.
 - **Steer by tilting your phone** like a steering wheel, or with on-screen buttons, a keyboard or a gamepad. Players choose.
 
-Working title: **Open.** (Ideas: *Critter Kart*, *Paw Prix*, *Wild Wheels*.)
+Name: **Karts & Wheels** (Decided).
 
 ## 2. Goals and non-goals
 
@@ -459,7 +459,7 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 - **Fair-ish:** the host checks checkpoints in order and a minimum lap time, and finish times come from the host's clock. A determined cheater could still drive faster than possible on their own phone. Among friends, that's acceptable.
 
 ### 13.5 What's built (M4, first version)
-- **In the games menu:** Game Night Karts is a room game for 1–8 players. The host can add computer drivers.
+- **In the games menu:** Karts & Wheels is a room game for 1–8 players. The host can add computer drivers.
 - **Room rules** (`lib/games/racing/rules.ts`, with tests) hold only what everyone must agree on:
   - the track and lap count;
   - each racer's kart parts and whether they're ready;
@@ -582,7 +582,6 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - Driving straight from pole hits nothing.
 
 ## 17. Open questions
-1. Working title (1).
 2. Which 8 drivers for launch (5.4); swappable as we go.
 3. The balancing rules for parts (5.1), later.
 4. Showing the held item: on the item button, on the kart, or both (6.1).
@@ -638,3 +637,4 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Lobby shows the chosen animal seated in the kart | The user's direction |
 | 2026-11-06 | Mine Shaft layout: outer ledge loop with a cliff, a shorter tunnel through the mountain with coal piles and a cavern, and a swaying rope-bridge shortcut | The user's sketch |
 | 2026-11-06 | Karts is a multiplayer room game in the games menu; a map selection page will come before the kart builder | The user's request |
+| 2026-11-06 | The game is called Karts & Wheels | The user's decision |

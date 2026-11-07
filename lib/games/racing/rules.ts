@@ -1,7 +1,7 @@
 import type { GameModule, PlayerId, RuleResult } from '@/lib/engine/types'
 
 /**
- * Game Night Karts (docs/racing/DESIGN.md, section 13).
+ * Karts & Wheels (docs/racing/DESIGN.md, section 13).
  *
  * The race itself runs in the Godot game, embedded in the room page. These
  * rules only hold what everyone must agree on: the track, each racer's kart,
@@ -57,7 +57,7 @@ function allReady(s: RacingState) {
 
 export const racing: GameModule<RacingState, RacingAction, RacingView> = {
   id: 'racing',
-  name: 'Game Night Karts',
+  name: 'Karts & Wheels',
   description: 'Build a kart, pick an animal and race your friends round the track. Steer by tilting your phone, or use the buttons.',
   minPlayers: 1,
   maxPlayers: 8,

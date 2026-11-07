@@ -12,7 +12,7 @@ const ROLL := 0.09       # radians of tilt, in the middle
 const SAG := 5.0         # metres the middle hangs down
 const DIP := 0.55        # metres a kart presses the planks down
 const SPRING := 38.0     # how stiff the ropes are when they bounce back
-const DAMP := 3.2
+const DAMP := 5.0
 const PERIOD := 4.5      # seconds for one sway
 
 var _parts: Array[Dictionary] = []   # {body, rest: Transform3D, u, dip, vel, len}
@@ -67,6 +67,7 @@ func build(t: Track, i: int) -> void:
 		body.sync_to_physics = true
 		body.set_meta("surface", "asphalt")
 		body.set_meta("floor", true)
+		body.set_meta("deck", true)   # karts on it aren't "off the road" (kart.gd)
 		body.transform = Transform3D(basis, mid)
 		add_child(body)
 		var col := CollisionShape3D.new()
@@ -104,6 +105,17 @@ func build(t: Track, i: int) -> void:
 			body.add_child(line)
 		_parts.append({"body": body, "rest": body.transform, "u": u, "dip": 0.0, "vel": 0.0, "len": len})
 		d += step
+
+
+## True when `pos` is over the deck (or just above or below it): karts here
+## are on the bridge, however far below the road line the sag takes them.
+func holds(pos: Vector3) -> bool:
+	for p in _parts:
+		var body: Node3D = p["body"]
+		var l: Vector3 = body.global_transform.affine_inverse() * pos
+		if absf(l.z) <= float(p["len"]) * 0.5 + 0.2 and absf(l.x) < WIDTH * 0.5 + 0.8 and l.y > -1.2 and l.y < 4.0:
+			return true
+	return false
 
 
 ## Item crates hover over the middle of the deck and ride with it.

@@ -68,6 +68,12 @@ var ledge_out := 1.0          # which side of the road the lake is on (+1 right)
 ## Item crates that ride on something moving (the mine's rope bridge):
 ## {node, local} pairs, read by items.gd.
 var moving_crates: Array = []
+var bridge: Node3D   # the mine's rope bridge (SwayBridge), if any
+
+
+## On the rope bridge's deck (see SwayBridge.holds).
+func on_bridge(pos: Vector3) -> bool:
+	return bridge != null and bridge.holds(pos)
 var branch_side := 1.0        # which side the second route swings out to
 var _keep_clear: Array[Vector3] = []   # (x, z, radius): no scenery here
 var _branch_samples: Array[Vector3] = []
@@ -476,11 +482,14 @@ func _commit_groups(groups: Dictionary) -> void:
 			# Layered stone (the mine's rock shader, in cooler greys).
 			var rm := MineTrack.rock_material()
 			rm.set_shader_parameter("use_gravel", false)
-			rm.set_shader_parameter("band_m", 1.8)
-			rm.set_shader_parameter("tone_a", Color(0.78, 0.73, 0.64))
-			rm.set_shader_parameter("tone_b", Color(0.68, 0.63, 0.56))
-			rm.set_shader_parameter("tone_c", Color(0.6, 0.56, 0.51))
-			rm.set_shader_parameter("seam", Color(0.36, 0.32, 0.29))
+			# (On the mine, the mountain's own sandstone, so the cliff under
+			# the ledge matches it.)
+			if layout != "mine":
+				rm.set_shader_parameter("band_m", 1.8)
+				rm.set_shader_parameter("tone_a", Color(0.78, 0.73, 0.64))
+				rm.set_shader_parameter("tone_b", Color(0.68, 0.63, 0.56))
+				rm.set_shader_parameter("tone_c", Color(0.6, 0.56, 0.51))
+				rm.set_shader_parameter("seam", Color(0.36, 0.32, 0.29))
 			mi.material_override = rm
 		elif s == "asphalt":
 			mi.material_override = _road_mat()

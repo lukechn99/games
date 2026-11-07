@@ -38,6 +38,8 @@ var steer_angle := 0.0
 var speed := 0.0          # forward speed, m/s
 var grounded_wheels := 0
 var surface_name := "asphalt"
+var _on_deck_time := 0.0
+var respawn_reason := ""   # why the last automatic reset happened (for tests)   # >0 while (or just after) the wheels touch a bridge deck
 var drifting := false
 var drift_dir := 0.0
 var drift_time := 0.0
@@ -345,6 +347,8 @@ func _physics_process(delta: float) -> void:
 		var normal: Vector3 = hit["normal"]
 		var s := _surface_of(hit["collider"])
 		surfaces[s] = int(surfaces.get(s, 0)) + 1
+		if (hit["collider"] as Object).has_meta("deck"):
+			_on_deck_time = 1.5   # (covers a bounce into the air off the planks)
 		var wheel_fwd := fwd
 		if i < 2:
 			wheel_fwd = fwd.rotated(up, -steer_angle)
@@ -507,8 +511,10 @@ func _detect_crash(delta: float) -> void:
 func _check_recovery(delta: float) -> void:
 	var upright := global_transform.basis.y.dot(Vector3.UP)
 	_upside_down_time = _upside_down_time + delta if upright < 0.35 else 0.0
+	_on_deck_time = maxf(0.0, _on_deck_time - delta)
 	_off_track_time = _off_track_time + delta if _fallen_off() else 0.0
 	if global_position.y < -12.0 or _upside_down_time > 1.6 or _off_track_time > 0.4:
+		respawn_reason = "low" if global_position.y < -12.0 else ("upside down" if _upside_down_time > 1.6 else "off the road at %s" % track.road_local(global_position) if track else "off")
 		respawn()
 
 
@@ -517,6 +523,10 @@ func _check_recovery(delta: float) -> void:
 func _fallen_off() -> bool:
 	if track == null:
 		return false
+	# Riding the rope bridge: it sags and dips well below where the road
+	# line runs, but you're on it, not off it.
+	if _on_deck_time > 0.0 or track.on_bridge(global_position):
+		return track.in_water(global_position)
 	var local: Vector3 = track.road_local(global_position)
 	var under_road: bool = local.y < -2.0 and absf(local.x) < Track.ROAD_WIDTH * 0.5 + 2.0
 	return under_road or local.y < -6.0 or absf(local.x) > 45.0 or track.in_water(global_position)

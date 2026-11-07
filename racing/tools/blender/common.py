@@ -1,0 +1,115 @@
+"""Shared helpers for the Karts & Wheels Blender scripts (run with python3, bpy).
+
+Each asset script builds its model from scratch, exports a .glb into
+racing/assets/models/ and can render a preview PNG to look at.
+"""
+import math
+import bpy
+import bmesh
+
+
+def reset():
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+
+
+def material(name, color, rough=0.5, metal=0.0, emit=None, emit_strength=0.0, alpha=1.0, clearcoat=0.0):
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    b = m.node_tree.nodes["Principled BSDF"]
+    b.inputs["Base Color"].default_value = (*color, 1.0)
+    b.inputs["Roughness"].default_value = rough
+    b.inputs["Metallic"].default_value = metal
+    if clearcoat:
+        b.inputs["Coat Weight"].default_value = clearcoat
+    if emit:
+        b.inputs["Emission Color"].default_value = (*emit, 1.0)
+        b.inputs["Emission Strength"].default_value = emit_strength
+    if alpha < 1.0:
+        b.inputs["Alpha"].default_value = alpha
+        m.blend_method = "BLEND" if hasattr(m, "blend_method") else None
+    return m
+
+
+def assign(obj, mat):
+    obj.data.materials.clear()
+    obj.data.materials.append(mat)
+
+
+def bevel(obj, width, segments=3):
+    mod = obj.modifiers.new("bevel", "BEVEL")
+    mod.width = width
+    mod.segments = segments
+    mod.limit_method = "ANGLE"
+    return mod
+
+
+def subsurf(obj, levels=2):
+    mod = obj.modifiers.new("subsurf", "SUBSURF")
+    mod.levels = levels
+    mod.render_levels = levels
+    return mod
+
+
+def smooth(obj):
+    for p in obj.data.polygons:
+        p.use_smooth = True
+
+
+def apply_all(obj):
+    bpy.context.view_layer.objects.active = obj
+    for m in list(obj.modifiers):
+        bpy.ops.object.modifier_apply(modifier=m.name)
+
+
+def export(path, objects=None):
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in (objects or bpy.context.scene.objects):
+        o.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True, export_yup=True)
+
+
+def preview(path, target=(0, 0, 0.5), dist=4.0, elev=22.0, azim=35.0, size=(640, 480), samples=48, bg=(0.55, 0.75, 0.95)):
+    """Render a preview with Cycles on the CPU: a key light, a sky, a floor."""
+    scene = bpy.context.scene
+    scene.render.engine = "CYCLES"
+    scene.cycles.device = "CPU"
+    scene.cycles.samples = samples
+    scene.cycles.use_denoising = True
+    scene.render.resolution_x, scene.render.resolution_y = size
+    scene.render.film_transparent = False
+    scene.view_settings.view_transform = "Standard"   # true colours, like the game
+    world = bpy.data.worlds.new("w") if scene.world is None else scene.world
+    scene.world = world
+    world.use_nodes = True
+    world.node_tree.nodes["Background"].inputs["Color"].default_value = (*bg, 1)
+    world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.9
+    # Floor
+    bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, 0))
+    floor = bpy.context.object
+    floor.name = "_preview_floor"
+    assign(floor, material("_floor", (0.42, 0.42, 0.44), 0.9))
+    # Sun
+    bpy.ops.object.light_add(type="SUN", location=(4, -4, 8))
+    sun = bpy.context.object
+    sun.name = "_preview_sun"
+    sun.data.energy = 4.0
+    sun.data.angle = math.radians(8)
+    sun.rotation_euler = (math.radians(50), math.radians(10), math.radians(35))
+    # Camera
+    e, a = math.radians(elev), math.radians(azim)
+    tx, ty, tz = target
+    loc = (tx + dist * math.cos(e) * math.sin(a), ty - dist * math.cos(e) * math.cos(a), tz + dist * math.sin(e))
+    bpy.ops.object.camera_add(location=loc)
+    cam = bpy.context.object
+    cam.name = "_preview_cam"
+    direction = (tx - loc[0], ty - loc[1], tz - loc[2])
+    import mathutils
+    cam.rotation_euler = mathutils.Vector(direction).to_track_quat("-Z", "Y").to_euler()
+    cam.data.lens = 50
+    scene.camera = cam
+    scene.render.filepath = path
+    bpy.ops.render.render(write_still=True)
+    for name in ["_preview_floor", "_preview_sun", "_preview_cam"]:
+        o = bpy.data.objects.get(name)
+        if o:
+            bpy.data.objects.remove(o, do_unlink=True)

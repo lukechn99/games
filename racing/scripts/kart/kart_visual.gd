@@ -376,7 +376,75 @@ func _fairing(center: Vector3, length: float, front: float, back: float, w: floa
 
 ## Builds the frame and bodywork for one chassis style. Returns where the
 ## driver sits and where the steering wheel goes.
+## Chassis with bodywork modelled in Blender (tools/blender/), by chassis id.
+const MODELS := {"frame": "res://assets/models/kart_frame.glb"}
+static var _model_meshes := {}   # path -> [[name, Mesh], ...]
+
+
+func _model_parts(path: String) -> Array:
+	if not _model_meshes.has(path):
+		var out := []
+		var scene: PackedScene = load(path)
+		if scene:
+			var inst := scene.instantiate()
+			for mi in inst.find_children("*", "MeshInstance3D", true, false):
+				var m := mi as MeshInstance3D
+				var xf := Transform3D.IDENTITY
+				var n: Node = m
+				while n != null and n != inst:
+					xf = (n as Node3D).transform * xf
+					n = n.get_parent()
+				out.append([String(m.name), m.mesh, xf])
+			inst.free()
+		_model_meshes[path] = out
+	return _model_meshes[path]
+
+
+## The Blender bodywork, painted by part name, plus the bits still made here
+## (exhausts, steering column). Returns the seat like _build_frame.
+func _build_model_frame(path: String, color: Color) -> Dictionary:
+	for part in _model_parts(path):
+		var name: String = part[0]
+		var c := DARK
+		_finish = Palette.Finish.MATTE
+		if name.begins_with("Paint"):
+			c = color
+			_finish = Palette.Finish.PAINT
+		elif name.begins_with("Chrome"):
+			c = CHROME
+			_finish = Palette.Finish.METAL
+		elif name.begins_with("Plate"):
+			c = Color(0.97, 0.97, 0.97)
+			_finish = Palette.Finish.PAINT
+		var mi := _mesh(part[1], c, self)
+		mi.transform = part[2]
+	_finish = Palette.Finish.PAINT
+	var fl := kart.wheel_mount(0)
+	var rr := kart.wheel_mount(3)
+	var low := fl.y - (Kart.SUSPENSION_TRAVEL * 0.6) - 0.05
+	var rz := rr.z
+	for sx: float in [-1.0, 1.0]:
+		var x := sx * 0.2
+		var tip := Vector3(x, low + 0.34, rz + 0.5)
+		_bent([Vector3(0.3, low + 0.15, rz - 0.1), Vector3(x, low + 0.22, rz + 0.3), tip], 0.045, CHROME)
+		var bell := CylinderMesh.new()
+		bell.top_radius = 0.05
+		bell.bottom_radius = 0.075
+		bell.height = 0.12
+		bell.radial_segments = 10
+		bell.rings = 1
+		_mesh(bell, CHROME, self, tip + Vector3(0, 0.02, 0.04), Vector3.ONE, Vector3(deg_to_rad(70), 0, 0))
+		_exhaust_tips.append(tip + Vector3(0, 0.04, 0.1))
+	var seat_z := 0.3
+	var seat_y := low + 0.17
+	var wheel_at := Vector3(0, seat_y + 0.42, seat_z - 0.5)
+	_tube(Vector3(0, low + 0.3, -0.45), wheel_at, 0.02, DARK)
+	return {"y": seat_y, "z": seat_z, "wheel_at": wheel_at}
+
+
 func _build_frame(style: String, color: Color) -> Dictionary:
+	if MODELS.has(style) and ResourceLoader.exists(MODELS[style]):
+		return _build_model_frame(MODELS[style], color)
 	var fl := kart.wheel_mount(0)
 	var rr := kart.wheel_mount(3)
 	var tx := absf(fl.x)          # half track

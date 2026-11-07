@@ -534,3 +534,26 @@ func _test_mine() -> void:
 		k.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
 		await physics_frame
 	check(hits.is_empty(), "a clean start on Mining Mountain", "%s" % [hits])
+	# Parked in the middle of the rope bridge, well below the road line
+	# because of the sag: still on the bridge, so no reset.
+	k.queue_free()
+	await physics_frame
+	var bridge: SwayBridge = track.find_children("*", "SwayBridge", true, false)[0]
+	var part: Node3D = bridge._parts[bridge._parts.size() / 2]["body"]
+	var resets := [0]
+	var why := []
+	# At a few points in the sway, so it isn't luck of timing.
+	for trial in 4:
+		var parked := Kart.new()
+		parked.configure("frame", "slicks", "fox")
+		parked.track = track
+		_world.add_child(parked)
+		parked.global_transform = Transform3D(part.global_transform.basis, part.global_position + Vector3.UP * 0.5)
+		parked.respawned.connect(func(): resets[0] += 1; why.append(parked.respawn_reason))
+		for i in 150:
+			parked.input = {"steer": 0.0, "throttle": 0.0, "brake": 1.0, "drift": false}
+			await physics_frame
+		parked.queue_free()
+		for i in 37 + trial * 23:
+			await physics_frame
+	check(resets[0] == 0, "sitting on the sagging bridge doesn't reset you", "%d resets %s" % [resets[0], why])

@@ -151,6 +151,7 @@ static func build(t: Track) -> void:
 		t.add_child(bridge)
 		bridge.build(t, bi)
 		t.moving_crates = bridge.crate_spots()
+		t.bridge = bridge
 		_fork(t, bi)
 	_outer_slope(t, bi)
 	_fences(t)

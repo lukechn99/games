@@ -50,6 +50,7 @@ const KIT_TEX := {
 const TEX_DIR := "res://assets/textures/"
 
 static var _cache := {}
+static var relief_shaders: Array[ShaderMaterial] = []   # shader materials with a 'relief' strength
 static var _detailed: Array[StandardMaterial3D] = []   # materials with normal maps
 static var _shiny: Array[StandardMaterial3D] = []      # paint and metal
 static var relief_on := true     # set by main.gd from the graphics quality
@@ -63,6 +64,9 @@ static func apply_quality(relief: bool, clearcoat: bool) -> void:
 	clearcoat_on = clearcoat
 	for m in _detailed:
 		m.normal_enabled = relief
+	for m in relief_shaders:
+		if is_instance_valid(m):
+			m.set_shader_parameter("relief", 1.0 if relief else 0.0)
 	for m in _shiny:
 		m.clearcoat_enabled = clearcoat and m.get_meta("paint", false)
 

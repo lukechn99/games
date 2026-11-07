@@ -10,6 +10,12 @@ uniform sampler2D detail : source_color, filter_linear_mipmap_anisotropic, repea
 uniform bool paint = true;
 uniform float wear = 0.5;
 uniform vec3 paint_color : source_color = vec3(0.93, 0.92, 0.88);
+// Baked relief (tools/make_surfaces.py): a 4 m tile of greyscale detail with
+// occlusion, and its normal map, so the flat road lights as if bumpy.
+uniform sampler2D surf : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D surf_n : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float relief = 1.0;
+uniform bool ruts = false;   // wheel ruts down the lanes (the mine's dirt road)
 
 varying vec3 wpos;
 
@@ -32,6 +38,21 @@ void fragment() {
 	// (This renderer hands vertex colours over ready to use.)
 	vec3 c = COLOR.rgb;
 	float tex = texture(detail, UV).r;
+	vec2 suv = vec2(UV.x, UV.y) * (14.0 / 4.0);
+	tex *= mix(1.0, texture(surf, suv).r * 1.25, 0.85);
+	vec3 nm = texture(surf_n, suv).rgb * 2.0 - 1.0;
+	if (ruts && UV.x >= 0.0 && UV.x <= 1.0) {
+		// Two grooves where the wheels run: slope of a pair of soft dips.
+		float slope = 0.0;
+		for (int k = 0; k < 2; k++) {
+			float d = (UV.x - (k == 0 ? 0.36 : 0.64)) / 0.045;
+			slope += -2.0 * d * exp(-d * d);
+			tex *= 1.0 - 0.18 * exp(-d * d);
+		}
+		nm.x += slope * 0.45;
+	}
+	NORMAL_MAP = normalize(nm) * 0.5 + 0.5;
+	NORMAL_MAP_DEPTH = relief;
 	float rough = 0.92;
 	if (UV.x >= 0.0 && UV.x <= 1.0) {
 		// Coarse tarmac: stones in the mix show as light and dark grit.

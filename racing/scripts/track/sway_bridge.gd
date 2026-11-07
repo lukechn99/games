@@ -38,12 +38,24 @@ func build(t: Track, i: int) -> void:
 			d1 = d
 			break
 		d -= 1.0
+	# Posts and rails in plain wood; the deck in baked planks (boards with
+	# gaps, nails and grain, tools/make_surfaces.py), projected in each
+	# section's own frame so the boards always run across the deck.
 	var wood := StandardMaterial3D.new()
 	wood.albedo_color = MineTrack.WOOD
 	wood.albedo_texture = load(Palette.TEX_DIR + "wood.png")
 	wood.uv1_triplanar = true
 	wood.uv1_scale = Vector3.ONE / 1.5
 	wood.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	var deck := StandardMaterial3D.new()
+	deck.albedo_color = MineTrack.WOOD.lightened(0.15)
+	deck.albedo_texture = load(Palette.TEX_DIR + "surf_planks.png")
+	deck.uv1_triplanar = true
+	deck.uv1_world_triplanar = false
+	deck.uv1_scale = Vector3.ONE / 4.0
+	deck.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	deck.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	Palette.add_relief(deck, "surf_planks", 1.0)
 	var rope := StandardMaterial3D.new()
 	rope.albedo_color = Color(0.82, 0.7, 0.48)
 	rope.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
@@ -76,15 +88,14 @@ func build(t: Track, i: int) -> void:
 		col.shape = box
 		col.position = Vector3(0, -0.15, 0)
 		body.add_child(col)
-		# Planks with gaps, two rope rails on posts.
-		for k in 3:
-			var plank := MeshInstance3D.new()
-			var pb := BoxMesh.new()
-			pb.size = Vector3(WIDTH, 0.18, len / 3.0 - 0.12)
-			plank.mesh = pb
-			plank.material_override = wood
-			plank.position = Vector3(0, -0.09, -len * 0.5 + len / 6.0 + k * len / 3.0)
-			body.add_child(plank)
+		# The deck, then two rope rails on posts.
+		var plank := MeshInstance3D.new()
+		var pb := BoxMesh.new()
+		pb.size = Vector3(WIDTH, 0.18, len - 0.04)
+		plank.mesh = pb
+		plank.material_override = deck
+		plank.position = Vector3(0, -0.09, 0)
+		body.add_child(plank)
 		for s: float in [-1.0, 1.0]:
 			var post := MeshInstance3D.new()
 			var pm := BoxMesh.new()

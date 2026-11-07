@@ -225,6 +225,7 @@ if __name__ == "__main__":
         bpy.context.view_layer.objects.active = rest[0]
         bpy.ops.object.join()
         rest[0].name = name
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         objs = [rest[0]] + keep
         c.export(os.path.abspath(os.path.join(MODELS, name + ".glb")), objs, max_tris={"tree_puffy": 1800}.get(name, 1500))
         if name == "coin":

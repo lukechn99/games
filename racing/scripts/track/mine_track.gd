@@ -719,25 +719,8 @@ static func _fork(t: Track, bi: int) -> void:
 static func _props(t: Track) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	# Fallen rocks heaped along the foot of the mountain wall, so the wall
-	# meets the road with some shape instead of a clean crease.
-	var rocks := SurfaceTool.new()
-	rocks.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 41
-	var d := 6.0
-	while d < t.length - 30.0:
-		var bi := t.branch_at(d)
-		if bi < 0 or absf(t.branch_offset(d, bi)) < 1.0:
-			var f := t.road_frame(d)
-			var side := -t.ledge_out
-			for k in rng.randi_range(1, 3):
-				var r := rng.randf_range(0.6, 1.7)
-				var p := f.origin + f.basis.x * side * (Track.ROAD_WIDTH * 0.5 + 1.6 + r + rng.randf_range(0.0, 1.5)) + f.basis.z * rng.randf_range(-2.0, 2.0)
-				p.y = f.origin.y - 0.4
-				SetPieces._boulder(rocks, p, r, r * rng.randf_range(0.8, 1.3), rng.randi())
-		d += rng.randf_range(7.0, 13.0)
-	SetPieces._commit(t, rocks, Palette.toon(Color(0.7, 0.55, 0.42), true, 0.0, Palette.Finish.MATTE, "rock", 3.0))
+	# (The rocks at the foot of the mountain wall are now Blender models:
+	# TerrainDressing.)
 	for k in 3:
 		var f := t.transform_at(t.length - 20.0 - k * 7.0)
 		var p := f.origin - f.basis.x * t.ledge_out * (Track.ROAD_WIDTH * 0.5 + 6.0)

@@ -200,7 +200,14 @@ func _road_mat() -> ShaderMaterial:
 	m.set_shader_parameter("detail", load(Palette.TEX_DIR + ("dirt" if layout == "mine" else "asphalt") + ".png"))
 	m.set_shader_parameter("paint", layout != "mine")
 	m.set_shader_parameter("wear", 0.35 if layout == "mine" else 0.5)
+	var surf := "dirt" if layout == "mine" else "asphalt"
+	m.set_shader_parameter("surf", load(Palette.TEX_DIR + "surf_" + surf + ".png"))
+	m.set_shader_parameter("surf_n", load(Palette.TEX_DIR + "surf_" + surf + "_n.png"))
+	m.set_shader_parameter("ruts", layout == "mine")
+	m.set_shader_parameter("relief", 1.0 if Palette.relief_on else 0.0)
+	Palette.relief_shaders.append(m)
 	return m
+
 
 
 ## Grass with drifting patches of colour (shaders/grass.gdshader).
@@ -472,6 +479,8 @@ func _commit_groups(groups: Dictionary) -> void:
 		var s: String = String(key).split("#")[0]
 		var st: SurfaceTool = groups[key]
 		st.generate_normals()
+		if s != "grass" and s != "rock":
+			st.generate_tangents()   # the road's baked relief needs them
 		var mesh := st.commit()
 		if mesh == null or mesh.get_surface_count() == 0:
 			continue
@@ -1175,6 +1184,8 @@ func _build_scenery() -> void:
 	Dressing.build(self)
 	if layout == "meadow":
 		_roadside_flora.call_deferred()
+	# Rocks need the ground to sit on, so a frame later too.
+	_terrain_dressing.call_deferred()
 
 
 ## Round, puffy cartoon trees (our Blender model) dotted among the kit trees,
@@ -1201,6 +1212,12 @@ func _puffy_trees(shade: Array) -> void:
 			col.position = p + Vector3.UP * 2.0
 			solid.add_child(col)
 	_scatter(MODELS + "tree_puffy.glb", xs)
+
+
+func _terrain_dressing() -> void:
+	await get_tree().physics_frame
+	if is_inside_tree():
+		TerrainDressing.build(self)
 
 
 ## Grass tufts, flowers and small bushes along both sides of the road, so

@@ -226,8 +226,38 @@ if __name__ == "__main__":
             if o.modifiers:
                 c.apply_all(o)
             objs.append(o)
+        def join(group, label):
+            bpy.ops.object.select_all(action="DESELECT")
+            for o in group:
+                o.select_set(True)
+            bpy.context.view_layer.objects.active = group[0]
+            bpy.ops.object.join()
+            group[0].name = label
+            # Bake the object's own turn and size into the mesh (the game
+            # uses the mesh alone), then put the origin on the ground.
+            bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+            bpy.context.scene.cursor.location = (0, 0, 0)
+            bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
+            return group[0]
+        if name == "rocks":
+            # One file per rock, each sitting on its own origin.
+            for i in range(4):
+                o = [x for x in objs if x.name.startswith("Rock%d" % i)][0]
+                bpy.context.view_layer.objects.active = o
+                bpy.ops.object.select_all(action="DESELECT")
+                o.select_set(True)
+                bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+                bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
+                lo = min((o.matrix_world @ v.co).z for v in o.data.vertices)
+                o.location = (0, 0, o.location.z - lo - 0.1)   # a little sunk in
+                bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
+                c.export(os.path.abspath(os.path.join(MODELS, "terrain_rock%d.glb" % i)), [o], max_tris=400)
+                o.location.x = (i - 1.5) * 2.2
+        elif name != "surfaces":
+            one = join(objs, name)
+            c.export(os.path.abspath(os.path.join(MODELS, "terrain_" + name + ".glb")), [one], max_tris=3000)
+            objs = [one]
         if name != "surfaces":
-            c.export(os.path.abspath(os.path.join(MODELS, "terrain_" + name + ".glb")), objs, max_tris=3000)
             c.sheet(os.path.join(outdir, name + ".png"), angles, target=target, dist=dist, size=(640, 420), samples=32)
         else:
             # Low, like the race camera, looking along the four tiles.

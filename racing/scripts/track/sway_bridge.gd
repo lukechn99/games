@@ -1,17 +1,21 @@
 class_name SwayBridge
 extends Node3D
 ## The rope bridge on Mining Mountain: a plank deck that sags in the middle
-## and sways side to side in the wind, most in the middle. It's built from
-## short sections, each a moving solid body, so karts ride on it (and slide
-## off if they don't steer against the sway).
+## and sways side to side in the wind, most in the middle. Karts weigh it
+## down: the planks under a kart dip, and spring back with a bounce when it
+## has gone. It's built from short sections, each a moving solid body, so
+## karts ride on it (and slide off if they don't steer against the sway).
 
 const WIDTH := 6.0
 const SWAY := 1.6        # metres side to side, in the middle
 const ROLL := 0.09       # radians of tilt, in the middle
-const SAG := 1.8         # metres the middle hangs down
+const SAG := 5.0         # metres the middle hangs down
+const DIP := 0.55        # metres a kart presses the planks down
+const SPRING := 38.0     # how stiff the ropes are when they bounce back
+const DAMP := 3.2
 const PERIOD := 4.5      # seconds for one sway
 
-var _parts: Array[Dictionary] = []   # {body, rest: Transform3D, u}
+var _parts: Array[Dictionary] = []   # {body, rest: Transform3D, u, dip, vel, len}
 var _t := 0.0
 
 
@@ -49,9 +53,14 @@ func build(t: Track, i: int) -> void:
 		var fa := t.branch_frame(d, i)
 		var fb := t.branch_frame(minf(d + step, d1), i)
 		var u := (d + step * 0.5 - d0) / maxf(1.0, d1 - d0)
-		var mid := (fa.origin + fb.origin) * 0.5 + Vector3.UP * (0.04 - SAG * sin(PI * u))
-		var fwd := fb.origin - fa.origin
-		fwd.y = 0.0
+		# Each section follows the curve of the sag, so the deck is a smooth
+		# hanging curve rather than steps.
+		var ua := (d - d0) / maxf(1.0, d1 - d0)
+		var ub := (minf(d + step, d1) - d0) / maxf(1.0, d1 - d0)
+		var end_a := fa.origin + Vector3.UP * (0.04 - SAG * sin(PI * ua))
+		var end_b := fb.origin + Vector3.UP * (0.04 - SAG * sin(PI * ub))
+		var mid := (end_a + end_b) * 0.5
+		var fwd := end_b - end_a
 		var basis := Basis.looking_at(fwd.normalized(), Vector3.UP)
 		var len := fwd.length() + 0.15
 		var body := AnimatableBody3D.new()
@@ -93,17 +102,40 @@ func build(t: Track, i: int) -> void:
 			line.rotation = Vector3(PI / 2, 0, 0)
 			line.position = Vector3(s * (WIDTH * 0.5 + 0.1), 1.1, 0)
 			body.add_child(line)
-		_parts.append({"body": body, "rest": body.transform, "u": u})
+		_parts.append({"body": body, "rest": body.transform, "u": u, "dip": 0.0, "vel": 0.0, "len": len})
 		d += step
+
+
+## Item crates hover over the middle of the deck and ride with it.
+func crate_spots() -> Array:
+	if _parts.is_empty():
+		return []
+	var p: Dictionary = _parts[_parts.size() / 2]
+	var out := []
+	for x in [-1.8, 0.0, 1.8]:
+		out.append({"node": p["body"], "local": Vector3(x, 1.0, 0.0)})
+	return out
 
 
 func _physics_process(delta: float) -> void:
 	_t += delta
 	var w := sin(_t * TAU / PERIOD) + 0.35 * sin(_t * TAU / (PERIOD * 0.43) + 1.0)
+	var karts := get_tree().get_nodes_in_group("karts")
 	for p in _parts:
 		var rest: Transform3D = p["rest"]
 		var k := sin(PI * float(p["u"]))
+		# How hard karts are pressing on this section (and its neighbours a
+		# little): the planks dip toward that, on springy ropes.
+		var press := 0.0
+		for kart in karts:
+			var l: Vector3 = rest.affine_inverse() * (kart as Node3D).global_position
+			if absf(l.x) < WIDTH * 0.5 + 0.5 and l.y > -1.0 and l.y < 2.5:
+				press += exp(-pow(l.z / (float(p["len"]) * 1.4), 2.0))
+		var target := -DIP * minf(press, 1.6) * clampf(k * 1.6, 0.0, 1.0)
+		p["vel"] = float(p["vel"]) + ((target - float(p["dip"])) * SPRING - float(p["vel"]) * DAMP) * delta
+		p["dip"] = float(p["dip"]) + float(p["vel"]) * delta
 		var xf := rest
+		xf.origin += Vector3.UP * float(p["dip"])
 		xf.origin += rest.basis.x * w * SWAY * k
 		xf.basis = rest.basis.rotated(rest.basis.z, -w * ROLL * k)
 		(p["body"] as AnimatableBody3D).transform = xf

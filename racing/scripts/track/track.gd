@@ -65,6 +65,9 @@ var _rng := RandomNumberGenerator.new()
 var lake_center := Vector3.ZERO
 var lake_radius := 0.0
 var ledge_out := 1.0          # which side of the road the lake is on (+1 right)
+## Item crates that ride on something moving (the mine's rope bridge):
+## {node, local} pairs, read by items.gd.
+var moving_crates: Array = []
 var branch_side := 1.0        # which side the second route swings out to
 var _keep_clear: Array[Vector3] = []   # (x, z, radius): no scenery here
 var _branch_samples: Array[Vector3] = []
@@ -88,6 +91,9 @@ func _ready() -> void:
 	_build_road()
 	_build_rails()
 	_build_jump()
+	if layout == "meadow":
+		for r in ramp_spots():
+			_build_boost_ramp(r[0], r[1])
 	_build_start()
 	SetPieces.build(self)
 	_build_scenery()
@@ -507,7 +513,17 @@ func _embankment(st: SurfaceTool, rock: SurfaceTool, a: Transform3D, b: Transfor
 			# On the mountain the inside is the mountain itself (mine_track.gd).
 			if layout == "mine" and side != ledge_out:
 				continue
-			_rock_side(rock, ea, eb, (a.basis.x * Vector3(1, 0, 1)).normalized() * side, (b.basis.x * Vector3(1, 0, 1)).normalized() * side, side == ledge_out, index, side)
+			var out_a: Vector3 = (a.basis.x * Vector3(1, 0, 1)).normalized() * side
+			var out_b: Vector3 = (b.basis.x * Vector3(1, 0, 1)).normalized() * side
+			_rock_side(rock, ea, eb, out_a, out_b, side == ledge_out, index, side)
+			# Close off the rock at each end of the ledge, so you can't see
+			# into it from the road either side.
+			if layout == "meadow":
+				var seg := a.origin.distance_to(b.origin)
+				if d - seg < LEDGE[0]:
+					_rock_cap(rock, ea, out_a, _rock_profile(side == ledge_out, ea.y, index))
+				if d + seg * 1.5 >= LEDGE[1]:
+					_rock_cap(rock, eb, out_b, _rock_profile(side == ledge_out, eb.y, index + 1))
 			widest = maxf(widest, 14.0)
 			continue
 		var h := maxf(ea.y, eb.y)
@@ -537,6 +553,29 @@ func _rock_profile(cliff: bool, edge_y: float, index: int) -> Array[Vector2]:
 		return [Vector2(0, 0), Vector2(0.6, -1.2), Vector2(1.4 + bump * 0.3, -edge_y * 0.55), Vector2(2.4 + bump * 0.2, -edge_y - 0.8)]
 	var top := 7.5 + bump
 	return [Vector2(0, 0), Vector2(0.4, 0.5), Vector2(1.4 + bump * 0.3, top), Vector2(5.0, top + 1.2), Vector2(9.0 + (edge_y + top) * 1.1, -edge_y - 0.02)]
+
+
+## The flat end of a rock section: its profile filled down to the ground,
+## facing both ways.
+func _rock_cap(st: SurfaceTool, e: Vector3, out: Vector3, profile: Array[Vector2]) -> void:
+	var poly := PackedVector2Array(profile)
+	var ground := -e.y - 0.05
+	var last: Vector2 = profile[profile.size() - 1]
+	poly.append(Vector2(last.x, ground))
+	poly.append(Vector2(0.0, ground))
+	var tris := Geometry2D.triangulate_polygon(poly)
+	if tris.is_empty():
+		return
+	var c := Color(0.6, 0.57, 0.54)
+	for k in range(0, tris.size(), 3):
+		var v := []
+		for j in 3:
+			var p2: Vector2 = poly[tris[k + j]]
+			v.append(e + out * p2.x + Vector3.UP * p2.y)
+		for order in [[0, 1, 2], [0, 2, 1]]:
+			for j in order:
+				st.set_color(c)
+				st.add_vertex(v[j])
 
 
 ## A rock cross-section along one road edge: `cliff` drops to the water,
@@ -728,6 +767,99 @@ func _build_jump() -> void:
 	body.add_child(mi)
 
 
+## Where the two boost ramps go: on a straight, each on one side of the road
+## only, so you have to line up for it. [offset, side].
+func ramp_spots() -> Array:
+	var out := []
+	for want in [[0.38, -1.0], [0.78, 1.0]]:
+		var d: float = want[0] * length
+		var tries := 0
+		while tries < 60:
+			if _good_ramp_spot(d):
+				out.append([d, want[1]])
+				break
+			d += 7.0
+			tries += 1
+	return out
+
+
+func _good_ramp_spot(d: float) -> bool:
+	if d < 80.0 or d > length - 60.0 or absf(d - JUMP_AT * length) < 90.0:
+		return false
+	if branch_at(d) >= 0 or branch_at(d - 30.0) >= 0 or branch_at(d + 40.0) >= 0:
+		return false
+	if d > TUNNEL[0] - 40.0 and d < TUNNEL[1] + 20.0:
+		return false
+	if absf(d - BRIDGE_AT) < 50.0:
+		return false
+	for g in GANTRIES:
+		if absf(d - g) < 15.0:
+			return false
+	# Straight for a good way either side, so the landing is on the road.
+	var a := -road_frame(d - 15.0).basis.z
+	var b := -road_frame(d + 35.0).basis.z
+	return absf(Vector2(a.x, a.z).angle_to(Vector2(b.x, b.z))) < 0.22
+
+
+## A half-width ramp painted as a boost panel: drive up it and you're
+## boosted into the air. It sits to one side, so it's worth aiming for.
+func _build_boost_ramp(d: float, side: float) -> void:
+	var a := road_frame(d)
+	a.origin += a.basis.x * side * ROAD_WIDTH * 0.24
+	var w := ROAD_WIDTH * 0.4
+	var l := 6.0
+	var h := 0.95
+	var pts := PackedVector3Array()
+	for x in [-w / 2, w / 2]:
+		pts.append(Vector3(x, 0.04, l / 2))
+		pts.append(Vector3(x, 0.04, -l / 2))
+		pts.append(Vector3(x, h, -l / 2))
+	var shape := ConvexPolygonShape3D.new()
+	shape.points = pts
+	var body := _body("boost", true)
+	body.transform = a
+	var col := CollisionShape3D.new()
+	col.shape = shape
+	body.add_child(col)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var c := Color(0.98, 0.3, 0.62)
+	var L := [Vector3(-w / 2, 0.04, l / 2), Vector3(-w / 2, 0.04, -l / 2), Vector3(-w / 2, h, -l / 2)]
+	var R := [Vector3(w / 2, 0.04, l / 2), Vector3(w / 2, 0.04, -l / 2), Vector3(w / 2, h, -l / 2)]
+	for tri in [[L[0], L[2], R[2]], [L[0], R[2], R[0]], [L[1], R[1], R[2]], [L[1], R[2], L[2]], [L[0], L[1], L[2]], [R[0], R[2], R[1]]]:
+		for v in tri:
+			st.set_color(c if tri == [L[0], L[2], R[2]] or tri == [L[0], R[2], R[0]] else Color(0.95, 0.95, 0.95))
+			st.add_vertex(v)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = _mat(Color.WHITE)
+	body.add_child(mi)
+	# Glowing chevrons up the slope, pointing the way.
+	var glow := SurfaceTool.new()
+	glow.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var slope := Vector3(0, h, -l).normalized()
+	var up := Vector3(0, l, h).normalized()
+	for k in 3:
+		var centre := Vector3(0, 0.04, l / 2).lerp(Vector3(0, h, -l / 2), 0.2 + k * 0.3) + up * 0.03
+		for sx: float in [-1.0, 1.0]:
+			var tip := centre + slope * 0.55
+			var o0 := centre + Vector3(sx * w * 0.38, 0, 0) - slope * 0.25
+			var o1 := o0 + slope * 0.5
+			var t1 := tip + slope * 0.5
+			for v in ([tip, o0, o1, tip, o1, t1] if sx > 0 else [tip, o1, o0, tip, t1, o1]):
+				glow.set_color(Color.WHITE)
+				glow.add_vertex(v)
+	var gm := StandardMaterial3D.new()
+	gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	gm.albedo_color = Color(1.0, 0.92, 0.4)
+	gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var gi := MeshInstance3D.new()
+	gi.mesh = glow.commit()
+	gi.material_override = gm
+	body.add_child(gi)
+
+
 func _place(path: String, xf: Transform3D) -> void:
 	var scene: PackedScene = load(path)
 	if scene == null:
@@ -771,11 +903,8 @@ func _build_start(stands := true) -> void:
 	line.mesh = st.commit()
 	line.material_override = _mat(Color.WHITE)
 	add_child(line)
-	# Overhead banner (the kit's is ~1.26 wide), towers, flags, a grandstand.
-	var s := (ROAD_WIDTH + 4.0) / 1.26
-	_place(KIT_RACING + "overhead.glb", Transform3D(_sl(a.basis, Vector3(s, s * 0.9, s)), a.origin - a.basis.x * (ROAD_WIDTH / 2 + 2.0) + a.basis.x * 0.16 * s))
-	if layout == "meadow":
-		_start_sign(a)
+	# The start arch (our own, centred on the road), flags, grandstands.
+	_start_sign(a)
 	for side in [-1.0, 1.0]:
 		_place(KIT_RACING + "flagCheckers.glb", Transform3D(_sl(a.basis, Vector3.ONE * 3.0), a.origin + a.basis.x * side * (ROAD_WIDTH / 2 + 3.0) + a.basis.z * 6.0))
 	if not stands:
@@ -1175,26 +1304,36 @@ func respawn_transform(pos: Vector3) -> Transform3D:
 
 
 ## Grid slots behind the start line, two abreast.
-## The game's name in big letters across the start arch, on a green board
-## with a red and white trim, facing the grid.
+## The start arch: two pillars either side of the road, centred on it, and
+## the name in big letters on a board across the top, facing the grid.
+## (The kit's arch wasn't symmetrical: one leg stood on the road.)
 func _start_sign(a: Transform3D) -> void:
 	var st := SetPieces._new_st()
-	var c := a.origin + Vector3.UP * 7.1 + a.basis.z * 0.55
-	var w := ROAD_WIDTH + 3.2
-	SetPieces._box(st, Transform3D(a.basis, c), Vector3(w + 0.5, 2.7, 0.3), Color(0.97, 0.97, 0.97))
-	SetPieces._box(st, Transform3D(a.basis, c + a.basis.z * 0.03), Vector3(w, 2.3, 0.32), Color(0.12, 0.6, 0.32))
-	SetPieces._box(st, Transform3D(a.basis, c + a.basis.z * 0.04 - Vector3.UP * 0.95), Vector3(w, 0.28, 0.33), Color(0.92, 0.18, 0.18))
+	var mine := layout == "mine"
+	var c := a.origin + Vector3.UP * 7.1
+	var w := ROAD_WIDTH + 5.6
+	var pillar := Color(0.55, 0.36, 0.2) if mine else Color(0.96, 0.96, 0.96)
+	var trim := Color(0.95, 0.72, 0.15) if mine else Color(0.92, 0.18, 0.18)
+	var board := Color(0.3, 0.2, 0.13) if mine else Color(0.12, 0.6, 0.32)
+	for side: float in [-1.0, 1.0]:
+		var foot := a.origin + a.basis.x * side * (ROAD_WIDTH * 0.5 + 2.6)
+		SetPieces._box(st, Transform3D(a.basis, foot + Vector3.UP * 3.7), Vector3(1.1, 8.6, 1.1), pillar)
+		SetPieces._box(st, Transform3D(a.basis, foot + Vector3.UP * 0.4), Vector3(1.5, 0.8, 1.5), trim)
+		SetPieces._box(st, Transform3D(a.basis, foot + Vector3.UP * 5.2), Vector3(1.25, 0.3, 1.25), trim)
+	SetPieces._box(st, Transform3D(a.basis, c), Vector3(w + 0.6, 2.9, 0.9), pillar)
+	SetPieces._box(st, Transform3D(a.basis, c + a.basis.z * 0.12), Vector3(w - 0.4, 2.3, 0.7), board)
+	SetPieces._box(st, Transform3D(a.basis, c + a.basis.z * 0.14 - Vector3.UP * 1.0), Vector3(w - 0.4, 0.3, 0.72), trim)
 	SetPieces._commit(self, st, Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.PAINT))
 	var label := Label3D.new()
-	label.text = "KARTS & WHEELS"
+	label.text = "MINING MOUNTAIN" if mine else "KARTS & WHEELS"
 	label.font_size = 200
 	label.pixel_size = 0.0085
 	label.outline_size = 44
-	label.modulate = Color(0.98, 0.25, 0.2)
-	label.outline_modulate = Color(1, 1, 1)
+	label.modulate = Color(1.0, 0.8, 0.2) if mine else Color(0.98, 0.25, 0.2)
+	label.outline_modulate = Color(0.2, 0.12, 0.06) if mine else Color(1, 1, 1)
 	label.shaded = false
 	label.double_sided = false
-	label.transform = Transform3D(a.basis, c + a.basis.z * 0.22 + Vector3.UP * 0.12)
+	label.transform = Transform3D(a.basis, c + a.basis.z * 0.5 + Vector3.UP * 0.12)
 	add_child(label)
 
 

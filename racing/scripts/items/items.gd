@@ -46,6 +46,14 @@ func setup(t: Track, all: Array[Kart], mine: Array[Kart]) -> void:
 			n.position = p
 			add_child(n)
 			_crates.append({"node": n, "pos": p, "away": 0.0})
+	# Crates on moving things (the mine's rope bridge) follow them.
+	for m in track.moving_crates:
+		var n := _crate_mesh()
+		var host: Node3D = m["node"]
+		var p: Vector3 = host.global_transform * (m["local"] as Vector3) if host.is_inside_tree() else Vector3.ZERO
+		n.position = p
+		add_child(n)
+		_crates.append({"node": n, "pos": p, "away": 0.0, "host": host, "local": m["local"]})
 
 
 # --- Looks ---------------------------------------------------------------
@@ -131,6 +139,9 @@ func _crate_pickups(delta: float) -> void:
 			c["away"] -= delta
 			node.visible = c["away"] <= 0.0
 			continue
+		if c.has("host") and is_instance_valid(c["host"]):
+			c["pos"] = (c["host"] as Node3D).global_transform * (c["local"] as Vector3)
+			node.position = c["pos"]
 		node.rotation.y += delta * 1.5
 		node.position.y = c["pos"].y + sin(Time.get_ticks_msec() / 400.0 + c["pos"].x) * 0.15
 		for k in karts:

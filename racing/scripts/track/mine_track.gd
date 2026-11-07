@@ -25,7 +25,7 @@ const SKETCH := [
 ## The tunnel (blue) and the rope bridge (red), in sketch pixels.
 const TUNNEL := [Vector2(490, 1460), Vector2(565, 1420), Vector2(612, 1340), Vector2(640, 1220), Vector2(645, 1130), Vector2(628, 1015)]
 const BRIDGE := [Vector2(206, 790), Vector2(203, 1160)]
-const SCALE := 0.5
+const SCALE := 0.64   # (0.5 at first; stretched for a longer run through the tunnel)
 const CAVERN := [0.42, 0.6]      # the cavern, as a fraction of the tunnel
 const COAL := [0.2, 0.3, 0.7, 0.8]
 
@@ -150,6 +150,9 @@ static func build(t: Track) -> void:
 		var bridge := SwayBridge.new()
 		t.add_child(bridge)
 		bridge.build(t, bi)
+		t.moving_crates = bridge.crate_spots()
+		_fork(t, bi)
+	_outer_slope(t, bi)
 	_fences(t)
 	_props(t)
 	SetPieces._clouds(t)
@@ -567,6 +570,148 @@ static func _fences(t: Track) -> void:
 			body.add_child(col)
 		d += 4.0
 	SetPieces._commit(t, st, Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.MATTE, "wood", 1.5))
+
+
+## Outside the ledge the mountain keeps going down: a slope falling away from
+## the road's edge to the valley floor, rocky near the top and grassy lower
+## down, instead of a sheer drop straight onto grass. Not under the rope
+## bridge, which spans a real gap.
+static func _outer_slope(t: Track, bi: int) -> void:
+	var rock := SurfaceTool.new()
+	rock.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var grass := SurfaceTool.new()
+	grass.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var noise := FastNoiseLite.new()
+	noise.seed = 12
+	noise.frequency = 0.05
+	var edge := Track.ROAD_WIDTH * 0.5 + 1.0
+	var xs := [0.0, 1.5, 4.0, 8.0, 13.0, 19.0, 27.0, 37.0, 50.0, 66.0]
+	var step := 4.0
+	var rows := []
+	var d := 0.0
+	while d <= t.length + 0.1:
+		var f := t.road_frame(fmod(d, t.length))
+		var out := (f.basis.x * Vector3(1, 0, 1)).normalized() * t.ledge_out
+		var e := f.origin + f.basis.x * t.ledge_out * edge
+		var reach := e.y * 2.4 + 14.0
+		var row := []
+		for x: float in xs:
+			var k := clampf(x / reach, 0.0, 1.0)
+			var y := e.y * pow(1.0 - smoothstep(0.0, 1.0, k), 1.15) - 0.25
+			y += noise.get_noise_2d(e.x + out.x * x, e.z + out.z * x) * minf(x * 0.25, 2.0)
+			row.append(Vector3(e.x + out.x * x * (reach / 40.0), maxf(y, -0.3), e.z + out.z * x * (reach / 40.0)))
+		var gap := false
+		if bi >= 0:
+			var b: Dictionary = t.branches[bi]
+			gap = d > float(b["from"]) + 8.0 and d < float(b["to"]) - 8.0
+		rows.append([row, gap])
+		d += step
+	for r in rows.size() - 1:
+		if rows[r][1] or rows[r + 1][1]:
+			continue
+		var ra: Array = rows[r][0]
+		var rb: Array = rows[r + 1][0]
+		for k in xs.size() - 1:
+			var lower := k >= 3
+			var st := grass if lower else rock
+			var c := Color(0.62, 0.55, 0.47, 1.0 if k == 0 else 0.0)
+			var quad := [ra[k], rb[k], rb[k + 1], ra[k], rb[k + 1], ra[k + 1]] if t.ledge_out > 0 else [ra[k], rb[k + 1], rb[k], ra[k], ra[k + 1], rb[k + 1]]
+			for v in quad:
+				st.set_color(c)
+				st.add_vertex(v)
+	for pair in [[rock, rock_material()], [grass, null]]:
+		var st: SurfaceTool = pair[0]
+		st.generate_normals()
+		var mesh := st.commit()
+		if mesh.get_surface_count() == 0:
+			continue
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		var body := StaticBody3D.new()
+		body.set_meta("surface", "dirt" if pair[1] else "grass")
+		body.set_meta("floor", true)
+		t.add_child(body)
+		if pair[1]:
+			mi.material_override = pair[1]
+		else:
+			mi.material_override = t._grass_mat(false)
+		body.add_child(mi)
+		var col := CollisionShape3D.new()
+		var shape := mesh.create_trimesh_shape()
+		shape.backface_collision = true
+		col.shape = shape
+		body.add_child(col)
+
+
+## Where the rope bridge leaves the ledge: a solid barrier along the split,
+## so you can't drive off into the gap between, with a big sign at its nose
+## pointing to each way.
+static func _fork(t: Track, bi: int) -> void:
+	var b: Dictionary = t.branches[bi]
+	var nose := -1.0
+	var d: float = b["from"]
+	while d < float(b["to"]):
+		if absf(t.branch_offset(d, bi)) >= Track.ROAD_WIDTH + 2.2:
+			nose = d
+			break
+		d += 0.5
+	if nose < 0.0:
+		return
+	var side := signf(t.branch_offset(nose, bi))   # which side the bridge is on
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var body := StaticBody3D.new()
+	body.set_meta("surface", "rail")
+	var pm := PhysicsMaterial.new()
+	pm.friction = 0.0
+	pm.bounce = 0.2
+	body.physics_material_override = pm
+	t.add_child(body)
+	# The barrier: timber-and-stripes blocks down the middle of the split.
+	d = nose
+	var k := 0
+	while d < nose + 34.0 and d < float(b["to"]):
+		var f := t.road_frame(d)
+		var mid := f.origin + f.basis.x * t.branch_offset(d, bi) * 0.5
+		var f2 := t.road_frame(d + 2.0)
+		var mid2 := f2.origin + f2.basis.x * t.branch_offset(d + 2.0, bi) * 0.5
+		var fwd := mid2 - mid
+		fwd.y = 0.0
+		var basis := Basis.looking_at(fwd.normalized(), Vector3.UP)
+		var c := (mid + mid2) * 0.5 + Vector3.UP * 0.55
+		SetPieces._box(st, Transform3D(basis, c), Vector3(0.8, 1.1, 2.0), Color(0.98, 0.78, 0.12) if k % 2 == 0 else Color(0.15, 0.13, 0.12))
+		var col := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(0.9, 1.4, 2.1)
+		col.shape = box
+		col.transform = Transform3D(basis, c + Vector3.UP * 0.15)
+		body.add_child(col)
+		d += 2.0
+		k += 1
+	# The sign, on two posts at the nose, facing the oncoming karts.
+	var f := t.road_frame(nose - 1.0)
+	var p := f.origin + f.basis.x * t.branch_offset(nose, bi) * 0.5
+	var facing := f.basis.z
+	var board := Basis.looking_at(-facing)
+	for sx: float in [-2.6, 2.6]:
+		SetPieces._box(st, Transform3D(board, p + board.x * sx + Vector3.UP * 1.9), Vector3(0.22, 3.8, 0.22), WOOD)
+	var c := p + Vector3.UP * 3.4
+	SetPieces._box(st, Transform3D(board, c), Vector3(6.8, 1.9, 0.2), Color(0.96, 0.9, 0.7))
+	SetPieces._box(st, Transform3D(board, c - facing * 0.03), Vector3(7.1, 2.2, 0.16), WOOD.darkened(0.2))
+	SetPieces._commit(t, st, Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.PAINT))
+	# board.x is the viewer's right. The bridge is `side` of the road.
+	for e in [["<< BRIDGE", "ROAD >>"] if side < 0 else ["<< ROAD", "BRIDGE >>"]]:
+		for j in 2:
+			var label := Label3D.new()
+			label.text = e[j]
+			label.font_size = 80
+			label.pixel_size = 0.009
+			label.outline_size = 18
+			label.modulate = Color(0.75, 0.2, 0.1) if e[j].contains("BRIDGE") else Color(0.15, 0.25, 0.4)
+			label.outline_modulate = Color(1, 1, 1)
+			label.shaded = false
+			label.transform = Transform3D(board, c + facing * 0.12 + board.x * (-1.7 if j == 0 else 1.7))
+			t.add_child(label)
 
 
 ## Mine carts and lanterns by the start, on the mountain's shoulder.

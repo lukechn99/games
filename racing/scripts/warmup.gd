@@ -42,16 +42,47 @@ func warm(root: Node, camera: Camera3D) -> void:
 				mats.append(p.material_override)
 		if mesh == null:
 			continue
-		var key := "%d|%s" % [mesh.get_instance_id(), mats.map(func(m): return m.get_instance_id())]
+		# Copies use the same kind of node as the original: instanced
+		# (MultiMesh) and particle drawing use their own shader versions.
+		var kind := "mesh"
+		if n is MultiMeshInstance3D:
+			kind = "multi%s" % (n as MultiMeshInstance3D).multimesh.use_colors
+		elif n is CPUParticles3D:
+			kind = "particles"
+		var key := "%s|%d|%s" % [kind, mesh.get_instance_id(), mats.map(func(m): return m.get_instance_id())]
 		if seen.has(key):
 			continue
 		seen[key] = true
-		var copy := MeshInstance3D.new()
-		copy.mesh = mesh
+		var copy: GeometryInstance3D
+		if kind == "particles":
+			var src := n as CPUParticles3D
+			var p := CPUParticles3D.new()
+			p.mesh = src.mesh
+			p.amount = 4
+			p.lifetime = 0.2
+			p.color_ramp = src.color_ramp
+			p.scale_amount_curve = src.scale_amount_curve
+			p.local_coords = true
+			p.emitting = true
+			copy = p
+		elif kind.begins_with("multi"):
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.use_colors = (n as MultiMeshInstance3D).multimesh.use_colors
+			mm.mesh = mesh
+			mm.instance_count = 1
+			mm.set_instance_transform(0, Transform3D.IDENTITY)
+			if mm.use_colors:
+				mm.set_instance_color(0, Color.WHITE)
+			var mmi := MultiMeshInstance3D.new()
+			mmi.multimesh = mm
+			copy = mmi
+		else:
+			var mi := MeshInstance3D.new()
+			mi.mesh = mesh
+			copy = mi
 		if not mats.is_empty():
 			copy.material_override = mats[0]
-			if mats[0].next_pass:
-				pass  # next_pass compiles with its owner
 		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		# Spread on a little grid in front of the camera, shrunk to a dot.
 		var aabb := mesh.get_aabb()

@@ -20,6 +20,9 @@ var players: Array = []   # [{name, ready}]
 var _root: Control
 var _preview: SubViewport
 var _preview_box: SubViewportContainer
+var _frame: Panel
+var _spin := 0.45          # radians a second; the kart turns gently on its own
+var _dragging := false
 var _kart: Kart
 var _kart_vis: KartVisual
 var _turn: Node3D
@@ -44,6 +47,13 @@ func _ready() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(bg)
+	# One see-through card, centred, holding the options and the kart.
+	_frame = Panel.new()
+	var fsb := StyleBoxFlat.new()
+	fsb.bg_color = Color(0.08, 0.1, 0.18, 0.55)
+	fsb.set_corner_radius_all(20)
+	_frame.add_theme_stylebox_override("panel", fsb)
+	_root.add_child(_frame)
 	_build_preview()
 	_build_panel()
 	_refresh()
@@ -64,6 +74,9 @@ func open(names: Array) -> void:
 func _build_preview() -> void:
 	_preview_box = SubViewportContainer.new()
 	_preview_box.stretch = true
+	_preview_box.mouse_filter = Control.MOUSE_FILTER_STOP
+	_preview_box.mouse_default_cursor_shape = Control.CURSOR_DRAG
+	_preview_box.gui_input.connect(_on_preview_input)
 	_root.add_child(_preview_box)
 	_preview = SubViewport.new()
 	_preview.own_world_3d = true
@@ -109,7 +122,10 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 	_t += delta
-	_turn.rotation.y += delta * 0.45
+	# After a drag the kart coasts, then settles back to its gentle turn.
+	if not _dragging:
+		_spin = lerpf(_spin, 0.45, clampf(delta * 1.5, 0.0, 1.0))
+		_turn.rotation.y += delta * _spin
 	_layout(get_viewport().get_visible_rect().size)
 	if _tilt_btn:
 		var r := _tilt_btn.get_global_rect()
@@ -129,7 +145,7 @@ func _build_panel() -> void:
 	var panel := PanelContainer.new()
 	panel.name = "Panel"
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.1, 0.12, 0.2, 0.78)
+	sb.bg_color = Color(0, 0, 0, 0)  # the card behind gives the background
 	sb.set_corner_radius_all(16)
 	sb.content_margin_left = 16
 	sb.content_margin_right = 16
@@ -283,17 +299,34 @@ func _on_ready() -> void:
 		all_ready.emit()
 
 
-## Options on the left, the turning kart on the right, Ready in the
-## bottom-right corner.
+## Drag the kart to spin it; let go and it keeps turning, slowing back to
+## its gentle spin.
+func _on_preview_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		_dragging = (event as InputEventMouseButton).pressed
+	elif event is InputEventMouseMotion and _dragging:
+		var dx := (event as InputEventMouseMotion).relative.x
+		_turn.rotation.y += dx * 0.012
+		_spin = clampf(dx * 0.012 * 60.0, -8.0, 8.0)
+
+
+## One card in the middle of the screen: options on the left, the kart on
+## the right, Ready in the card's bottom-right corner.
 func _layout(vs: Vector2) -> void:
 	_root.size = vs
 	var panel: Control = _root.get_node("Panel")
-	var pad := 12.0
-	var pw := clampf(vs.x * 0.44, 300.0, 520.0)
-	panel.position = Vector2(pad, pad)
-	panel.size = Vector2(pw, vs.y - pad * 2.0)
-	var bw := clampf(vs.x * 0.24, 180.0, 300.0)
-	_ready_btn.size = Vector2(bw, 60)
-	_ready_btn.position = Vector2(vs.x - bw - pad * 2.0, vs.y - 60 - pad * 2.0)
-	_preview_box.position = Vector2(pw + pad * 2.0, pad)
-	_preview_box.size = Vector2(vs.x - pw - pad * 3.0, vs.y - 60 - pad * 4.0)
+	var margin := 12.0
+	var fw := minf(vs.x - margin * 2.0, 1040.0)
+	var fh := minf(vs.y - margin * 2.0, 680.0)
+	var fp := ((vs - Vector2(fw, fh)) * 0.5).floor()
+	_frame.position = fp
+	_frame.size = Vector2(fw, fh)
+	var pad := 10.0
+	var pw := clampf(fw * 0.5, 280.0, 520.0)
+	panel.position = fp + Vector2(pad, pad)
+	panel.size = Vector2(pw, fh - pad * 2.0)
+	var bw := clampf(fw * 0.26, 170.0, 280.0)
+	_ready_btn.size = Vector2(bw, 56)
+	_ready_btn.position = fp + Vector2(fw - bw - pad * 1.5, fh - 56 - pad * 1.5)
+	_preview_box.position = fp + Vector2(pw + pad * 2.0, pad)
+	_preview_box.size = Vector2(fw - pw - pad * 3.0, fh - 56 - pad * 4.0)

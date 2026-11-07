@@ -118,6 +118,21 @@
     card.innerHTML = '<div><div style="font-size:48px;margin-bottom:12px">↻</div>Turn your phone sideways to race</div>'
     document.body.appendChild(card)
   }
+  // Rotating a phone fires "resize" before the new size has settled, so the
+  // game (and its loading screen) could stay the old shape for a while.
+  // Nudge it again as the rotation finishes.
+  function nudge() {
+    ;[50, 200, 500, 1000].forEach(function (ms) {
+      setTimeout(function () {
+        window.dispatchEvent(new Event('resize'))
+      }, ms)
+    })
+  }
+  window.addEventListener('orientationchange', nudge)
+  if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', nudge)
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', function () {
+    window.dispatchEvent(new Event('resize'))
+  })
   if (document.body) addCard()
   else document.addEventListener('DOMContentLoaded', addCard)
   document.addEventListener(

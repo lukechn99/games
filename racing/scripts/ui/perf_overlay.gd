@@ -20,6 +20,8 @@ func _process(delta: float) -> void:
 	_t += delta
 	_frames += 1
 	_worst = maxf(_worst, delta)
+	if delta > 0.05:
+		print("[perf] hitch %.0f ms at %.1f s, draws %d" % [delta * 1000.0, Time.get_ticks_msec() / 1000.0, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)])
 	if _t < 2.0:
 		return
 	var p := Performance

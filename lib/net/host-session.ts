@@ -206,6 +206,11 @@ export class HostSession implements Session {
   }
 
   private accept(conn: DataConnection) {
+    // Players link to each other, not to the host, for the mesh.
+    if (conn.label === 'mesh') {
+      conn.close()
+      return
+    }
     const link: Link = { conn, playerId: null, lastSeen: Date.now() }
     this.links.set(conn.connectionId, link)
 
@@ -279,7 +284,10 @@ export class HostSession implements Session {
         }
         link.playerId = result.playerId
         this.send(link, { t: 'welcome', id: result.playerId })
-        this.update(result.room, true)
+        // Their address goes in the room, so other players can link to them
+        // directly for fast game data (the mesh, client-session.ts).
+        const net = link.conn.peer
+        this.update({ ...result.room, players: result.room.players.map((p) => (p.id === result.playerId ? { ...p, net } : p)) }, true)
         return
       }
       case 'action': {
@@ -301,8 +309,9 @@ export class HostSession implements Session {
       case 'relay': {
         const from = link.playerId
         if (!from) return
+        const to = Array.isArray(msg.to) ? new Set(msg.to) : null
         for (const other of this.links.values()) {
-          if (other !== link && other.playerId) this.send(other, { t: 'relay', from, d: msg.d })
+          if (other !== link && other.playerId && (!to || to.has(other.playerId))) this.send(other, { t: 'relay', from, d: msg.d })
         }
         this.events.onRelay?.(from, msg.d)
         return

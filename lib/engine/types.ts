@@ -19,6 +19,8 @@ export interface Player {
   bot?: { level: BotLevel }
   /** Set while the player is in the video call: their media peer address. */
   call?: { peer: string; video: boolean }
+  /** Their network address, for direct player-to-player game data (the mesh). */
+  net?: string
 }
 
 export type BotLevel = 'easy' | 'medium' | 'hard'

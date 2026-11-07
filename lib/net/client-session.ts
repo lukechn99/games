@@ -6,7 +6,7 @@
  * retrying until the host is back or the player gives up.
  */
 import type { DataConnection, Peer } from 'peerjs'
-import type { PlayerId, RoomAction } from '@/lib/engine/types'
+import type { PlayerId, RoomAction, RoomSnapshot } from '@/lib/engine/types'
 import { HEARTBEAT_MS, hostPeerId, peerOptions, TIMEOUT_MS } from './config'
 import { isObject, PROTOCOL_VERSION, type ClientMessage, type HostMessage } from './protocol'
 import { startKeepalive, sendBrokerHeartbeat, type Keepalive } from './keepalive'
@@ -28,6 +28,15 @@ const RETRY_DELAYS_MS = [1000, 2000, 3000, 5000]
 export class ClientSession implements Session {
   readonly role = 'player' as const
   private peer: Peer | null = null
+  /**
+   * Direct links to the other players (not the host, who we're already
+   * linked to), for fast game data: one hop instead of two through the host.
+   * The player with the lower id dials. Anyone we can't reach directly still
+   * gets our data through the host.
+   */
+  private mesh = new Map<PlayerId, DataConnection>()
+  private dialing = new Map<PlayerId, number>()
+  private lastSnap: RoomSnapshot | null = null
   private conn: DataConnection | null = null
   private destroyed = false
   private joinedOnce = false
@@ -83,6 +92,14 @@ export class ClientSession implements Session {
       this.events.onPeer?.(peer)
       this.dial()
     })
+    peer.on('connection', (conn) => {
+      const id = (conn.metadata as { id?: unknown } | undefined)?.id
+      if (conn.label !== 'mesh' || typeof id !== 'string') {
+        conn.close()
+        return
+      }
+      this.adoptMesh(id, conn)
+    })
     peer.on('disconnected', () => {
       // Lost the broker. If we're still connected to the host that's fine;
       // we only need the broker to (re)dial.
@@ -90,6 +107,10 @@ export class ClientSession implements Session {
     })
     peer.on('error', (err) => {
       if (this.destroyed) return
+      if (err.type === 'peer-unavailable' && !String(err.message).includes(hostPeerId(this.code))) {
+        // A player we tried to link to directly has gone; they'll be reached through the host.
+        return
+      }
       if (err.type === 'peer-unavailable') {
         // Host isn't registered with the broker: room doesn't exist, or the host is away.
         this.sawHostMissing = true
@@ -153,6 +174,8 @@ export class ClientSession implements Session {
         return
       case 'snapshot':
         this.clockOffset = msg.snap.hostNow - Date.now()
+        this.lastSnap = msg.snap
+        this.syncMesh(msg.snap)
         this.events.onSnapshot(msg.snap)
         return
       case 'rejected':
@@ -176,7 +199,60 @@ export class ClientSession implements Session {
   }
 
   relay(data: unknown) {
-    this.send({ t: 'relay', d: data })
+    const snap = this.lastSnap
+    const via: PlayerId[] = []
+    for (const p of snap?.players ?? []) {
+      if (p.id === this.me.id || p.id === snap!.hostId || p.bot || !p.connected) continue
+      const conn = this.mesh.get(p.id)
+      if (conn?.open) {
+        try {
+          conn.send({ t: 'm', d: data })
+          continue
+        } catch {
+          // fall through to the host
+        }
+      }
+      via.push(p.id)
+    }
+    // The host always gets it (it's in the race too), plus anyone we can't reach directly.
+    this.send({ t: 'relay', d: data, to: via })
+  }
+
+  /** Open direct links to the other players as they appear; drop ones that left. */
+  private syncMesh(snap: RoomSnapshot) {
+    const peer = this.peer
+    const here = new Set(snap.players.filter((p) => p.connected).map((p) => p.id))
+    for (const [id, conn] of this.mesh) {
+      if (!here.has(id)) {
+        conn.close()
+        this.mesh.delete(id)
+      }
+    }
+    if (!peer || peer.disconnected || peer.destroyed) return
+    const now = Date.now()
+    for (const p of snap.players) {
+      if (p.id === this.me.id || p.id === snap.hostId || p.bot || !p.connected || !p.net) continue
+      if (this.mesh.has(p.id) || this.me.id > p.id) continue // they dial us
+      if (now - (this.dialing.get(p.id) ?? 0) < 8000) continue
+      this.dialing.set(p.id, now)
+      const conn = peer.connect(p.net, { label: 'mesh', reliable: false, serialization: 'json', metadata: { id: this.me.id } })
+      if (conn) this.adoptMesh(p.id, conn)
+    }
+  }
+
+  private adoptMesh(id: PlayerId, conn: DataConnection) {
+    const old = this.mesh.get(id)
+    if (old && old !== conn) old.close()
+    this.mesh.set(id, conn)
+    conn.on('open', () => console.info('[mesh] direct link to', id))
+    conn.on('data', (data) => {
+      if (isObject(data) && data.t === 'm') this.events.onRelay?.(id, data.d)
+    })
+    const gone = () => {
+      if (this.mesh.get(id) === conn) this.mesh.delete(id)
+    }
+    conn.on('close', gone)
+    conn.on('error', gone)
   }
 
   private send(msg: ClientMessage): boolean {
@@ -263,6 +339,8 @@ export class ClientSession implements Session {
     if (this.retryTimer) clearTimeout(this.retryTimer)
     this.keepalive?.stop()
     this.closeConn()
+    for (const c of this.mesh.values()) c.close()
+    this.mesh.clear()
     this.peer?.destroy()
     this.peer = null
   }

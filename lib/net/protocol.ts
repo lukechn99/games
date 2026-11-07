@@ -8,8 +8,11 @@ export type ClientMessage =
   | { t: 'action'; seq: number; action: RoomAction }
   | { t: 'leave' }
   | { t: 'ping' }
-  /** Fast, throwaway game data (kart positions): the host passes it on to everyone else. */
-  | { t: 'relay'; d: unknown }
+  /**
+   * Fast, throwaway game data (kart positions) for players we don't have a
+   * direct link to: the host passes it on to `to` (or everyone, if absent).
+   */
+  | { t: 'relay'; d: unknown; to?: PlayerId[] }
 
 /** Host → player */
 export type HostMessage =

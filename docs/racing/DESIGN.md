@@ -486,7 +486,7 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 - **Bumps:** each game only pushes its own karts. Another player's kart feels very heavy, and their game does their side of the bump.
 - **Finishes:** each game reports its own finish, and the host's game reports the computer drivers'.
 - **Race again:** the host starts another round, and the game reloads fresh for it.
-- **First version, star-shaped:** everything goes through the host. Direct player-to-player kart data (the mesh in 13.2) is the next step if there's lag.
+- **Mesh for fast data (Decided, built):** players link directly to each other for kart positions and items, so each update takes one hop instead of two and the host's phone isn't passing on everyone's data. The host was already one hop from everyone. If a pair can't link directly (some home routers), their data goes through the host as before. The links don't resend lost updates, because a newer position is always on its way. The room rules (ready-up, start time, finishes) stay with the host.
 - **Map selection (Planned):** a page to pick the track, before the kart builder and the map load. The rules already carry a `track` (only Meadow Loop for now).
 
 ## 14. Building and shipping
@@ -648,3 +648,4 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Karts is a multiplayer room game in the games menu; a map selection page will come before the kart builder | The user's request |
 | 2026-11-06 | The game is called Karts & Wheels | The user's decision |
 | 2026-11-06 | Items in play: crates in the cave route, honey puddle and tumbleweed; held item shown on the item button and on the back of the kart | The user's request |
+| 2026-11-06 | Kart data goes player to player (mesh), with the host as fallback | The user's question: a mesh is faster and spreads the load; the host was only the quickest first version |

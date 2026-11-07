@@ -35,9 +35,6 @@ func _ready() -> void:
 	var q0 := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else ""
 	if q0.contains("track=mine"):
 		track.layout = "mine"
-		# The valley far below fades into haze.
-		_env.fog_height = MineTrack.FLOOR + 22.0
-		_env.fog_height_density = 0.06
 	add_child(track)
 	camera = ChaseCamera.new()
 	add_child(camera)
@@ -85,6 +82,14 @@ func _ready() -> void:
 		add_child(BotDriver.new(player_kart, track, "hard", 99))
 		if q.contains("view=side"):
 			ChaseCamera.review_offset = Vector2(4.0, 2.5)
+		if q.contains("introt="):
+			_intro_pin = float(q.split("introt=")[1].split("&")[0])
+		if q.contains("intro"):
+			# Start from the aerial tour, as after the kart builder.
+			_fly_over(0.0)
+			camera.follow(player_kart)
+			start_race()
+			_begin_intro()
 	else:
 		_open_lobby()
 	# Compile every shader now, behind the lobby, instead of mid-race (once
@@ -149,12 +154,12 @@ func _on_net_state(st: Dictionary) -> void:
 	if phase == "race" and _in_lobby:
 		lobby.close()
 		_in_lobby = false
-		hud.visible = true
-		camera.set_process(true)
 		camera.follow(player_kart if player_kart else karts[0])
 		start_race()
-		# Everyone's lights go green at the same moment, by the host's clock.
+		# Everyone's lights go green at the same moment, by the host's clock;
+		# the fly-in fills the time before the numbers.
 		_countdown = maxf(0.5, float(st.get("startAt", 0.0)) / 1000.0 - Net.host_now())
+		_begin_intro(maxf(0.5, _countdown - 3.0))
 		print("[race] green in %.1f s (start %.1f, host now %.1f), %d karts" % [_countdown, float(st.get("startAt", 0.0)) / 1000.0, Net.host_now(), karts.size()])
 	if phase == "done":
 		_show_results(st)
@@ -304,11 +309,102 @@ func _show_results(st: Dictionary) -> void:
 ## Behind the lobby: a slow aerial circle round the whole track.
 func _fly_over(delta: float) -> void:
 	_tour += delta
-	var center := Vector3(95, 0, -40)
+	var center := track.map_centre()
+	var r := track.map_radius() * 1.05 + 40.0
 	var a := _tour * 0.08
-	camera.global_position = center + Vector3(cos(a) * 260.0, 150.0, sin(a) * 260.0)
+	camera.global_position = center + Vector3(cos(a) * r, 150.0 + r * 0.1, sin(a) * r)
 	camera.look_at(center + Vector3(0, -10, 0), Vector3.UP)
 	camera.fov = 55.0
+
+
+# --- Fly-in -------------------------------------------------------------
+# Once everyone's ready, the camera carries on from the aerial tour round
+# the map: one more full circle, spiralling down toward the grid, ending
+# right behind your kart where the race camera takes over.
+
+const INTRO := 4.5
+var _intro_len := INTRO
+var _intro_left := 0.0
+var _intro_pin := -1.0   # ?introt=T: hold the fly-in at T (0..1), for checking it
+var _intro_ceiling := 0.0
+var _intro_from := Vector3.ZERO   # [radius, height, angle] when it began
+
+
+func _begin_intro(seconds := INTRO) -> void:
+	_intro_len = seconds
+	_intro_left = seconds
+	var c := track.map_centre()
+	var off := camera.global_position - c
+	_intro_from = Vector3(Vector2(off.x, off.z).length(), off.y, atan2(off.z, off.x))
+	_intro_ceiling = -1.0   # measured on the first frame (the scenery's solid by then)
+	camera.set_process(false)
+	hud.visible = false
+	# Standalone: the countdown starts after the fly-in. (Online it's set by
+	# the host's clock, already counting.)
+	if not Net.active:
+		_countdown = 3.0 + seconds
+
+
+## How high the scenery reaches, so the high part of the circle clears it.
+func _measure_ceiling() -> void:
+	var c := track.map_centre()
+	_intro_ceiling = 0.0
+	var sp := get_world_3d().direct_space_state
+	var rr := track.map_radius()
+	for ix in 13:
+		for iz in 13:
+			var p := c + Vector3((ix / 6.0 - 1.0) * rr, 0.0, (iz / 6.0 - 1.0) * rr)
+			var hit := sp.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 400.0, p + Vector3.DOWN * 200.0))
+			if not hit.is_empty():
+				_intro_ceiling = maxf(_intro_ceiling, (hit["position"] as Vector3).y)
+
+
+func _intro(delta: float) -> void:
+	if _intro_ceiling < 0.0:
+		_measure_ceiling()
+	_intro_left = maxf(0.0, _intro_left - delta)
+	var t := 1.0 - _intro_left / _intro_len
+	if _intro_pin >= 0.0:
+		t = _intro_pin
+		_intro_left = _intro_len
+	var e := t * t * (3.0 - 2.0 * t)   # ease in and out
+	var grid := player_kart.global_position if player_kart else track.grid_transform(0).origin
+	var rest: Array = camera.rest_view()
+	# The circle's centre slides from the middle of the map to the grid as
+	# it tightens and drops; the last part blends onto the race camera.
+	# Circle outside the track, round the middle of the map, looking in at
+	# the stretch of road below; one full turn plus whatever it takes to end
+	# over the grid. (Outside the track, the mountain stays behind the road
+	# instead of between it and the camera.)
+	var mid := track.map_centre()
+	# End the circle right above where the race camera will be, so the last
+	# swoop is straight down onto it.
+	var rest0: Vector3 = rest[0]
+	var to_grid := Vector2(rest0.x - mid.x, rest0.z - mid.z)
+	var end_ang := atan2(to_grid.y, to_grid.x)
+	var sweep := TAU + fposmod(end_ang - _intro_from.z, TAU)
+	var ang := _intro_from.z + sweep * e
+	var radius := lerpf(_intro_from.x, to_grid.length(), e)
+	# Coming down from the tour's height to a lower top view; the last part
+	# swoops from there straight down onto the kart.
+	var height := lerpf(_intro_from.y, maxf(_intro_ceiling + 30.0, grid.y + 45.0), e)
+	var pos := mid + Vector3(cos(ang) * radius, 0.0, sin(ang) * radius)
+	pos.y = height
+	var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(pos + Vector3.UP * 200.0, pos + Vector3.DOWN * 300.0))
+	if not hit.is_empty():
+		pos.y = maxf(pos.y, (hit["position"] as Vector3).y + 30.0)
+	var below := track.transform_at(track.offset_of(pos)).origin
+	var look := below.lerp(grid + Vector3.UP * 0.8, smoothstep(0.35, 0.8, e))
+	var land := smoothstep(0.62, 1.0, t)
+	pos = pos.lerp(rest[0], land)
+	look = look.lerp(rest[1], land)
+	camera.global_position = pos
+	camera.look_at(look, Vector3.UP)
+	camera.fov = lerpf(55.0, ChaseCamera.BASE_FOV, land)
+	if _intro_left <= 0.0:
+		camera.follow(camera.target)
+		camera.set_process(true)
+		hud.visible = true
 
 
 ## Races begin with everyone picking a kart and tapping Ready (design doc 4).
@@ -321,10 +417,9 @@ func _open_lobby() -> void:
 			hud.set_choice(c, t, d))
 		lobby.all_ready.connect(func():
 			_in_lobby = false
-			hud.visible = true
-			camera.set_process(true)
 			camera.follow(player_kart)
-			start_race())
+			start_race()
+			_begin_intro())
 	var names := []
 	for k in karts:
 		if k != player_kart:
@@ -581,6 +676,7 @@ func start_race() -> void:
 		k.held_item = ""
 		k.sticky_time = 0.0
 		k.reset_physics_interpolation()
+		k.hold = true
 	_countdown = 3.0
 	_racing = false
 	player.locked = true
@@ -599,15 +695,19 @@ func _process(delta: float) -> void:
 	if _in_lobby:
 		_fly_over(delta)
 		return
+	if _intro_left > 0.0:
+		_intro(delta)
 	if _racing:
 		_watch_frame_rate(delta)
 	if not _racing:
 		var before := ceili(_countdown)
 		_countdown -= delta
 		if _countdown > 0.0:
-			center_text = str(ceili(_countdown))
+			center_text = str(ceili(_countdown)) if _countdown <= 3.0 else ""
 		else:
 			center_text = "GO!"
+			for k in karts:
+				k.hold = false
 			_racing = true
 			player.locked = false
 			_set_bots_enabled(true)

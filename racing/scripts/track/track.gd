@@ -79,6 +79,24 @@ var coin_spots: Array[Vector3] = []   # coins on the road (dressing.gd, items.gd
 var bridge: Node3D   # the mine's rope bridge (SwayBridge), if any
 
 
+## The middle of the lap and how far it reaches, for aerial views.
+func map_centre() -> Vector3:
+	var c := Vector3.ZERO
+	for x in _samples:
+		c += x.origin
+	c /= maxf(1.0, _samples.size())
+	c.y = 0.0
+	return c
+
+
+func map_radius() -> float:
+	var c := map_centre()
+	var r := 0.0
+	for x in _samples:
+		r = maxf(r, Vector2(x.origin.x - c.x, x.origin.z - c.z).length())
+	return r
+
+
 ## On the rope bridge's deck (see SwayBridge.holds).
 func on_bridge(pos: Vector3) -> bool:
 	return bridge != null and bridge.holds(pos)
@@ -336,6 +354,13 @@ func _build_ground() -> void:
 	mi.mesh = plane
 	mi.position = Vector3(80, ground_y, -30)
 	mi.material_override = _grass_mat(false)
+	if layout == "mine":
+		# The valley floor far below the ledge, softened into haze.
+		var m: ShaderMaterial = mi.material_override
+		var haze := Color(0.7, 0.82, 0.88)
+		m.set_shader_parameter("deep", Color(0.22, 0.55, 0.2).lerp(haze, 0.55))
+		m.set_shader_parameter("fresh", Color(0.42, 0.78, 0.26).lerp(haze, 0.55))
+		m.set_shader_parameter("dry", Color(0.66, 0.78, 0.3).lerp(haze, 0.55))
 	b.add_child(mi)
 	_bake_road_distance()
 
@@ -499,6 +524,7 @@ func _commit_groups(groups: Dictionary) -> void:
 			# Layered stone (the mine's rock shader, in cooler greys).
 			var rm := MineTrack.rock_material()
 			rm.set_shader_parameter("use_gravel", false)
+			rm.set_shader_parameter("snow_line", 999.0)
 			# (On the mine, the mountain's own sandstone, so the cliff under
 			# the ledge matches it.)
 			if layout != "mine":

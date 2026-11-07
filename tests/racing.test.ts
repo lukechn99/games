@@ -33,7 +33,7 @@ describe('racing rules', () => {
     expect(s.phase).toBe('pick')
     s = ok(racing.action(s, 'b', { type: 'ready' }, ctx(2000)))
     expect(s.phase).toBe('race')
-    expect(s.startAt).toBe(7000)
+    expect(s.startAt).toBe(10000)
   })
 
   it('rejects unknown parts and picks after the start', () => {

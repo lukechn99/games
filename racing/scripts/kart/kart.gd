@@ -220,6 +220,8 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 ## Another player's kart (online): it isn't simulated here. It follows the
 ## positions that player's game sends, smoothly, and only counts laps.
 var remote := false
+## Held on the grid before the start: can't roll, whatever the slope.
+var hold := false
 var _net_pos := Vector3.ZERO
 var _net_rot := Quaternion.IDENTITY
 var _net_vel := Vector3.ZERO
@@ -292,6 +294,10 @@ func _physics_process(delta: float) -> void:
 	if remote:
 		_follow_net(delta)
 		return
+	if hold:
+		linear_velocity.x = 0.0
+		linear_velocity.z = 0.0
+		angular_velocity.y = 0.0
 	var xf := global_transform
 	var up := xf.basis.y
 	var fwd := -xf.basis.z

@@ -754,14 +754,16 @@ static func _clouds(t: Track) -> void:
 	var st := _new_st()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
-	var center := Vector3(80, 0, -30)
+	# Round this track, well outside where the aerial views fly.
+	var center := t.map_centre()
+	var reach := t.map_radius() + 160.0
 	var sun := -KartVisual.sun_dir
 	var top := Color(1.0, 1.0, 1.0)
 	var belly := Color(0.7, 0.77, 0.9)
 	for c in 13:
 		var a := TAU * c / 13.0 + rng.randf() * 0.25
 		var low := c % 3 == 0     # some sit low on the horizon, behind the hills
-		var r := rng.randf_range(560, 700) if low else rng.randf_range(380, 540)
+		var r := (reach + rng.randf_range(260, 400)) if low else (reach + rng.randf_range(60, 220))
 		var base := center + Vector3(cos(a) * r, rng.randf_range(30, 60) if low else rng.randf_range(95, 150), sin(a) * r)
 		var w := rng.randf_range(90, 190) * (1.4 if low else 1.0)
 		var tall := w * rng.randf_range(0.35, 0.7)

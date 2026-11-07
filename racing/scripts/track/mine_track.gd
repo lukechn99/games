@@ -49,6 +49,9 @@ static func configure(t: Track) -> void:
 		# The ledge climbs to the far side of the mountain and back down.
 		var u := float(i) / n
 		var y := 14.0 + 9.0 * (1.0 - cos(u * TAU)) * 0.5 + 2.0 * sin(u * TAU * 3.0)
+		# Level round the start, so karts wait on the grid without rolling.
+		if i <= 1 or i >= n - 3:
+			y = 14.0
 		pts.append(world(SKETCH[i], y))
 	t.points = pts
 	t.surface_zones = [
@@ -224,7 +227,10 @@ static func _mountain(t: Track) -> void:
 			near[k] = clampf((half + 14.0 - dist) / 4.0, 0.0, 1.0)
 			var h := y_r - 0.35
 			if dist > half + 12.0:
-				h += minf((dist - half - 12.0) * 1.5, 70.0) + noise.get_noise_2d(p.x, p.y) * 6.0
+				# Steep slopes, easing into a rounded summit instead of a flat
+				# snowfield.
+				var rise := (dist - half - 12.0) * 1.5
+				h += (rise if rise < 55.0 else 55.0 + (rise - 55.0) * 0.35) + noise.get_noise_2d(p.x, p.y) * 7.0
 			if dist < half + 1.5:
 				h = y_r - 0.8   # under the road edge
 			# The tunnel: high above it inside, cut down where it comes out.
@@ -289,6 +295,9 @@ static func rock_material() -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = load("res://shaders/rock.gdshader")
 	m.set_shader_parameter("detail", load(Palette.TEX_DIR + "rock.png"))
+	# Snow only on the very top, and a soft blue-white so it isn't glare.
+	m.set_shader_parameter("snow_line", 100.0)
+	m.set_shader_parameter("snow", Color(0.86, 0.9, 0.97))
 	return m
 
 
@@ -527,7 +536,9 @@ static func _cavern(t: Track, i: int) -> void:
 	var mid := t.branch_frame((da + db) * 0.5, i)
 	var pit := MeshInstance3D.new()
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(220, (db - da) + 160)
+	# Just the cavern's footprint (it's deep inside the mountain): any bigger
+	# and it showed as a black sheet over the valley outside.
+	plane.size = Vector2(Track.ROAD_WIDTH + 36.0, (db - da) + 2.0)
 	pit.mesh = plane
 	pit.transform = Transform3D(mid.basis, Vector3(mid.origin.x, 0.3, mid.origin.z))
 	var pm := StandardMaterial3D.new()

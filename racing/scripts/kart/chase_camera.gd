@@ -84,6 +84,13 @@ func _desired_position() -> Vector3:
 	return _target_xf().origin - f * DISTANCE + Vector3.UP * HEIGHT + review_offset.x * f.cross(Vector3.UP) + Vector3.UP * review_offset.y
 
 
+## Where the camera sits and looks once it's behind the kart (the end of
+## the start-of-race fly-in).
+func rest_view() -> Array:
+	var f := _flat_forward()
+	return [_desired_position(), _target_xf().origin + f * LOOK_AHEAD + Vector3.UP * 0.75]
+
+
 func _process(delta: float) -> void:
 	if target == null:
 		return

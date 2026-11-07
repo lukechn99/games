@@ -215,7 +215,18 @@ if __name__ == "__main__":
     for name in names:
         c.reset()
         objs, target, dist = BUILDERS[name]()
-        c.export(os.path.abspath(os.path.join(MODELS, name + ".glb")), objs)
+        # One mesh per prop (one surface per material), so the game can draw
+        # hundreds of copies cheaply. The windmill's sails stay separate to spin.
+        keep = [o for o in objs if o.name == "Sails"]
+        rest = [o for o in objs if o.name != "Sails"]
+        bpy.ops.object.select_all(action="DESELECT")
+        for o in rest:
+            o.select_set(True)
+        bpy.context.view_layer.objects.active = rest[0]
+        bpy.ops.object.join()
+        rest[0].name = name
+        objs = [rest[0]] + keep
+        c.export(os.path.abspath(os.path.join(MODELS, name + ".glb")), objs, max_tris={"tree_puffy": 1800}.get(name, 1500))
         if name == "coin":
             for o in objs:
                 o.location.z += 0.6

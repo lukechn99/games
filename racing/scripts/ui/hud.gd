@@ -280,7 +280,7 @@ func _process(delta: float) -> void:
 	_place.text = "%d%s" % [place, _ordinal(place)]
 	# Gold, silver, bronze, then white.
 	_place.add_theme_color_override("font_color", [Color(1.0, 0.84, 0.2), Color(0.86, 0.9, 0.96), Color(0.95, 0.62, 0.35)][place - 1] if place <= 3 else Color.WHITE)
-	_speed.text = "%d km/h" % int(absf(me.speed) * 3.6)
+	_speed.text = "%d km/h    coins %d" % [int(absf(me.speed) * 3.6), me.coins]
 	var t: float = me.race_time
 	_lap.text = "Lap %d/%d   %d:%04.1f" % [clampi(me.lap, 1, race.track.laps), race.track.laps, int(t / 60.0), fmod(t, 60.0)]
 	_center.text = race.center_text

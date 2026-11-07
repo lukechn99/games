@@ -55,7 +55,7 @@ mark = question("Mark", 0.08, 0.028, (1.0, 0.86, 0.2), (1.0, 0.86, 0.2))
 edge = question("MarkEdge", 0.06, 0.07, (1.0, 0.5, 0.1), (1.0, 0.5, 0.1))
 mark.location.y -= 0.025   # the yellow face sits just in front of the rim
 
-c.export(os.path.abspath(OUT), [shell, mark, edge])
+c.export(os.path.abspath(OUT), [shell, mark, edge], max_tris=2500)
 print("wrote", os.path.abspath(OUT))
 if len(sys.argv) > 1:
     for o in (shell, mark, edge):

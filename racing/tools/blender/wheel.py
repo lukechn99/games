@@ -85,7 +85,7 @@ def build():
 if __name__ == "__main__":
     c.reset()
     objs = build()
-    c.export(os.path.abspath(OUT), objs)
+    c.export(os.path.abspath(OUT), objs, max_tris=2400)
     print("wrote", os.path.abspath(OUT))
     if len(sys.argv) > 1:
         for o in objs:

@@ -146,10 +146,13 @@ func wheel_mount(i: int) -> Vector3:
 
 func top_speed() -> float:
 	var honey := 0.55 if sticky_time > 0.0 else 1.0
+	honey *= 1.0 + 0.01 * coins
 	return float(chassis["top_speed"]) * float(tires["top_speed"]) * (BOOST_SPEED if boost_time > 0.0 else 1.0) * honey
 
 
 # --- Items (design doc 6) ----------------------------------------------------
+## Coins picked up on the road: each adds 1% to top speed, up to 10.
+var coins := 0
 var held_item := ""        # "honey", "tumbleweed" or "" (see items.gd)
 var item_spin := 0.0       # seconds left of the "what did I get?" spin
 var sticky_time := 0.0     # in honey: slow and sluggish
@@ -173,6 +176,7 @@ func knock(from: Vector3) -> void:
 	var side := global_transform.basis.x
 	var push := side * signf(side.dot(global_position - from) + 0.01)
 	linear_velocity = linear_velocity * 0.6 + push * 6.0 + Vector3.UP * 2.0
+	coins = maxi(0, coins - 3)   # a hit costs you coins, as in Mario Kart
 	angular_velocity += global_transform.basis.y * 1.2 * signf(push.dot(side))
 	crashed.emit(0.6)
 

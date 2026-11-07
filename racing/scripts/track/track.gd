@@ -11,6 +11,7 @@ const ROAD_WIDTH := 14.0
 const CHECKPOINTS := 12
 const KIT_RACING := "res://assets/vendor/kenney_racing_kit/"
 const KIT_NATURE := "res://assets/vendor/kenney_nature_kit/"
+const MODELS := "res://assets/models/"   # our own, built in Blender (tools/blender/)
 
 ## Racing line, in metres, clockwise. y is height.
 ## The far side climbs a hill (up to 7 m), drops down past the ice and
@@ -68,6 +69,7 @@ var ledge_out := 1.0          # which side of the road the lake is on (+1 right)
 ## Item crates that ride on something moving (the mine's rope bridge):
 ## {node, local} pairs, read by items.gd.
 var moving_crates: Array = []
+var coin_spots: Array[Vector3] = []   # coins on the road (dressing.gd, items.gd)
 var bridge: Node3D   # the mine's rope bridge (SwayBridge), if any
 
 
@@ -735,11 +737,11 @@ func _build_rails() -> void:
 				col.shape = box
 				col.transform = Transform3D(a.basis, pos + Vector3.UP * 0.6)
 				body.add_child(col)
-				# The kit's rail is 1 unit long along -Z and 0.28 tall.
-				var vis := Transform3D(_sl(a.basis, Vector3(6.0, 3.6, seg)), pos + a.basis.z * (seg * 0.5) - a.basis.x * side * 0.15)
+				# Our guardrail (tools/blender/props.py): 4 m long, centred.
+				var vis := Transform3D(a.basis.rotated(a.basis.y, PI if side > 0 else 0.0), pos)
 				visuals.append(vis)
 		d += seg
-	_scatter(KIT_RACING + "railDouble.glb", visuals)
+	_scatter(MODELS + "guardrail.glb", visuals)
 
 
 func _build_jump() -> void:
@@ -1167,10 +1169,38 @@ func _build_scenery() -> void:
 	_scatter(KIT_NATURE + "rock_largeA.glb", rocks)
 	_scatter(KIT_NATURE + "plant_bushLarge.glb", bushes, 220.0)
 	_scatter(KIT_NATURE + "flower_yellowA.glb", flowers, 140.0)
+	_puffy_trees(shade)
 	SetPieces.ground_shade(self, shade)
 	_build_mountains()
+	Dressing.build(self)
 	if layout == "meadow":
 		_roadside_flora.call_deferred()
+
+
+## Round, puffy cartoon trees (our Blender model) dotted among the kit trees,
+## a few close to the road. Their trunks are solid.
+func _puffy_trees(shade: Array) -> void:
+	var xs: Array[Transform3D] = []
+	var solid := _body("tree")
+	var tries := 0
+	while xs.size() < 70 and tries < 3000:
+		tries += 1
+		var p := Vector3(_rng.randf_range(-260, 420), 0, _rng.randf_range(-420, 360))
+		var dist := _distance_to_line(p)
+		if dist < ROAD_WIDTH * 0.5 + 6.0 or dist > 140.0 or _blocked(p) or in_water(p):
+			continue
+		var sc := _rng.randf_range(0.8, 1.35)
+		xs.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * sc), p))
+		shade.append([p, 1.6 * sc, 4.5 * sc])
+		if dist < trees_hit_radius:
+			var col := CollisionShape3D.new()
+			var cyl := CylinderShape3D.new()
+			cyl.radius = 0.3 * sc
+			cyl.height = 4.0
+			col.shape = cyl
+			col.position = p + Vector3.UP * 2.0
+			solid.add_child(col)
+	_scatter(MODELS + "tree_puffy.glb", xs)
 
 
 ## Grass tufts, flowers and small bushes along both sides of the road, so

@@ -46,6 +46,7 @@ func setup(t: Track, all: Array[Kart], mine: Array[Kart]) -> void:
 			n.position = p
 			add_child(n)
 			_crates.append({"node": n, "pos": p, "away": 0.0})
+	_spawn_coins()
 	# Crates on moving things (the mine's rope bridge) follow them.
 	for m in track.moving_crates:
 		var n := _crate_mesh()
@@ -155,6 +156,7 @@ func _physics_process(delta: float) -> void:
 	_crate_pickups(delta)
 	_use_items()
 	_update_honey(delta)
+	_update_coins(delta)
 	_update_weeds(delta)
 
 
@@ -291,3 +293,54 @@ func _update_weeds(delta: float) -> void:
 		if w["life"] <= 0.0:
 			node.queue_free()
 			_weeds.erase(w)
+
+
+# --- Coins ------------------------------------------------------------------
+# Spinning gold coins in rows on the road (Dressing._coins). Each adds 1% to
+# your top speed, up to 10; being hit by an item costs three (kart.gd).
+
+const COIN_RESPAWN := 10.0
+const COIN_MAX := 10
+var _coins: Array[Dictionary] = []   # {node, pos, away}
+static var _coin_mesh: Mesh
+
+
+func _spawn_coins() -> void:
+	if track.coin_spots.is_empty():
+		return
+	if _coin_mesh == null:
+		var scene: PackedScene = load("res://assets/models/coin.glb")
+		if scene == null:
+			return
+		var inst := scene.instantiate()
+		var mi := inst.find_children("*", "MeshInstance3D", true, false)
+		if not mi.is_empty():
+			_coin_mesh = Palette.restyle((mi[0] as MeshInstance3D).mesh)
+		inst.free()
+	for p in track.coin_spots:
+		var n := MeshInstance3D.new()
+		n.mesh = _coin_mesh
+		n.position = p
+		n.scale = Vector3.ONE * 1.3
+		n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(n)
+		_coins.append({"node": n, "pos": p, "away": 0.0})
+
+
+func _update_coins(delta: float) -> void:
+	var t := Time.get_ticks_msec() / 1000.0
+	for c in _coins:
+		var node: Node3D = c["node"]
+		if c["away"] > 0.0:
+			c["away"] -= delta
+			node.visible = c["away"] <= 0.0
+			continue
+		node.rotation.y = t * 3.0
+		node.position.y = c["pos"].y + sin(t * 3.0 + c["pos"].x) * 0.1
+		for k in karts:
+			if k.global_position.distance_to(c["pos"]) < 1.6:
+				c["away"] = COIN_RESPAWN
+				node.visible = false
+				if owned.has(k):
+					k.coins = mini(COIN_MAX, k.coins + 1)
+				break

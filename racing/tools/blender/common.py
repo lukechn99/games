@@ -4,6 +4,7 @@ Each asset script builds its model from scratch, exports a .glb into
 racing/assets/models/ and can render a preview PNG to look at.
 """
 import math
+import os
 import bpy
 import bmesh
 
@@ -73,9 +74,26 @@ def apply_all(obj):
         bpy.ops.object.modifier_apply(modifier=m.name)
 
 
-def export(path, objects=None):
+def tris(objects):
+    return sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in objects if o.type == "MESH")
+
+
+def export(path, objects=None, max_tris=None):
+    """Write a .glb. With `max_tris`, thin the meshes down to about that many
+    triangles first (phones draw many copies of these; design doc 14)."""
+    objs = list(objects or bpy.context.scene.objects)
+    if max_tris:
+        total = tris(objs)
+        if total > max_tris:
+            ratio = max(0.08, max_tris / total)
+            for o in objs:
+                if o.type == "MESH" and len(o.data.polygons) > 40:
+                    d = o.modifiers.new("budget", "DECIMATE")
+                    d.ratio = ratio
+                    apply_all(o)
+        print("tris", os.path.basename(path), total, "->", tris(objs))
     bpy.ops.object.select_all(action="DESELECT")
-    for o in (objects or bpy.context.scene.objects):
+    for o in objs:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True, export_yup=True)
 

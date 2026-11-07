@@ -471,6 +471,13 @@ func _apply_quality() -> void:
 	_env.glow_enabled = q >= Controls.Quality.MEDIUM
 	sun.shadow_enabled = Controls.shadows and q == Controls.Quality.HIGH
 	Palette.apply_quality(q >= Controls.Quality.MEDIUM, q == Controls.Quality.HIGH)
+	# Low also draws less: no kart-shaped shadows (the soft patch stays),
+	# and the roadside plants and small rocks only close to the camera.
+	KartVisual.cast_shadows = q >= Controls.Quality.MEDIUM
+	Track.detail_reach = 0.45 if q == Controls.Quality.LOW else 1.0
+	for n in get_tree().get_nodes_in_group("detail"):
+		var gi := n as GeometryInstance3D
+		gi.visibility_range_end = float(gi.get_meta("far")) * Track.detail_reach
 	_fps_time = 0.0
 	_fps_frames = 0
 
@@ -484,12 +491,13 @@ func _apply_quality() -> void:
 func _fit_resolution() -> void:
 	var vp := get_viewport()
 	var px := float(vp.size.x * vp.size.y)
-	var budget: float = [900000.0, 1400000.0, 2000000.0][Controls.quality]
+	var budget: float = [600000.0, 1200000.0, 2000000.0][Controls.quality]
 	vp.scaling_3d_scale = clampf(sqrt(budget / maxf(px, 1.0)), 0.5, 1.0)
 
 
-## Start on the best graphics and step down if the device can't keep up:
-## each 6 seconds of racing below 45 frames a second drops one level.
+## Everyone starts on Low (Controls). If a player raises it and the device
+## can't keep up (6 seconds of racing under 45 frames a second), step back
+## down a level, without overwriting their saved choice.
 func _watch_frame_rate(delta: float) -> void:
 	if Controls.quality == Controls.Quality.LOW:
 		return
@@ -500,7 +508,7 @@ func _watch_frame_rate(delta: float) -> void:
 		_fps_time = 0.0
 		_fps_frames = 0
 		if fps < 45.0:
-			Controls.set_quality((Controls.quality - 1) as Controls.Quality)
+			Controls.set_quality((Controls.quality - 1) as Controls.Quality, false)
 			hud.flash("Graphics: %s, for smoother play" % Controls.quality_name(), 2.0)
 
 

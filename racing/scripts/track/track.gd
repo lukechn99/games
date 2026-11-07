@@ -69,6 +69,9 @@ var ledge_out := 1.0          # which side of the road the lake is on (+1 right)
 ## Item crates that ride on something moving (the mine's rope bridge):
 ## {node, local} pairs, read by items.gd.
 var moving_crates: Array = []
+## How far small scenery draws, as a share of its usual range (0.45 on Low
+## graphics; main.gd sets it).
+static var detail_reach := 1.0
 var coin_spots: Array[Vector3] = []   # coins on the road (dressing.gd, items.gd)
 var bridge: Node3D   # the mine's rope bridge (SwayBridge), if any
 
@@ -708,7 +711,9 @@ func _scatter(path: String, xforms: Array[Transform3D], far := 0.0) -> void:
 		mmi.multimesh = mm
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		if far > 0.0:
-			mmi.visibility_range_end = far
+			mmi.visibility_range_end = far * detail_reach
+			mmi.set_meta("far", far)
+			mmi.add_to_group("detail")
 			mmi.visibility_range_end_margin = 20.0
 			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 		add_child(mmi)

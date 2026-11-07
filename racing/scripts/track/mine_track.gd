@@ -368,8 +368,10 @@ static func _tunnel(t: Track, i: int) -> void:
 				var c := ROCK_DARK.darkened(0.25 + 0.1 * float(k % 2))
 				SetPieces._quad(shell, prev[k], ring[k], ring[k + 1], prev[k + 1], c)
 		prev = ring
-		# A floor out to the walls each side, so there's no gutter to drop into.
-		if not cav:
+		# A floor out to the walls each side, so there's no gutter to drop
+		# into (everywhere but over the cavern pit itself, including the
+		# stretch either side of it where the walls already open out).
+		if not (u > CAVERN[0] and u < CAVERN[1]):
 			var fb := t.branch_frame(minf(d + 2.0, d1), i)
 			for sx: float in [-1.0, 1.0]:
 				var e0 := f.origin + f.basis.x * sx * (Track.ROAD_WIDTH * 0.5 + 0.8) - Vector3.UP * 0.02
@@ -395,9 +397,40 @@ static func _tunnel(t: Track, i: int) -> void:
 	gm.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var gi := SetPieces._commit(t, gutter, gm, true, "dirt")
 	gi.get_parent().set_meta("floor", true)
+	_collars(t, i, d0, d1)
 	_torches(t, i, d0, d1)
 	_cavern(t, i)
 	_coal(t, i)
+
+
+## A rock face round each tunnel mouth: a wide ring out from the tunnel's
+## end down to below the ground, so you never see daylight round the edge
+## of the tunnel or through the mountain beside the mouth.
+static func _collars(t: Track, i: int, d0: float, d1: float) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var arc := 12
+	for d in [d0, d1]:
+		var f := t.branch_frame(d, i)
+		var ri := Track.ROAD_WIDTH * 0.5 + 3.2
+		var inner := []
+		var outer := []
+		for k in arc + 1:
+			var a := PI * float(k) / arc
+			var dir := f.basis.x * cos(a) + Vector3.UP * sin(a) * 0.75
+			var lump := 0.4 * sin(d * 0.5 + k * 1.9)
+			inner.append(f.origin + dir * (ri + lump) - f.basis.z * 0.0)
+			var o := f.origin + (f.basis.x * cos(a) * 1.0 + Vector3.UP * sin(a) * 0.9) * (ri + 16.0 + 3.0 * sin(k * 2.3))
+			outer.append(o)
+		# Down to the ground each side.
+		for side in [0, arc]:
+			var dn := Vector3.DOWN * 8.0
+			SetPieces._quad(st, inner[side], outer[side], outer[side] + dn, inner[side] + dn, ROCK_DARK.darkened(0.1))
+		for k in arc:
+			SetPieces._quad(st, inner[k], outer[k], outer[k + 1], inner[k + 1], ROCK.lerp(ROCK_DARK, 0.4 + 0.2 * float(k % 2)))
+	var m := rock_material()
+	SetPieces._commit(t, st, m)
+	# (Double-sided through the shader: rock.gdshader culls nothing.)
 
 
 ## Torches on the walls, with real flickering light from some of them.
@@ -470,10 +503,12 @@ static func _cavern(t: Track, i: int) -> void:
 	# dark, so you never see daylight under the far end.
 	var ends := SurfaceTool.new()
 	ends.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for e in [[da + 0.3, 1.0], [db - 0.3, -1.0]]:
+	for e in [[da, 1.0], [db, -1.0]]:
 		var f := t.branch_frame(e[0], i)
 		var w := Track.ROAD_WIDTH * 0.5 + 18.0
-		var top := f.origin - Vector3.UP * 0.6
+		# Right up to the road's underside: from lower down you could see
+		# under the tunnel floor and out of the mountain.
+		var top := f.origin - Vector3.UP * 0.03
 		var bottom := Vector3(f.origin.x, 0.0, f.origin.z)
 		var x := f.basis.x * w
 		SetPieces._quad(ends, top - x, top + x, bottom + x, bottom - x, ROCK_DARK.darkened(0.45))
@@ -488,7 +523,7 @@ static func _cavern(t: Track, i: int) -> void:
 	var mid := t.branch_frame((da + db) * 0.5, i)
 	var pit := MeshInstance3D.new()
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(90, (db - da) + 90)
+	plane.size = Vector2(220, (db - da) + 160)
 	pit.mesh = plane
 	pit.transform = Transform3D(mid.basis, Vector3(mid.origin.x, 0.3, mid.origin.z))
 	var pm := StandardMaterial3D.new()

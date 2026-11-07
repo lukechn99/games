@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode diffuse_toon, specular_disabled;
+render_mode diffuse_toon, specular_disabled, cull_disabled;
 // Mining Mountain's rock. Cartoon cliffs read as layers: warm bands of
 // sandstone of different shades, a dark seam between them, wavering a
 // little so they don't look ruled. Ledges flat enough to hold soil turn
@@ -54,7 +54,7 @@ void fragment() {
 	float f = fract(band);
 	float aa = fwidth(band) * 1.5;
 	c = mix(seam, c, smoothstep(0.0, 0.07 + aa, f) * (1.0 - smoothstep(0.96 - aa, 1.0, f) * 0.6));
-	c *= 0.9 + 0.2 * vnoise(wpos.xz / 2.0 + wpos.y);
+	c *= 0.92 + 0.16 * vnoise(wpos.xz / 5.0 + wpos.y * 0.3);
 	// Grass on ledges, snow on top.
 	float flat_ = smoothstep(0.86, 0.95, n.y) * smoothstep(0.45, 0.6, vnoise(wpos.xz / 14.0));
 	// (Only up the mountain: near the road it read as a green smear.)
@@ -64,8 +64,8 @@ void fragment() {
 	c = mix(c, snow, s);
 	// Beside the road (vertex alpha): packed gravel run-off, speckled.
 	float g = use_gravel ? smoothstep(0.2, 0.8, COLOR.a) : 0.0;
-	vec3 gc = gravel * (0.85 + 0.25 * vnoise(wpos.xz * 0.9)) * (0.92 + 0.12 * vnoise(wpos.xz / 6.0));
+	vec3 gc = gravel * (0.92 + 0.12 * vnoise(wpos.xz / 2.0)) * (0.92 + 0.12 * vnoise(wpos.xz / 8.0));
 	c = mix(c, gc, g);
-	ALBEDO = c * mix(0.7, 1.05, triplanar(wpos, n));
+	ALBEDO = c * mix(0.85, 1.03, triplanar(wpos, n));
 	ROUGHNESS = 1.0;
 }

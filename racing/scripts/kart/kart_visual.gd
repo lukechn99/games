@@ -133,7 +133,7 @@ func _update_shadow() -> void:
 		_cast_mat.set_shader_parameter("plane_point", hit["position"])
 		_cast_mat.set_shader_parameter("plane_normal", n)
 		_cast_mat.set_shader_parameter("strength", 0.6 * clampf(1.2 - h * 0.25, 0.0, 1.0))
-		_cast.visible = true
+		_cast.visible = cast_shadows
 
 
 ## Paintwork shines softly, metal sharply, rubber and fur not at all (9.4).
@@ -586,6 +586,7 @@ func _merge_all() -> void:
 ## side where you can see them (as in Mario Kart), not hide under the kart.
 static var sun_dir := Basis.from_euler(Vector3(deg_to_rad(-36), deg_to_rad(-35), 0)) * Vector3.FORWARD
 
+static var cast_shadows := true   # off on Low graphics (main.gd)
 var _inks: Array = []
 var _cast: MeshInstance3D
 var _cast_mat: ShaderMaterial

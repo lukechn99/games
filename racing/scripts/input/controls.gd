@@ -13,10 +13,12 @@ var auto_gas := false         # optional assist; phones have a gas button
 var tilt_full_lock := TILT_FULL_LOCK
 var tilt_trim := 0.0          # degrees, for people who hold their phone slightly tilted
 var shake_level := 1.0        # 1 full, 0.5 gentle, 0 off
-## Graphics quality (design doc 9.1). Everyone starts on High; if the frame
-## rate drops, the race steps down a level by itself (main.gd).
+## Graphics quality (design doc 9.1). Everyone starts on Low, so the game
+## runs on as many devices as possible; players can raise it in the garage,
+## and the choice is remembered on this device. If a raised level can't keep
+## up, the race steps back down by itself (main.gd).
 enum Quality { LOW, MEDIUM, HIGH }
-var quality := Quality.HIGH
+var quality := Quality.LOW
 ## Real-time sun shadows, only on High. Off until they look right in the
 ## browser renderer (they brightened the scene); ?shadows=on to try them.
 var shadows := false
@@ -44,13 +46,19 @@ func _ready() -> void:
 	if OS.has_feature("web"):
 		var q := str(JavaScriptBridge.eval("location.search", true))
 		shadows = q.contains("shadows=on")
-		for name in ["low", "medium", "high"]:
+		var saved := str(JavaScriptBridge.eval("(function(){try{return localStorage.getItem('kw_quality')||''}catch(e){return ''}})()", true))
+		var names := ["low", "medium", "high"]
+		if names.has(saved):
+			quality = names.find(saved) as Quality
+		for name in names:
 			if q.contains("quality=" + name):
-				quality = ["low", "medium", "high"].find(name) as Quality
+				quality = names.find(name) as Quality
 
 
-func set_quality(q: Quality) -> void:
+func set_quality(q: Quality, remember := true) -> void:
 	quality = q
+	if remember and OS.has_feature("web"):
+		JavaScriptBridge.eval("try{localStorage.setItem('kw_quality','%s')}catch(e){}" % ["low", "medium", "high"][q], true)
 	quality_changed.emit()
 
 

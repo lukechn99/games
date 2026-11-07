@@ -79,7 +79,7 @@ def bake(name, h, depth_m, detail):
 
 
 def asphalt():
-    h = noise(4) * 0.0008 + noise(14) * 0.0014
+    h = noise(30) * 0.0012 + noise(70) * 0.0015
     # Sealed patches: slightly raised plates with a soft ridge round them.
     d1, d2, idx = cells(10, 3)
     seam = np.exp(-((d2 - d1) / 4.0) ** 2)
@@ -88,9 +88,9 @@ def asphalt():
     # A few hairline cracks.
     c = noise(90, 8)
     crack = np.exp(-(c / 0.05) ** 2) * (noise(200, 9) > 0.3)
-    h -= crack * 0.004
-    tone = 0.9 + 0.05 * noise(6) - 0.1 * patch
-    detail = np.clip(tone - crack * 0.35, 0, 1)
+    h -= crack * 0.0015
+    tone = 0.92 + 0.04 * noise(40) - 0.1 * patch
+    detail = np.clip(tone - crack * 0.1, 0, 1)
     bake("asphalt", h, 0.006, detail)
 
 
@@ -126,14 +126,14 @@ def planks():
 
 
 def dirt():
-    h = noise(40, 12) * 0.012 + noise(12) * 0.002
+    h = noise(60, 12) * 0.014 + noise(30) * 0.002
     # Pebbles: small rounded bumps, lighter than the earth round them.
     d1, d2, idx = cells(140, 13)
     keep = np.random.default_rng(14).random(140)[idx] > 0.5
     size = 6.0 + 8.0 * np.random.default_rng(15).random(140)[idx]
     peb = np.clip(1.0 - d1 / size, 0, 1) ** 0.5 * keep
-    h += peb * 0.035
-    detail = 0.86 + 0.05 * noise(10) - 0.07 * noise(40, 15) + peb * 0.14
+    h += peb * 0.02
+    detail = 0.88 + 0.03 * noise(30) - 0.07 * noise(60, 15) + peb * 0.06
     bake("dirt", h, 0.02, np.clip(detail, 0, 1))
 
 
@@ -154,8 +154,8 @@ def cobbles():
     edge = dome * (N / n) * 0.5                    # pixels in from the stone edge
     h = np.sqrt(np.clip(dome / 0.35, 0, 1)) * 0.03 - 0.02
     tone = 0.8 + 0.2 * r[row % n, col]
-    h += noise(3) * 0.002
-    detail = np.where(edge < 3.0, 0.45, tone + 0.04 * noise(4))
+    h += noise(30) * 0.0015
+    detail = np.where(edge < 3.0, 0.45, tone + 0.03 * noise(30))
     bake("cobbles", h, 0.03, np.clip(detail, 0, 1))
 
 

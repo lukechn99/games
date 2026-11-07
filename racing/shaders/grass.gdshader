@@ -54,8 +54,8 @@ void fragment() {
 		if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) edge = 12.0;
 		float rag = vnoise(p / 2.2) * 0.6 + vnoise(p / 7.0) * 0.4;
 		float s = 1.0 - smoothstep(2.4 + rag * 2.6, 3.8 + rag * 4.2, edge);
-		vec3 sc = sand * (0.88 + 0.2 * vnoise(p * 1.7));
-		float pebble = smoothstep(0.8, 0.86, vnoise(p * 2.6)) * s;
+		vec3 sc = sand * (0.92 + 0.12 * vnoise(p * 0.5));
+		float pebble = smoothstep(0.82, 0.88, vnoise(p * 0.9)) * s;
 		sc = mix(sc, sc * 0.62, pebble);
 		// A darker, lusher fringe where the grass meets the sand.
 		float fringe = (1.0 - smoothstep(2.0 + rag * 3.0, 6.0 + rag * 4.0, edge)) * (1.0 - s);
@@ -63,6 +63,6 @@ void fragment() {
 		c = mix(c, sc, s);
 	}
 	float tex = texture(detail, p / tile_m).r;
-	ALBEDO = c * mix(0.75, 1.0, tex);
+	ALBEDO = c * mix(0.9, 1.0, tex);
 	ROUGHNESS = 1.0;
 }

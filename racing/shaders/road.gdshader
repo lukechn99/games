@@ -37,9 +37,10 @@ float vnoise(vec2 p) {
 void fragment() {
 	// (This renderer hands vertex colours over ready to use.)
 	vec3 c = COLOR.rgb;
-	float tex = texture(detail, UV).r;
-	vec2 suv = vec2(UV.x, UV.y) * (14.0 / 4.0);
-	tex *= mix(1.0, texture(surf, suv).r * 1.25, 0.85);
+	float tex = mix(1.0, texture(detail, UV).r, 0.5);
+	// (One baked tile every 9 m: finer than that shimmered like static at speed.)
+	vec2 suv = vec2(UV.x, UV.y) * (14.0 / 9.0);
+	tex *= mix(1.0, texture(surf, suv).r * 1.2, 0.6);
 	vec3 nm = texture(surf_n, suv).rgb * 2.0 - 1.0;
 	if (ruts && UV.x >= 0.0 && UV.x <= 1.0) {
 		// Two grooves where the wheels run: slope of a pair of soft dips.
@@ -56,9 +57,9 @@ void fragment() {
 	float rough = 0.92;
 	if (UV.x >= 0.0 && UV.x <= 1.0) {
 		// Coarse tarmac: stones in the mix show as light and dark grit.
-		float grit = texture(detail, wpos.xz / 3.0).r;
-		float speck = vnoise(wpos.xz * 6.0) * 0.6 + vnoise(wpos.xz * 2.3) * 0.4;
-		c *= mix(0.84, 1.14, speck * 0.6 + grit * 0.4);
+		// Broad mottling only (fine grit read as static at speed).
+		float speck = vnoise(wpos.xz / 2.5);
+		c *= mix(0.92, 1.08, speck);
 		float n = vnoise(wpos.xz / 38.0) * 0.6 + vnoise(wpos.xz / 7.0) * 0.4;
 		c *= mix(0.86, 1.12, n);
 		// Sealed patches of fresher, darker tar.

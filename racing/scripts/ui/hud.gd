@@ -221,7 +221,12 @@ func flash(text: String, seconds := 2.0) -> void:
 
 
 ## Lay everything out from the real screen size (it changes when phones rotate).
+var _item: Label
+
+
 func _layout(vs: Vector2) -> void:
+	if _item == null:
+		_item = _label(_root, 20, Vector2(16, 88))
 	_root.position = Vector2.ZERO
 	_root.size = vs
 	if touch.size != vs:
@@ -252,6 +257,13 @@ func _process(delta: float) -> void:
 	_lap.text = "Lap %d/%d   %d:%04.1f" % [clampi(me.lap, 1, race.track.laps), race.track.laps, int(t / 60.0), fmod(t, 60.0)]
 	_center.text = race.center_text
 	touch.drift_stage = me.drift_stage()
+	# The item you hold, with a quick spin through the icons as you pick it up.
+	var shown := me.held_item
+	if me.item_spin > 0.0:
+		shown = Items.KINDS[int(me.item_spin * 12.0) % Items.KINDS.size()]
+	touch.held_item = shown
+	if not touch.visible:
+		_item.text = ("Item: %s  (E)" % {"honey": "Honey puddle", "tumbleweed": "Tumbleweed"}.get(shown, shown)) if shown != "" else ""
 	if touch.visible:
 		touch.queue_redraw()
 	_banner_time -= delta

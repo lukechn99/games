@@ -102,6 +102,8 @@ func rebuild() -> void:
 	for c in get_children():
 		c.queue_free()
 	_wheels.clear()
+	_rack = null
+	_rack_item = ""
 	_finish = Palette.Finish.PAINT
 	_wobbly.clear()
 	_wobble_vel.clear()
@@ -555,9 +557,48 @@ func _wobbly_part(mesh: Mesh, c: Color, parent: Node3D, pos: Vector3, rot: Vecto
 	return pivot
 
 
+## The held item rides on the back of the kart (design doc 6.1), so the
+## karts behind can see what's coming.
+var _rack: Node3D
+var _rack_item := ""
+
+
+func _update_rack() -> void:
+	var want := kart.held_item if kart.item_spin <= 0.0 else ""
+	if want == _rack_item:
+		return
+	_rack_item = want
+	if _rack:
+		_rack.queue_free()
+		_rack = null
+	if want == "":
+		return
+	_rack = Node3D.new()
+	var size: Vector3 = kart.chassis["size"]
+	_rack.position = Vector3(0, 0.62, size.z * 0.42)
+	add_child(_rack)
+	match want:
+		"honey":
+			var pot := CylinderMesh.new()
+			pot.top_radius = 0.15
+			pot.bottom_radius = 0.19
+			pot.height = 0.28
+			_mesh(pot, Color(1.0, 0.7, 0.15), _rack)
+			_mesh(_box(Vector3(0.34, 0.06, 0.34)), Color(0.6, 0.35, 0.18), _rack, Vector3(0, 0.16, 0))
+		"tumbleweed":
+			for i in 3:
+				var tor := TorusMesh.new()
+				tor.inner_radius = 0.18
+				tor.outer_radius = 0.22
+				tor.rings = 10
+				tor.ring_segments = 4
+				_mesh(tor, Color(0.82, 0.63, 0.36), _rack, Vector3.ZERO, Vector3.ONE, Vector3(i * 1.0, i * 0.6, 0))
+
+
 func _process(delta: float) -> void:
 	if kart == null or _wheels.is_empty():
 		return
+	_update_rack()
 	for i in 4:
 		var pivot := _wheels[i]
 		var mount := kart.wheel_mount(i)

@@ -21,6 +21,7 @@ var _racing := false
 var _finish_order: Array[Kart] = []
 var sun: DirectionalLight3D
 var lobby: Lobby
+var items: Items
 var _in_lobby := false
 var _tour := 0.0
 var _env: Environment
@@ -57,6 +58,12 @@ func _ready() -> void:
 	var bumps := KartBumps.new()
 	bumps.karts = karts
 	add_child(bumps)
+	items = Items.new()
+	add_child(items)
+	items.setup(track, karts, karts)
+	for k in karts:
+		if k != player_kart:
+			k.set_meta("bot_items", true)
 	camera.follow(player_kart)
 	hud.minimap.setup(track, karts, player_kart)
 	start_race()
@@ -165,6 +172,14 @@ func _build_online_karts(seats: Array, picks: Dictionary) -> void:
 	var bumps := KartBumps.new()
 	bumps.karts = karts
 	add_child(bumps)
+	items = Items.new()
+	add_child(items)
+	items.setup(track, karts, _owned)
+	for k in _owned:
+		if k != _by_id.get(Net.me):
+			k.set_meta("bot_items", true)
+	# Items we use show up in everyone's game.
+	items.used.connect(func(kind, p, d, sv): Net.relay({"i": [kind, p.x, p.y, p.z, d.x, d.y, d.z, sv]}))
 	camera.follow(player_kart)
 	hud.minimap.setup(track, karts, player_kart)
 	var me: Kart = _by_id.get(Net.me)
@@ -179,6 +194,11 @@ func _build_online_karts(seats: Array, picks: Dictionary) -> void:
 
 func _on_relay(from: String, data: Variant) -> void:
 	if not data is Dictionary:
+		return
+	var it: Variant = (data as Dictionary).get("i")
+	if it is Array and (it as Array).size() == 8 and items:
+		var a: Array = it
+		items.spawn(str(a[0]), Vector3(a[1], a[2], a[3]), Vector3(a[4], a[5], a[6]), int(a[7]))
 		return
 	var ks: Variant = (data as Dictionary).get("k")
 	if not ks is Dictionary:
@@ -519,6 +539,8 @@ func start_race() -> void:
 		k.race_time = 0.0
 		k.finished = false
 		k.boost_time = 0.0
+		k.held_item = ""
+		k.sticky_time = 0.0
 		k.reset_physics_interpolation()
 	_countdown = 3.0
 	_racing = false

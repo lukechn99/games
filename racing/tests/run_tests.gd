@@ -27,6 +27,7 @@ func _run() -> void:
 	await _test_bots_lap_the_track()
 	await _test_fall_off_respawns()
 	await _test_clean_start()
+	await _test_items()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
 
@@ -392,3 +393,72 @@ func _test_clean_start() -> void:
 		k.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
 		await physics_frame
 	check(hits.is_empty(), "driving straight from pole hits nothing (no phantom bumps)", "%s" % [hits])
+
+
+func _test_items() -> void:
+	print("items")
+	if _world:
+		_world.free()
+	_world = Node3D.new()
+	root.add_child(_world)
+	var track := Track.new()
+	_world.add_child(track)
+	var a := Kart.new()
+	a.configure("frame", "slicks", "fox")
+	a.track = track
+	_world.add_child(a)
+	var b := Kart.new()
+	b.configure("frame", "slicks", "frog")
+	b.track = track
+	_world.add_child(b)
+	var all: Array[Kart] = [a, b]
+	var items := Items.new()
+	_world.add_child(items)
+	items.setup(track, all, all)
+	# Park kart A in the first row of crates.
+	var d: float = lerpf(Track.BRANCH[0], Track.BRANCH[1], Items.CRATE_ROWS[0])
+	var f := track.branch_frame(d)
+	a.global_transform = Transform3D(f.basis, f.origin + f.basis.x * Items.CRATE_LANES[1] + Vector3.UP * 0.6)
+	await _ticks(90)
+	check(a.held_item in Items.KINDS, "driving through a crate gives you an item", a.held_item)
+	# Honey: kart B behind drives through it.
+	a.held_item = "honey"
+	a.global_transform = Transform3D(f.basis, f.origin + Vector3.UP * 0.6)
+	b.global_transform = Transform3D(f.basis, f.origin + f.basis.z * 12.0 + Vector3.UP * 0.6)
+	await _ticks(10)
+	a.input = {"steer": 0.0, "throttle": 0.0, "brake": 1.0, "drift": false, "item": true}
+	await _ticks(2)
+	a.input["item"] = false
+	check(a.held_item == "", "using an item spends it")
+	var stuck := [false]
+	for i in 120:
+		b.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+		await physics_frame
+		if b.sticky_time > 0.0:
+			stuck[0] = true
+	check(stuck[0], "a kart driving through honey gets stuck")
+	# Tumbleweed: knocks sideways without spinning round or flipping.
+	var c := _kart("frame", "slicks", "fox", Vector3(500, 0.6, 500))
+	_pad_under(c.global_position)
+	await _ticks(30)
+	var yaw0 := c.global_rotation.y
+	c.knock(c.global_position + c.global_transform.basis.x * 1.0)
+	var worst := 0.0
+	var up := 1.0
+	for i in 90:
+		c.input = {"steer": 0.0, "throttle": 0.0, "brake": 0.0, "drift": false}
+		await physics_frame
+		worst = maxf(worst, absf(angle_difference(yaw0, c.global_rotation.y)))
+		up = minf(up, c.global_transform.basis.y.dot(Vector3.UP))
+	check(worst < deg_to_rad(90.0) and up > 0.7, "a tumbleweed hit shoves you but doesn't spin or flip you", "turned %d°, uprightness %.2f" % [int(rad_to_deg(worst)), up])
+
+
+func _pad_under(p: Vector3) -> void:
+	var b := StaticBody3D.new()
+	var c := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(80, 2, 80)
+	c.shape = box
+	c.position = Vector3(p.x, -1, p.z)
+	b.add_child(c)
+	_world.add_child(b)

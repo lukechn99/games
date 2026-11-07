@@ -142,7 +142,32 @@ func wheel_mount(i: int) -> Vector3:
 
 
 func top_speed() -> float:
-	return float(chassis["top_speed"]) * float(tires["top_speed"]) * (BOOST_SPEED if boost_time > 0.0 else 1.0)
+	var honey := 0.55 if sticky_time > 0.0 else 1.0
+	return float(chassis["top_speed"]) * float(tires["top_speed"]) * (BOOST_SPEED if boost_time > 0.0 else 1.0) * honey
+
+
+# --- Items (design doc 6) ----------------------------------------------------
+var held_item := ""        # "honey", "tumbleweed" or "" (see items.gd)
+var item_spin := 0.0       # seconds left of the "what did I get?" spin
+var sticky_time := 0.0     # in honey: slow and sluggish
+
+
+## Driven into honey: slow and sluggish for a couple of seconds.
+func stick(seconds: float) -> void:
+	if sticky_time <= 0.0:
+		crashed.emit(0.2)
+	sticky_time = maxf(sticky_time, seconds)
+
+
+## Knocked by a tumbleweed: shoved sideways and slowed, but never spun round.
+func knock(from: Vector3) -> void:
+	if remote:
+		return
+	var side := global_transform.basis.x
+	var push := side * signf(side.dot(global_position - from) + 0.01)
+	linear_velocity = linear_velocity * 0.6 + push * 6.0 + Vector3.UP * 2.0
+	angular_velocity += global_transform.basis.y * 1.2 * signf(push.dot(side))
+	crashed.emit(0.6)
 
 
 ## Walls, rocks and trees stop you or knock you sideways; they never launch
@@ -411,6 +436,8 @@ func _physics_process(delta: float) -> void:
 	if track != null and not finished:
 		race_time += delta
 		track.update_progress(self)
+	sticky_time = maxf(0.0, sticky_time - delta)
+	item_spin = maxf(0.0, item_spin - delta)
 
 
 func _update_steering(delta: float) -> void:
@@ -422,7 +449,8 @@ func _update_steering(delta: float) -> void:
 	var max_steer := lerpf(float(chassis["max_steer"]), float(chassis["high_speed_steer"]), t)
 	if speed < -0.5:
 		steer = -steer  # reversing
-	steer_angle = move_toward(steer_angle, steer * max_steer, delta * 4.0)
+	# Honey makes the steering sluggish.
+	steer_angle = move_toward(steer_angle, steer * max_steer, delta * (1.6 if sticky_time > 0.0 else 4.0))
 
 
 func _update_drift(delta: float) -> void:

@@ -173,7 +173,15 @@ All builds should finish within about 5% of each other on a lap when driven well
 | Catch-up | **Slipstream rope** | Latches onto the kart ahead and slingshots you past it |
 | Field effect | **Fog horn** | Blows fog over the screens of everyone ahead of you for a few seconds (lighter fog for those further ahead) |
 
-### 6.1 Showing the item you're holding (Open)
+**Built (first items, Meadow Loop):**
+- **Crates:** two rows of glowing crystal crates across the cave route. They come back 3 seconds after being picked up. That's another reason to take the cave.
+- **Roulette:** picking one up spins through the icons for under a second, then you hold the item until you use it (item button, or E).
+- **Honey puddle:** works as in the table above: slow and sluggish steering for 2 seconds, lasting 15 seconds or 3 karts.
+- **Tumbleweed:** rolls backwards down the road from your kart, wandering and hopping. A hit shoves you sideways and slows you, but never spins you round or flips you.
+- **Computer drivers** use an item when someone is close behind them, or after 8 seconds.
+- **Online:** using an item is sent to everyone so every game shows it, and each game only applies hits to the karts it drives.
+
+### 6.1 Showing the item you're holding (Decided: both)
 Two ways to show the player what they can use next. They can be combined:
 - **A. On the item button itself (Proposed as primary).** The big item button on the right of the screen shows the held item's icon, with a short "spin" while the crate's item is picked. Your eye and your thumb are already there, so nobody has to look away from the road.
 - **B. On the back of the kart (Proposed as an extra).** The held item sits on the kart's rear rack: a honey pot, a tumbleweed, a snowball. It's cute, it tells the karts behind you what's coming, and it adds a little strategy. It's only a few triangles per kart.
@@ -566,7 +574,7 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - **Landscape only on phones.** On the first tap, Android browsers go full screen and lock to landscape. iPhones can't lock, so a "turn your phone sideways" card covers the game while it's upright. Full tilt lock is now 25°, so there's no need to tip the phone far.
 - **Kart meshes are merged** into one vertex-coloured mesh per moving group, with an ink outline. Stretched shells (nose cones, pods, the soapbox egg) stay separate pieces, because merging them shaded wrongly.
 
-**Automated tests (40), run on every deploy:**
+**Automated tests (44), run on every deploy:**
 - All four chassis settle on four wheels.
 - Each reaches its top speed, and 72 km/h in a fair time.
 - The soapbox turns tightest and the hauler and racer widest.
@@ -580,6 +588,7 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - Hitting a boulder at speed doesn't launch the kart, and a kart under the road is put back on it.
 - Bots use both routes where the road splits.
 - Driving straight from pole hits nothing.
+- Crates give items, items get used up, honey sticks, and a tumbleweed hit shoves without spinning.
 
 ## 17. Open questions
 2. Which 8 drivers for launch (5.4); swappable as we go.
@@ -638,3 +647,4 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Mine Shaft layout: outer ledge loop with a cliff, a shorter tunnel through the mountain with coal piles and a cavern, and a swaying rope-bridge shortcut | The user's sketch |
 | 2026-11-06 | Karts is a multiplayer room game in the games menu; a map selection page will come before the kart builder | The user's request |
 | 2026-11-06 | The game is called Karts & Wheels | The user's decision |
+| 2026-11-06 | Items in play: crates in the cave route, honey puddle and tumbleweed; held item shown on the item button and on the back of the kart | The user's request |

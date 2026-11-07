@@ -194,6 +194,8 @@ static func _mountain(t: Track) -> void:
 	inside.resize(nx * nz)
 	var roof := PackedByteArray()   # raised over the tunnel: the tunnel shows through here
 	roof.resize(nx * nz)
+	var near := PackedFloat32Array()  # 1 on the flat run-off beside the road
+	near.resize(nx * nz)
 	var half := Track.ROAD_WIDTH * 0.5
 	for iz in nz:
 		for ix in nx:
@@ -210,6 +212,7 @@ static func _mountain(t: Track) -> void:
 					best = dd
 					y_r = ys[j]
 			var dist := sqrt(best)
+			near[k] = clampf((half + 14.0 - dist) / 4.0, 0.0, 1.0)
 			var h := y_r - 0.35
 			if dist > half + 12.0:
 				h += minf((dist - half - 12.0) * 1.5, 70.0) + noise.get_noise_2d(p.x, p.y) * 6.0
@@ -240,13 +243,18 @@ static func _mountain(t: Track) -> void:
 			if not all_in:
 				continue
 			var v := []
+			var nr := []
 			for kk in ks:
 				var gx: int = kk % nx
 				var gz: int = kk / nx
 				v.append(Vector3(lo.x + gx * step, heights[kk], lo.y + gz * step))
-			for tri in [[v[0], v[1], v[2]], [v[0], v[2], v[3]]]:
-				for q in tri:
-					st.set_color(_mountain_color(q.y, noise.get_noise_2d(q.x * 3.0, q.z * 3.0)))
+				nr.append(near[kk])
+			for tri in [[0, 1, 2], [0, 2, 3]]:
+				for qi in tri:
+					var q: Vector3 = v[qi]
+					var c := _mountain_color(q.y, noise.get_noise_2d(q.x * 3.0, q.z * 3.0))
+					c.a = nr[qi]   # the rock shader turns this into gravel run-off
+					st.set_color(c)
 					st.add_vertex(q)
 	st.generate_normals()
 	var mesh := st.commit()
@@ -256,7 +264,7 @@ static func _mountain(t: Track) -> void:
 	t.add_child(body)
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
-	mi.material_override = Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.MATTE, "rock", 6.0)
+	mi.material_override = rock_material()
 	body.add_child(mi)
 	var col := CollisionShape3D.new()
 	var shape := mesh.create_trimesh_shape()
@@ -265,6 +273,14 @@ static func _mountain(t: Track) -> void:
 	body.add_child(col)
 	# Keep the valley trees off the mountain.
 	t.no_scenery = poly
+
+
+## Layered sandstone with grassy ledges and a snowy top (shaders/rock.gdshader).
+static func rock_material() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/rock.gdshader")
+	m.set_shader_parameter("detail", load(Palette.TEX_DIR + "rock.png"))
+	return m
 
 
 static func _mountain_color(y: float, n: float) -> Color:
@@ -278,6 +294,27 @@ static func _mountain_color(y: float, n: float) -> Color:
 
 
 # --- The mine tunnel ---------------------------------------------------------
+
+## A teardrop of flame: a narrow base, a fat middle and a point, with UV.y
+## running 0..1 up it so the flame shader can lick the top about.
+static func _flame(st: SurfaceTool, base: Vector3) -> void:
+	var rings := [[0.0, 0.09], [0.22, 0.16], [0.45, 0.1], [0.75, 0.0]]
+	var sides := 6
+	for r in rings.size() - 1:
+		for k in sides:
+			var a0 := TAU * k / sides
+			var a1 := TAU * (k + 1) / sides
+			var pts := []
+			for rr in [r, r + 1]:
+				for a in [a0, a1]:
+					var h: float = rings[rr][0]
+					var w: float = rings[rr][1]
+					pts.append([base + Vector3(cos(a) * w, h, sin(a) * w), h / 0.75])
+			for idx in [0, 2, 1, 1, 2, 3]:
+				st.set_uv(Vector2(0.0, pts[idx][1]))
+				st.set_color(Color.WHITE)
+				st.add_vertex(pts[idx][0])
+
 
 static func _tunnel(t: Track, i: int) -> void:
 	var b: Dictionary = t.branches[i]
@@ -375,7 +412,7 @@ static func _torches(t: Track, i: int, d0: float, d1: float) -> void:
 		var s := 1.0 if k % 2 == 0 else -1.0
 		var p := f.origin + f.basis.x * s * (Track.ROAD_WIDTH * 0.5 + 1.2) + Vector3.UP * 3.2
 		SetPieces._box(sticks, Transform3D(f.basis.rotated(f.basis.z, -s * 0.3), p), Vector3(0.14, 0.7, 0.14), WOOD.darkened(0.2))
-		SetPieces._box(flames, Transform3D(f.basis, p + Vector3.UP * 0.5), Vector3(0.28, 0.42, 0.28), Color(1.0, 0.6, 0.15))
+		_flame(flames, p + Vector3.UP * 0.32)
 		if k % 2 == 0:
 			var light := FlickerLight.new()
 			light.light_color = Color(1.0, 0.62, 0.3)
@@ -476,14 +513,28 @@ static func _coal(t: Track, i: int) -> void:
 	for u in COAL:
 		var f := t.branch_frame(lerpf(b["from"], b["to"], u), i)
 		var p := f.origin + f.basis.x * (2.8 if k % 2 == 0 else -2.8)
-		SetPieces._boulder(st, p - Vector3.UP * 0.1, 1.5, 0.9, 40 + k)
+		# A heap of lumps rather than one blob: a low mound with chunks on it.
+		SetPieces._boulder(st, p - Vector3.UP * 0.15, 1.5, 0.55, 40 + k)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 90 + k
+		for j in 9:
+			var a := rng.randf() * TAU
+			var r := rng.randf_range(0.0, 1.3)
+			var q := p + f.basis.x * cos(a) * r + f.basis.z * sin(a) * r
+			q.y = p.y - 0.1 + (1.3 - r) * 0.35
+			SetPieces._boulder(st, q, rng.randf_range(0.25, 0.45), rng.randf_range(0.25, 0.5), 200 + k * 20 + j)
 		spots.append(p)
 		k += 1
 	var coal := StandardMaterial3D.new()
 	coal.vertex_color_use_as_albedo = false
-	coal.albedo_color = Color(0.07, 0.065, 0.07)
-	coal.roughness = 0.55
-	coal.metallic_specular = 0.45
+	coal.albedo_color = Color(0.09, 0.08, 0.075)
+	coal.roughness = 0.45
+	coal.metallic_specular = 0.25
+	coal.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	# The sky can't be seen in here, so don't let it tint the coal blue.
+	coal.disable_ambient_light = true
+	coal.emission_enabled = true
+	coal.emission = Color(0.035, 0.025, 0.02)
 	SetPieces._commit(t, st, coal)
 	var piles := CoalPiles.new()
 	piles.spots = spots
@@ -521,11 +572,30 @@ static func _fences(t: Track) -> void:
 static func _props(t: Track) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# Fallen rocks heaped along the foot of the mountain wall, so the wall
+	# meets the road with some shape instead of a clean crease.
+	var rocks := SurfaceTool.new()
+	rocks.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	var d := 6.0
+	while d < t.length - 30.0:
+		var bi := t.branch_at(d)
+		if bi < 0 or absf(t.branch_offset(d, bi)) < 1.0:
+			var f := t.road_frame(d)
+			var side := -t.ledge_out
+			for k in rng.randi_range(1, 3):
+				var r := rng.randf_range(0.6, 1.7)
+				var p := f.origin + f.basis.x * side * (Track.ROAD_WIDTH * 0.5 + 1.6 + r + rng.randf_range(0.0, 1.5)) + f.basis.z * rng.randf_range(-2.0, 2.0)
+				p.y = f.origin.y - 0.4
+				SetPieces._boulder(rocks, p, r, r * rng.randf_range(0.8, 1.3), rng.randi())
+		d += rng.randf_range(7.0, 13.0)
+	SetPieces._commit(t, rocks, Palette.toon(Color(0.7, 0.55, 0.42), true, 0.0, Palette.Finish.MATTE, "rock", 3.0))
 	for k in 3:
 		var f := t.transform_at(t.length - 20.0 - k * 7.0)
 		var p := f.origin - f.basis.x * t.ledge_out * (Track.ROAD_WIDTH * 0.5 + 6.0)
 		SetPieces._box(st, Transform3D(f.basis, p + Vector3.UP * 0.9), Vector3(1.8, 1.0, 2.6), Color(0.5, 0.36, 0.26))
-		SetPieces._box(st, Transform3D(f.basis, p + Vector3.UP * 1.45), Vector3(1.6, 0.3, 2.4), Color(0.12, 0.11, 0.12))  # coal
+		SetPieces._box(st, Transform3D(f.basis, p + Vector3.UP * 1.45), Vector3(1.6, 0.3, 2.4), Color(0.17, 0.14, 0.12))  # coal
 		for s: float in [-1.0, 1.0]:
 			for e: float in [-0.8, 0.8]:
 				SetPieces._box(st, Transform3D(f.basis, p + f.basis.x * s * 0.95 + f.basis.z * e + Vector3.UP * 0.35), Vector3(0.2, 0.6, 0.6), Color(0.3, 0.3, 0.33))

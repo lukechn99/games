@@ -357,6 +357,19 @@ What makes the reference look alive, and our phone-friendly version of each:
 - **Motion:** leaves sway (each tree on its own timing), flags ripple along the start, fans in two bleachers hop and cheer, the lake has moving waves and glints, clouds drift, and tires kick up dust on dirt and grass, and smoke when drifting.
 - **Haze:** two rings of mountains, the far ring paler and bluer, and fog tinted to the horizon colour.
 - **Reviewing scenery:** `/games/racing/?cam=OFFSET,SIDE,HEIGHT,LOOK` puts a still camera anywhere on the lap.
+- **Reviewing a race:** `/games/racing/?autodrive` skips the kart builder and lets a computer driver drive your kart, so the race camera, HUD and other karts can be checked (add `&track=mine` for the mountain).
+
+**Second pass, side by side with Mario Kart World (2026-11-07).** Race-camera screenshots of both tracks against the reference showed these gaps, now closed:
+- **Camera:** the kart was small and far away. It now sits closer and lower (4.1 m back, 1.6 m up), so the kart fills about a fifth of the width, as in Mario Kart.
+- **Road** (`shaders/road.gdshader`): it was a flat purple-grey slab, the biggest thing on screen. It's now neutral grey tarmac with broad lighter and darker patches, darker worn lanes where tyres run, and white edge lines just inside the kerbs. On Mining Mountain the road is packed brown earth with timber edging and no paint.
+- **Grass** (`shaders/grass.gdshader`): it was one flat green. It now drifts between deep, fresh and sun-dried greens in broad patches. Clumps of grass, red and yellow flowers and small bushes line both verges, sitting on the banks.
+- **Rock** (`shaders/rock.gdshader`): the mine mountain was a smeared grey slab. It now has warm sandstone layers with dark seams, grass on high ledges, snow on top, and pale gravel run-off beside the road, with fallen rocks heaped at the foot of the wall. Meadow's stone walls use the same layering in warm greys.
+- **Light:** a warmer, slightly stronger sun against cooler sky light, a touch more colour and contrast, and a brighter hazy horizon under a deeper blue sky.
+- **Karts on the ground:** every kart has a dark contact shadow the size of its wheelbase, on whatever is under it. It shrinks and fades as the kart jumps.
+- **Backdrop:** a new ring of rolling green hills in front of the mountains. Every mountain has a sunlit face and a shaded face, and its foot fades into the haze.
+- **Fixes:** torch flames in the mine were huge yellow wedges (the flame shader was moving whole world-space meshes); they're small flickering teardrops now. Coal piles were blue blobs (they reflected the sky); they're heaps of black lumps now. A thin green line showed across the road where the cave route rejoins; the grass bank under the shared road was poking through.
+
+**Still short of the reference (next):** the start gantry and guardrails look like plastic; the karts and drivers need more detail and shine; there's no motion blur, speed lines or boost trails; clouds are flat; and the HUD is plain text where Mario Kart has a bold position badge and an item box.
 
 ## 10. Controls
 
@@ -657,3 +670,4 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Items in play: crates in the cave route, honey puddle and tumbleweed; held item shown on the item button and on the back of the kart | The user's request |
 | 2026-11-06 | Kart data goes player to player (mesh), with the host as fallback | The user's question: a mesh is faster and spreads the load; the host was only the quickest first version |
 | 2026-11-06 | Mining Mountain built and offered alongside Meadow Loop; the host picks the track before the kart builder | The user's request |
+| 2026-11-07 | Visual pass against Mario Kart World: closer camera, road, grass and rock shaders, verge plants, kart contact shadows, warmer light, layered backdrop | The user's request |

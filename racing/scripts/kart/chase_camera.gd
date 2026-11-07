@@ -7,10 +7,10 @@ extends Camera3D
 ## second, and the shake is trauma squared, so small bumps barely register
 ## and big crashes really rattle.
 
-const DISTANCE := 5.2
-const HEIGHT := 2.1
-const LOOK_AHEAD := 4.0
-const BASE_FOV := 68.0
+const DISTANCE := 4.1
+const HEIGHT := 1.6
+const LOOK_AHEAD := 5.0
+const BASE_FOV := 66.0
 const SPEED_FOV := 12.0
 
 var target: Kart
@@ -89,7 +89,7 @@ func _process(delta: float) -> void:
 	var desired := _desired_position()
 	_pos = _pos.lerp(desired, clampf(delta * (14.0 if look_back else 7.0), 0.0, 1.0))
 	var f := _flat_forward() * (-1.0 if look_back else 1.0)
-	var look := _target_xf().origin + f * LOOK_AHEAD + Vector3.UP * 0.8
+	var look := _target_xf().origin + f * LOOK_AHEAD + Vector3.UP * 0.95
 
 	var shake := trauma * trauma
 	var offset := Vector3(_noise.get_noise_2d(_t * 30.0, 0.0), _noise.get_noise_2d(0.0, _t * 30.0), 0.0) * 0.45 * shake

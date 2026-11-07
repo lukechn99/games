@@ -175,6 +175,29 @@ func surface_at_fraction(f: float) -> String:
 	return "asphalt"
 
 
+const MINE_ROAD := Color(0.47, 0.37, 0.28)
+
+
+## The road's own material (shaders/road.gdshader): tarmac with patches,
+## worn lanes and edge lines; on the mine, packed earth with no paint.
+func _road_mat() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/road.gdshader")
+	m.set_shader_parameter("detail", load(Palette.TEX_DIR + ("dirt" if layout == "mine" else "asphalt") + ".png"))
+	m.set_shader_parameter("paint", layout != "mine")
+	m.set_shader_parameter("wear", 0.35 if layout == "mine" else 0.5)
+	return m
+
+
+## Grass with drifting patches of colour (shaders/grass.gdshader).
+func _grass_mat(banks: bool) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/grass.gdshader")
+	m.set_shader_parameter("detail", load(Palette.TEX_DIR + "grass.png"))
+	m.set_shader_parameter("use_vertex", banks)
+	return m
+
+
 ## Track material: our colours in the vertex colours, with an optional
 ## detail texture. `uv` tiles it on the mesh's own UVs; `tri` (metres) projects
 ## it from the world instead, for meshes without UVs.
@@ -223,7 +246,7 @@ func _build_ground() -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = plane
 	mi.position = Vector3(80, 0, -30)
-	mi.material_override = _mat(Parts.surface("grass")["color"], "grass", 1400.0 / 7.0)
+	mi.material_override = _grass_mat(false)
 	b.add_child(mi)
 
 
@@ -258,7 +281,12 @@ func _build_road() -> void:
 				# The moss glows green rather than boost-pad orange.
 				var moss := Color(0.35, 1.0, 0.45) if bs == "boost" else Color(0, 0, 0, 0)
 				_quad_strip(_group(groups, bs) if bs != s else st, ba, bb, bs, int(d / step), d, 0.0, 0.0, moss)
-		_embankment(_group(groups, "grass"), _group(groups, "rock"), a, b, int(d / step), d)
+		# Where the merged piece covers the road's edge, no bank on that side
+		# (its top poked through the road as a thin green line).
+		var no_bank := 0.0
+		if shift > 0.3 and shift < BRANCH_SPLIT:
+			no_bank = signf(branch_offset(d, bi))
+		_embankment(_group(groups, "grass"), _group(groups, "rock"), a, b, int(d / step), d, no_bank)
 		d += step
 	_commit_groups(groups)
 
@@ -309,6 +337,9 @@ func _merged_strip(st: SurfaceTool, da: float, db: float, index: int, bi := 0) -
 	far_b.y = lerpf((mb.origin + mb.basis.x * (branch_offset(db, bi) + side * half)).y, far_b.y, clampf(absf(branch_offset(db, bi)) / BRANCH_SPLIT, 0.0, 1.0))
 	var base: Color = Parts.surface("asphalt")["color"]
 	var kerb := Color(0.92, 0.22, 0.2) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
+	if layout == "mine":
+		base = MINE_ROAD
+		kerb = Color(0.45, 0.3, 0.17) if index % 2 == 0 else Color(0.38, 0.25, 0.14)
 	var va := da / 14.0
 	var vb := db / 14.0
 	var bands := [
@@ -322,8 +353,11 @@ func _merged_strip(st: SurfaceTool, da: float, db: float, index: int, bi := 0) -
 		var p3: Vector3 = band[2] + lift
 		var p2: Vector3 = band[3] + lift
 		var c: Color = band[4]
-		var w := p0.distance_to(p1) / ROAD_WIDTH
-		var uvs := {p0: Vector2(0, va), p1: Vector2(w, va), p2: Vector2(w, vb), p3: Vector2(0, vb)}
+		# Across: 0..1 over the road (edge lines at each side); kerbs sit
+		# outside that range so the road shader leaves them plain.
+		var u0 := 0.0 if c == base else -0.2
+		var u1 := 1.0 if c == base else -0.1
+		var uvs := {p0: Vector2(u0, va), p1: Vector2(u1, va), p2: Vector2(u1, vb), p3: Vector2(u0, vb)}
 		# Keep the same winding as the main road whichever side we're on.
 		var order := [p0, p2, p1, p0, p3, p2] if side > 0 else [p0, p1, p2, p0, p2, p3]
 		for v in order:
@@ -368,9 +402,19 @@ func _commit_groups(groups: Dictionary) -> void:
 		var mi := MeshInstance3D.new()
 		mi.mesh = mesh
 		if s == "grass":
-			mi.material_override = _mat(Color.WHITE, "grass", 1.0, 7.0)
+			mi.material_override = _grass_mat(true)
 		elif s == "rock":
-			mi.material_override = _mat(Color.WHITE, "rock", 1.0, 5.0)
+			# Layered stone (the mine's rock shader, in cooler greys).
+			var rm := MineTrack.rock_material()
+			rm.set_shader_parameter("use_gravel", false)
+			rm.set_shader_parameter("band_m", 1.8)
+			rm.set_shader_parameter("tone_a", Color(0.78, 0.73, 0.64))
+			rm.set_shader_parameter("tone_b", Color(0.68, 0.63, 0.56))
+			rm.set_shader_parameter("tone_c", Color(0.6, 0.56, 0.51))
+			rm.set_shader_parameter("seam", Color(0.36, 0.32, 0.29))
+			mi.material_override = rm
+		elif s == "asphalt":
+			mi.material_override = _road_mat()
 		else:
 			var t: Array = SURFACE_TEX.get(s, ["", 1.0])
 			mi.material_override = _mat(Color.WHITE, t[0], t[1])
@@ -385,11 +429,13 @@ func _commit_groups(groups: Dictionary) -> void:
 
 
 ## Where the road sits above the ground, a grassy bank slopes down to meet it.
-func _embankment(st: SurfaceTool, rock: SurfaceTool, a: Transform3D, b: Transform3D, index: int, d := -1.0) -> void:
+func _embankment(st: SurfaceTool, rock: SurfaceTool, a: Transform3D, b: Transform3D, index: int, d := -1.0, skip_side := 0.0) -> void:
 	var edge := ROAD_WIDTH * 0.5 + 1.1
 	var widest := 0.0
 	var on_ledge := (d >= LEDGE[0] and d < LEDGE[1]) if layout == "meadow" else true
 	for side in [-1.0, 1.0]:
+		if side == skip_side:
+			continue
 		var ea: Vector3 = a.origin + a.basis.x * side * edge
 		var eb: Vector3 = b.origin + b.basis.x * side * edge
 		if on_ledge:
@@ -458,8 +504,13 @@ func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, ind
 	var half := ROAD_WIDTH * 0.5
 	var base: Color = Parts.surface(s)["color"] if tint.a == 0.0 else tint
 	var lift := Vector3.UP * (0.04 + lift_extra)
-	# Road, then a kerb on each side (red and white blocks every 2 m).
+	# Road, then a kerb on each side (red and white blocks every 2 m). On the
+	# mine the road is packed earth and stone, edged with timber.
 	var kerb := Color(0.92, 0.22, 0.2) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
+	if layout == "mine":
+		kerb = Color(0.45, 0.3, 0.17) if index % 2 == 0 else Color(0.38, 0.25, 0.14)
+		if s == "asphalt" and tint.a == 0.0:
+			base = MINE_ROAD
 	var bands := [[-half, half, base]]
 	if skip_kerb >= 0.0:
 		bands.append([-half - 1.1, -half, kerb])
@@ -903,19 +954,88 @@ func _build_scenery() -> void:
 	_scatter(KIT_NATURE + "flower_yellowA.glb", flowers, 140.0)
 	SetPieces.ground_shade(self, shade)
 	_build_mountains()
+	if layout == "meadow":
+		_roadside_flora.call_deferred()
+
+
+## Grass tufts, flowers and small bushes along both sides of the road, so
+## the verge looks lived-in close up (design doc 9.4). Drawn only near the
+## camera. Placed once the ground can be felt, so they sit on the banks.
+func _roadside_flora() -> void:
+	await get_tree().physics_frame
+	if not is_inside_tree():
+		return
+	var space := get_world_3d().direct_space_state
+	var lists := {"grass_large": [] as Array[Transform3D], "flower_redA": [] as Array[Transform3D],
+		"flower_yellowA": [] as Array[Transform3D], "plant_bush": [] as Array[Transform3D]}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	var half := ROAD_WIDTH * 0.5
+	var d := 0.0
+	while d < length:
+		var f := road_frame(d)
+		for side: float in [-1.0, 1.0]:
+			var n := rng.randi_range(2, 4)
+			var clump := "flower_redA" if rng.randf() < 0.5 else "flower_yellowA"
+			var flowery := rng.randf() < 0.45
+			for k in n:
+				var lat := half + 1.6 + pow(rng.randf(), 1.6) * 9.0
+				var p := f.origin + f.basis.x * side * lat + f.basis.z * rng.randf_range(-1.2, 1.2)
+				if distance_to_road(p) < half + 1.3 or _blocked(p) or in_water(p):
+					continue
+				var q := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 6.0, p + Vector3.DOWN * 12.0)
+				var hit := space.intersect_ray(q)
+				if hit.is_empty() or hit["collider"].get_meta("surface", "") != "grass":
+					continue
+				var kind := "grass_large"
+				var sc := rng.randf_range(2.4, 3.4)
+				var r := rng.randf()
+				if flowery and r < 0.6:
+					kind = clump
+					sc = rng.randf_range(3.0, 4.2)
+				elif r < 0.06:
+					kind = "plant_bush"
+					sc = rng.randf_range(4.0, 6.0)
+				var up: Vector3 = (hit["normal"] as Vector3).lerp(Vector3.UP, 0.5).normalized()
+				var b := Basis(Vector3.UP, rng.randf() * TAU)
+				b = Basis(Quaternion(Vector3.UP, up)) * b
+				(lists[kind] as Array).append(Transform3D(b.scaled(Vector3.ONE * sc), hit["position"]))
+		d += rng.randf_range(1.1, 2.0)
+	for kind in lists:
+		var arr: Array[Transform3D] = []
+		arr.assign(lists[kind])
+		_scatter(KIT_NATURE + kind + ".glb", arr, 190.0)  # (measured to the middle of each 160 m patch)
 
 
 func _build_mountains() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var center := Vector3(80, 0, -30)
-	# Two rings: the far one is paler and bluer, fading toward the sky, so
-	# the world has layers instead of one flat backdrop (design doc 9.4).
-	var near_colors := [Color(0.42, 0.56, 0.7), Color(0.47, 0.6, 0.74), Color(0.38, 0.52, 0.66)]
-	var far_colors := [Color(0.62, 0.76, 0.92), Color(0.66, 0.79, 0.94), Color(0.6, 0.74, 0.9)]
+	var haze := Color(0.78, 0.9, 1.0)
+	# Three layers, each paler toward the sky (design doc 9.4): rolling green
+	# hills close in, then blue mountains, then pale far peaks. Every
+	# mountain has a sunlit face and a shaded face, and its foot fades into
+	# the haze, like distance in a painted backdrop.
+	for i in 44:
+		var a := TAU * i / 44.0 + _rng.randf() * 0.08
+		var r := _rng.randf_range(430, 500)
+		var base := center + Vector3(cos(a) * r, -1.0, sin(a) * r)
+		var side := Vector3(-sin(a), 0, cos(a)) * _rng.randf_range(60, 110)
+		var h := _rng.randf_range(22, 55)
+		var top := Color(0.33, 0.6, 0.3).lerp(Color(0.42, 0.66, 0.34), _rng.randf())
+		var segs := 10
+		for k in segs:
+			var t0 := PI * k / segs
+			var t1 := PI * (k + 1) / segs
+			var p0 := base - side * cos(t0) + Vector3.UP * sin(t0) * h
+			var p1 := base - side * cos(t1) + Vector3.UP * sin(t1) * h
+			# Lit on the side facing the sun (roughly the first half).
+			var lit := top.lightened(0.08) if k < segs / 2 else top.darkened(0.08)
+			for v in [[base, top.lerp(haze, 0.45)], [p0, lit], [p1, lit]]:
+				st.set_color(v[1])
+				st.add_vertex(v[0])
 	for i in 60:
 		var far := i >= 26
-		var colors: Array = far_colors if far else near_colors
 		var n_ring := 34 if far else 26
 		var a := TAU * (i - (26 if far else 0)) / n_ring + _rng.randf() * 0.1 + (0.09 if far else 0.0)
 		var r := _rng.randf_range(820, 900) if far else _rng.randf_range(560, 640)
@@ -923,22 +1043,38 @@ func _build_mountains() -> void:
 		var h := _rng.randf_range(130, 230) if far else _rng.randf_range(70, 160)
 		var w := _rng.randf_range(140, 220) if far else _rng.randf_range(90, 160)
 		var side := Vector3(-sin(a), 0, cos(a)) * w
-		var c: Color = colors[i % colors.size()]
-		var peak := base + Vector3.UP * h
-		for v in [base - side, peak, base + side]:
-			st.set_color(c)
-			st.add_vertex(v)
-		var snow_c := Color(0.96, 0.97, 1.0)
-		for v in [peak.lerp(base - side, 0.22), peak, peak.lerp(base + side, 0.22)]:
-			st.set_color(snow_c)
-			st.add_vertex(v + (center - base).normalized() * 0.5)
+		var inward := (center - base).normalized()
+		var body := Color(0.62, 0.75, 0.9) if far else Color(0.38, 0.52, 0.7).lerp(Color(0.44, 0.58, 0.72), _rng.randf())
+		var lit := body.lightened(0.12)
+		var shade := body.darkened(0.12)
+		var peak := base + Vector3.UP * h + side * _rng.randf_range(-0.25, 0.25)
+		var foot := base + inward * w * 0.4   # the ridge comes toward us
+		var foot_c := body.lerp(haze, 0.6)
+		for v in [[base - side, lit.lerp(haze, 0.6)], [peak, lit], [foot, foot_c]]:
+			st.set_color(v[1])
+			st.add_vertex(v[0])
+		for v in [[foot, foot_c], [peak, shade], [base + side, shade.lerp(haze, 0.6)]]:
+			st.set_color(v[1])
+			st.add_vertex(v[0])
+		# A snow cap following the same two faces.
+		var cap := 0.26
+		var l := peak.lerp(base - side, cap)
+		var m := peak.lerp(foot, cap)
+		var rr := peak.lerp(base + side, cap)
+		var lift := inward * 0.5
+		for v in [[l, Color(0.97, 0.98, 1.0)], [peak, Color(0.97, 0.98, 1.0)], [m, Color(0.93, 0.95, 1.0)]]:
+			st.set_color(v[1])
+			st.add_vertex(v[0] + lift)
+		for v in [[m, Color(0.82, 0.87, 0.96)], [peak, Color(0.86, 0.9, 0.98)], [rr, Color(0.8, 0.85, 0.95)]]:
+			st.set_color(v[1])
+			st.add_vertex(v[0] + lift)
 	st.generate_normals()
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
-	var m := _mat(Color.WHITE)
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mi.material_override = m
+	var mat := _mat(Color.WHITE)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = mat
 	add_child(mi)
 
 

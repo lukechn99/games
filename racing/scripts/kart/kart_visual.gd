@@ -40,6 +40,74 @@ func _init(k: Kart, merge := true, stand := false) -> void:
 
 func _ready() -> void:
 	rebuild()
+	if not standing and get_meta("nomerge", false) == false:
+		_add_contact_shadow()
+
+
+# --- Contact shadow ---------------------------------------------------------
+# A soft dark patch on whatever is under the kart, so it sits on the road
+# instead of floating (real sun shadows are off in the browser renderer).
+# It shrinks and fades as the kart leaves the ground.
+
+var _shadow: MeshInstance3D
+var _shadow_mat: StandardMaterial3D
+
+
+func _add_contact_shadow() -> void:
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	q.orientation = PlaneMesh.FACE_Y
+	_shadow = MeshInstance3D.new()
+	_shadow.mesh = q
+	# Darker in the middle than the scenery's shade blobs.
+	var g := Gradient.new()
+	g.set_color(0, Color(0, 0, 0, 0.62))
+	g.set_color(1, Color(0, 0, 0, 0.0))
+	g.add_point(0.55, Color(0, 0, 0, 0.45))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	_shadow_mat = SetPieces.shade_material().duplicate()
+	_shadow_mat.albedo_texture = tex
+	_shadow.material_override = _shadow_mat
+	_shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_shadow.top_level = true
+	_shadow.visible = false
+	add_child(_shadow)
+
+
+func _update_shadow() -> void:
+	if _shadow == null or not is_inside_tree():
+		return
+	# Centred between the wheels, about the size of the wheelbase.
+	var mid := Vector3.ZERO
+	var lo := Vector3(INF, 0, INF)
+	var hi := Vector3(-INF, 0, -INF)
+	for i in 4:
+		var m := kart.wheel_mount(i)
+		mid += m * 0.25
+		lo = lo.min(m)
+		hi = hi.max(m)
+	var size := Vector2(hi.x - lo.x + 0.9, hi.z - lo.z + 1.1)
+	var from := kart.global_transform * Vector3(mid.x, 0.0, mid.z) + Vector3.UP * 0.6
+	var q := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 7.0)
+	q.exclude = [kart.get_rid()]
+	q.collision_mask = 1
+	var hit := kart.get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty() or (hit["normal"] as Vector3).dot(Vector3.UP) < 0.5:
+		_shadow.visible = false
+		return
+	var n: Vector3 = hit["normal"]
+	var h := maxf(0.0, from.y - 0.6 - (hit["position"] as Vector3).y)
+	var fwd := -kart.global_transform.basis.z
+	fwd = (fwd - n * fwd.dot(n)).normalized()
+	var right := fwd.cross(n).normalized()
+	var grow := 1.0 + h * 0.25
+	_shadow.global_transform = Transform3D(Basis(right * size.x * grow, n, -fwd * size.y * grow), hit["position"] + n * 0.05)
+	_shadow_mat.albedo_color = Color(1, 1, 1, clampf(1.35 - h * 0.35, 0.0, 1.0))
+	_shadow.visible = true
 
 
 ## Paintwork shines softly, metal sharply, rubber and fur not at all (9.4).
@@ -599,6 +667,7 @@ func _process(delta: float) -> void:
 	if kart == null or _wheels.is_empty():
 		return
 	_update_rack()
+	_update_shadow()
 	for i in 4:
 		var pivot := _wheels[i]
 		var mount := kart.wheel_mount(i)

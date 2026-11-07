@@ -75,9 +75,17 @@ func _ready() -> void:
 		_showroom(q)
 	elif q.contains("cam="):
 		_camera_view(q)
+	elif q.contains("autodrive"):
+		# For reviewing the look mid-race: no lobby, and a computer driver
+		# drives your kart while the chase camera follows it.
+		player.set_physics_process(false)
+		add_child(BotDriver.new(player_kart, track, "hard", 99))
 	else:
 		_open_lobby()
-	# Compile every shader now, behind the lobby, instead of mid-race.
+	# Compile every shader now, behind the lobby, instead of mid-race (once
+	# the track's roadside plants, placed a frame late, are in).
+	await get_tree().physics_frame
+	await get_tree().physics_frame
 	ShaderWarmup.new().warm(self, camera)
 
 
@@ -396,15 +404,17 @@ func _build_world() -> void:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var mat := ProceduralSkyMaterial.new()
-	mat.sky_top_color = Color(0.2, 0.5, 0.98)
-	mat.sky_horizon_color = Color(0.62, 0.84, 1.0)
-	mat.ground_horizon_color = Color(0.62, 0.84, 1.0)
+	# Deep blue overhead, paling to a bright haze at the horizon.
+	mat.sky_top_color = Color(0.13, 0.42, 0.95)
+	mat.sky_horizon_color = Color(0.78, 0.9, 1.0)
+	mat.sky_curve = 0.11
+	mat.ground_horizon_color = Color(0.78, 0.9, 1.0)
 	mat.ground_bottom_color = Color(0.4, 0.6, 0.35)
 	mat.sun_angle_max = 20.0
 	sky.sky_material = mat
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.45
+	env.ambient_light_energy = 0.4
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY  # metal and water reflect the sky
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	# A soft glow around the brightest things: lamps, glints, boost flames.
@@ -415,16 +425,20 @@ func _build_world() -> void:
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	_env = env
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.62, 0.84, 1.0)  # the horizon colour, so distance fades into sky
-	env.fog_density = 0.0009
+	env.fog_light_color = Color(0.74, 0.87, 1.0)  # the horizon colour, so distance fades into sky
+	env.fog_density = 0.0012
+	# A little extra colour and punch, like a sunny cartoon (design doc 9.4).
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.12
+	env.adjustment_contrast = 1.05
 	env.fog_sky_affect = 0.0
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52, -35, 0)
-	sun.light_energy = 0.8
-	sun.light_color = Color(1.0, 0.97, 0.9)   # a touch warm, against the cool sky light
+	sun.light_energy = 1.0
+	sun.light_color = Color(1.0, 0.94, 0.82)   # a touch warm, against the cool sky light
 	sun.light_specular = 1.0
 	# Real shadows only near the camera, so they stay cheap (design doc 9.4).
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL

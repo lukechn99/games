@@ -35,6 +35,8 @@ func _ready() -> void:
 	var q0 := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else ""
 	if q0.contains("track=mine"):
 		track.layout = "mine"
+	if q0.contains("laps="):   # for checking the finish quickly
+		track.laps = clampi(int(q0.split("laps=")[1].split("&")[0]), 1, 9)
 	add_child(track)
 	camera = ChaseCamera.new()
 	add_child(camera)
@@ -43,6 +45,9 @@ func _ready() -> void:
 	add_child(hud)
 	hud.parts_changed.connect(_on_parts_changed)
 	hud.restart_requested.connect(start_race)
+	results = ResultsScreen.new()
+	add_child(results)
+	results.again_pressed.connect(_on_again)
 
 	if Net.active:
 		_start_online()
@@ -79,6 +84,7 @@ func _ready() -> void:
 		# For reviewing the look mid-race: no lobby, and a computer driver
 		# drives your kart while the chase camera follows it.
 		player.set_physics_process(false)
+		_autopilot_review = true
 		add_child(BotDriver.new(player_kart, track, "hard", 99))
 		if q.contains("view=side"):
 			ChaseCamera.review_offset = Vector2(4.0, 2.5)
@@ -110,7 +116,11 @@ var _owned: Array[Kart] = []      # karts this game drives and sends
 var _by_id := {}                  # player id -> Kart
 var _send_t := 0.0
 var _reported := {}               # player id -> true once their finish is sent
-var _results: Label
+var results: ResultsScreen
+var _autopilot_review := false   # ?autodrive: a bot drives you all along
+var _autopilot: BotDriver        # drives your kart on after you finish
+var _done := false                # online: the room says the race is over
+var _results_tick := 0.0
 
 
 func _start_online() -> void:
@@ -257,53 +267,61 @@ func _report_finish(k: Kart) -> void:
 		Net.act({"type": "finish", "time": k.race_time, "who": id})
 
 
-func _show_results(st: Dictionary) -> void:
-	if _results == null:
-		var layer := CanvasLayer.new()
-		layer.layer = 6
-		add_child(layer)
-		var panel := PanelContainer.new()
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.08, 0.1, 0.18, 0.85)
-		sb.set_corner_radius_all(18)
-		sb.content_margin_left = 28
-		sb.content_margin_right = 28
-		sb.content_margin_top = 18
-		sb.content_margin_bottom = 18
-		panel.add_theme_stylebox_override("panel", sb)
-		panel.set_anchors_preset(Control.PRESET_CENTER)
-		layer.add_child(panel)
-		var v := VBoxContainer.new()
-		panel.add_child(v)
-		_results = Label.new()
-		_results.add_theme_font_size_override("font_size", 22)
-		v.add_child(_results)
+func _show_results(_st: Dictionary) -> void:
+	_done = true
+	_refresh_results()
+
+
+func _on_again() -> void:
+	if Net.active:
 		if Net.is_host:
-			var again := Button.new()
-			again.text = "Race again"
-			again.custom_minimum_size = Vector2(0, 52)
-			again.add_theme_font_size_override("font_size", 20)
-			again.pressed.connect(func(): Net.room("playAgain"))
-			v.add_child(again)
-		else:
-			var wait := Label.new()
-			wait.text = "The host can start another race."
-			v.add_child(wait)
-		panel.reset_size()
-		panel.position = -panel.size * 0.5
-	var finish: Dictionary = st.get("finish", {})
-	var order: Array = finish.keys()
-	order.sort_custom(func(a, b): return float(finish[a]) < float(finish[b]))
-	var lines := ["Results"]
-	var n := 1
-	for id in order:
-		var t := float(finish[id])
-		lines.append("%d.  %s   %d:%05.2f" % [n, ("You" if id == Net.me else Net.name_of(id)), int(t / 60.0), fmod(t, 60.0)])
-		n += 1
-	for id in st.get("seats", []):
-		if not finish.has(id):
-			lines.append("–   %s   didn't finish" % ("You" if id == Net.me else Net.name_of(id)))
-	_results.text = "\n".join(lines)
+			Net.room("playAgain")
+	else:
+		start_race()
+		camera.follow(player_kart)
+
+
+## Your lap times, from the race clock at each line crossing.
+func lap_times(k: Kart) -> Array:
+	var splits: Array = k.get_meta("splits", [])
+	var out := []
+	var prev := 0.0
+	for t in splits:
+		out.append(float(t) - prev)
+		prev = float(t)
+	return out
+
+
+func _refresh_results() -> void:
+	if player_kart == null:
+		return
+	var order := karts.duplicate()
+	order.sort_custom(func(a, b): return place_of(a) < place_of(b))
+	var rows := []
+	for k in order:
+		var t: float = k.race_time if k.finished else (-2.0 if _done else -1.0)
+		rows.append([place_of(k), k.display_name, t, k == player_kart])
+	var again := not Net.active or (Net.is_host and _done)
+	var note := ""
+	if Net.active:
+		if not _done:
+			note = "Waiting for the others to finish…"
+		elif not Net.is_host:
+			note = "The host can start another race."
+	results.show_results(place_of(player_kart), lap_times(player_kart), rows, again, note)
+	hud.touch.visible = false
+
+
+## You're over the line: a computer takes the wheel and does a cool-down
+## lap while you look at the times.
+func _finish_player() -> void:
+	center_text = ""
+	if player:
+		player.set_physics_process(false)
+	if _autopilot == null and not _autopilot_review:
+		_autopilot = BotDriver.new(player_kart, track, "easy", 77)
+		add_child(_autopilot)
+	_refresh_results()
 
 
 ## Behind the lobby: a slow aerial circle round the whole track.
@@ -671,6 +689,14 @@ func _spawn_kart(chassis: String, tires: String, driver: String, slot: int) -> K
 
 func start_race() -> void:
 	_finish_order.clear()
+	_done = false
+	results.hide_results()
+	hud.touch.visible = Controls.is_touch_device() or hud._query_has("touch")
+	if _autopilot:
+		_autopilot.queue_free()
+		_autopilot = null
+	if player and not _autopilot_review:
+		player.set_physics_process(true)
 	for i in karts.size():
 		var k := karts[i]
 		k.global_transform = track.grid_transform(i)
@@ -680,6 +706,7 @@ func start_race() -> void:
 		k.next_checkpoint = 0
 		k.race_time = 0.0
 		k.finished = false
+		k.set_meta("splits", [])
 		k.boost_time = 0.0
 		k.held_item = ""
 		k.sticky_time = 0.0
@@ -721,23 +748,39 @@ func _process(delta: float) -> void:
 			_set_bots_enabled(true)
 			for k in karts:
 				k.race_time = 0.0
+			if OS.has_feature("web") and str(JavaScriptBridge.eval("location.search", true)).contains("finishnow"):
+				# For checking the finish: everyone on the last lap, just short of the line.
+				for i in karts.size():
+					var k := karts[i]
+					k.lap = track.laps
+					k.next_checkpoint = 0
+					var f := track.transform_at(track.length - 30.0 - i * 9.0)
+					k.global_transform = Transform3D(f.basis, f.origin + Vector3.UP * 0.6 + f.basis.x * ((i % 2) * 3.0 - 1.5))
+					k.reset_physics_interpolation()
 		if before != ceili(_countdown):
 			pass
 	elif center_text == "GO!" and player_kart.race_time > 1.0:
 		center_text = ""
 	camera.look_back = Input.is_key_pressed(KEY_C)
+	if results.visible:
+		_results_tick -= delta
+		if _results_tick <= 0.0:
+			_results_tick = 0.5
+			_refresh_results()
 
 
 func _on_lap(k: Kart, lap: int) -> void:
+	if lap >= 2 and lap <= track.laps + 1:
+		var splits: Array = k.get_meta("splits", [])
+		splits.append(k.race_time)
+		k.set_meta("splits", splits)
 	if k.finished and not _finish_order.has(k):
 		_finish_order.append(k)
 		_report_finish(k)
 	if k != player_kart:
 		return
 	if k.finished:
-		center_text = "%d%s place!" % [place_of(k), hud._ordinal(place_of(k))]
-		if not Net.active:
-			hud.flash("Garage → Restart race to go again", 6.0)
+		_finish_player()
 	elif lap == track.laps:
 		hud.flash("Final lap!")
 	elif lap > 1:

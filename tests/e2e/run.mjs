@@ -154,6 +154,7 @@ try {
   await late.page.getByRole('button', { name: /Tap to see your role/ }).waitFor({ timeout: T })
   log('play again deals in the late joiner')
 
+  await host.page.getByRole('button', { name: 'Show room controls' }).click()
   await host.page.getByRole('button', { name: 'End game' }).click()
   await waitPlayers(host, 5)
   await host.page.getByRole('listitem').filter({ hasText: 'Lu' }).getByRole('button', { name: 'Remove' }).click()

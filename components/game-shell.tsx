@@ -5,10 +5,14 @@ import { GAME_VIEWS } from '@/lib/games/ui'
 import { useSession } from '@/lib/session'
 import { TroubleBanner } from './status'
 import { CallButton } from './call'
-import { useEffect, useRef } from 'react'
+import { Menu, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function GameShell() {
-  const { room, act, leave, hostNow } = useSession()
+  const { room, act, leave, hostNow, call } = useSession()
+  // The room controls (call, end game, leave) fold away behind a menu
+  // button, closed to start with, so the game gets the screen.
+  const [menuOpen, setMenuOpen] = useState(false)
   const snapshot = room!.snapshot!
   const game = snapshot.game!
   const isHost = room!.role === 'host'
@@ -43,14 +47,27 @@ export default function GameShell() {
     <div className="flex min-h-dvh flex-col">
       <div ref={topRef}>
         <TroubleBanner />
-        <header className="border-b px-3 pb-1.5 pt-2.5">
-          <div className="flex items-baseline gap-2">
+        <header className="border-b px-3 py-1.5">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="relative -ml-1.5 rounded-md p-1.5 text-muted-foreground hover:bg-secondary"
+              aria-expanded={menuOpen}
+              aria-controls="room-controls"
+              aria-label={menuOpen ? 'Hide room controls' : 'Show room controls'}
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              {menuOpen ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
+              {call.inCall && !menuOpen && (
+                <span className="absolute right-1 top-1 size-2 rounded-full bg-ok" aria-hidden="true" />
+              )}
+            </button>
             <h1 className="min-w-0 font-display text-lg font-bold leading-tight">{mod?.name ?? game.gameId}</h1>
             <span className="shrink-0 rounded bg-ticket px-1.5 py-0.5 font-display text-sm font-bold tracking-widest text-ticket-ink">
               {snapshot.code}
             </span>
           </div>
-          <nav aria-label="Room" className="-mx-2 mt-1 flex items-center gap-1 whitespace-nowrap">
+          <nav id="room-controls" aria-label="Room" className={`-mx-2 mt-1 items-center gap-1 whitespace-nowrap ${menuOpen ? "flex" : "hidden"}`}>
             <CallButton align="left" />
             <span className="flex-1" />
             {isHost && (

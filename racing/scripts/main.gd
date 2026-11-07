@@ -40,6 +40,9 @@ func _ready() -> void:
 	hud.parts_changed.connect(_on_parts_changed)
 	hud.restart_requested.connect(start_race)
 
+	if Net.active:
+		_start_online()
+		return
 	player_kart = _spawn_kart("frame", "slicks", "fox", 0)
 	player_kart.display_name = "You"
 	player = PlayerDriver.new(player_kart)
@@ -66,6 +69,200 @@ func _ready() -> void:
 		_open_lobby()
 	# Compile every shader now, behind the lobby, instead of mid-race.
 	ShaderWarmup.new().warm(self, camera)
+
+
+# --- Online (a Game Night room) -----------------------------------------
+# The room's rules (lib/games/racing/rules.ts) decide the karts, who's
+# ready, when the lights go green and the finishing order. Each game drives
+# its own kart (and the host's game drives the computer drivers), and sends
+# their positions to everyone else 15 times a second.
+
+var _online_ready := false
+var _owned: Array[Kart] = []      # karts this game drives and sends
+var _by_id := {}                  # player id -> Kart
+var _send_t := 0.0
+var _reported := {}               # player id -> true once their finish is sent
+var _results: Label
+
+
+func _start_online() -> void:
+	_open_lobby_online()
+	Net.state_changed.connect(_on_net_state)
+	Net.relay_received.connect(_on_relay)
+
+
+func _open_lobby_online() -> void:
+	lobby = Lobby.new()
+	lobby.online = true
+	add_child(lobby)
+	lobby.parts_changed.connect(func(c, t, d): Net.act({"type": "pick", "chassis": c, "tires": t, "driver": d}))
+	lobby.ready_pressed.connect(func(): Net.act({"type": "ready"}))
+	lobby.open([])
+	_in_lobby = true
+	hud.visible = false
+	camera.set_process(false)
+
+
+func _on_net_state(st: Dictionary) -> void:
+	var seats: Array = st.get("seats", [])
+	var picks: Dictionary = st.get("picks", {})
+	if not _online_ready:
+		_build_online_karts(seats, picks)
+		_online_ready = true
+		print("[race] lobby open with %d racers" % seats.size())
+	# Karts follow everyone's picks.
+	for id in seats:
+		var k: Kart = _by_id.get(id)
+		var p: Dictionary = picks.get(id, {})
+		if k and not p.is_empty() and (k.chassis_id != p["chassis"] or k.tires_id != p["tires"] or k.driver_id != p["driver"]):
+			k.configure(p["chassis"], p["tires"], p["driver"])
+			(k.get_meta("visual") as KartVisual).rebuild()
+	var list := []
+	for id in seats:
+		var p: Dictionary = picks.get(id, {})
+		list.append({"name": ("You" if id == Net.me else Net.name_of(id)), "ready": bool(p.get("ready", false))})
+	lobby.set_players(list)
+	var phase := str(st.get("phase", "pick"))
+	if phase == "race" and _in_lobby:
+		lobby.close()
+		_in_lobby = false
+		hud.visible = true
+		camera.set_process(true)
+		camera.follow(player_kart if player_kart else karts[0])
+		start_race()
+		# Everyone's lights go green at the same moment, by the host's clock.
+		_countdown = maxf(0.5, float(st.get("startAt", 0.0)) / 1000.0 - Net.host_now())
+		print("[race] green in %.1f s (start %.1f, host now %.1f), %d karts" % [_countdown, float(st.get("startAt", 0.0)) / 1000.0, Net.host_now(), karts.size()])
+	if phase == "done":
+		_show_results(st)
+
+
+func _build_online_karts(seats: Array, picks: Dictionary) -> void:
+	for i in seats.size():
+		var id: String = seats[i]
+		var p: Dictionary = picks.get(id, {"chassis": "frame", "tires": "slicks", "driver": "fox", "bot": false})
+		var k := _spawn_kart(p["chassis"], p["tires"], p["driver"], i)
+		k.set_meta("pid", id)
+		_by_id[id] = k
+		if id == Net.me:
+			player_kart = k
+			k.display_name = "You"
+			player = PlayerDriver.new(k)
+			add_child(player)
+			_owned.append(k)
+		elif bool(p.get("bot", false)) and Net.is_host:
+			k.display_name = Net.name_of(id)
+			var bot := BotDriver.new(k, track, "medium", i + 3)
+			add_child(bot)
+			_owned.append(k)
+		else:
+			k.display_name = Net.name_of(id)
+			k.make_remote()
+	if player_kart == null:
+		# Watching: follow the first kart.
+		player_kart = karts[0]
+		player = PlayerDriver.new(null)
+	var bumps := KartBumps.new()
+	bumps.karts = karts
+	add_child(bumps)
+	camera.follow(player_kart)
+	hud.minimap.setup(track, karts, player_kart)
+	var me: Kart = _by_id.get(Net.me)
+	if me:
+		lobby.choice = {"chassis": me.chassis_id, "tires": me.tires_id, "driver": me.driver_id}
+		lobby._dress()
+		lobby._refresh()
+	for k in karts:
+		k.global_transform = track.grid_transform(karts.find(k))
+	ShaderWarmup.new().warm(self, camera)
+
+
+func _on_relay(from: String, data: Variant) -> void:
+	if not data is Dictionary:
+		return
+	var ks: Variant = (data as Dictionary).get("k")
+	if not ks is Dictionary:
+		return
+	for id in ks:
+		var k: Kart = _by_id.get(id)
+		if k and k.remote:
+			if not k._net_seen:
+				print("[race] seeing %s's kart" % Net.name_of(id))
+			k.apply_net(ks[id])
+
+
+func _physics_process(delta: float) -> void:
+	if not Net.active or _owned.is_empty():
+		return
+	_send_t += delta
+	if _send_t >= 1.0 / 15.0:
+		_send_t = 0.0
+		var ks := {}
+		for k in _owned:
+			ks[k.get_meta("pid")] = k.net_state()
+		Net.relay({"k": ks})
+
+
+func _report_finish(k: Kart) -> void:
+	if not Net.active or not _owned.has(k):
+		return
+	var id: String = k.get_meta("pid")
+	if _reported.has(id):
+		return
+	_reported[id] = true
+	if k == _by_id.get(Net.me):
+		Net.act({"type": "finish", "time": k.race_time})
+	else:
+		Net.act({"type": "finish", "time": k.race_time, "who": id})
+
+
+func _show_results(st: Dictionary) -> void:
+	if _results == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 6
+		add_child(layer)
+		var panel := PanelContainer.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.08, 0.1, 0.18, 0.85)
+		sb.set_corner_radius_all(18)
+		sb.content_margin_left = 28
+		sb.content_margin_right = 28
+		sb.content_margin_top = 18
+		sb.content_margin_bottom = 18
+		panel.add_theme_stylebox_override("panel", sb)
+		panel.set_anchors_preset(Control.PRESET_CENTER)
+		layer.add_child(panel)
+		var v := VBoxContainer.new()
+		panel.add_child(v)
+		_results = Label.new()
+		_results.add_theme_font_size_override("font_size", 22)
+		v.add_child(_results)
+		if Net.is_host:
+			var again := Button.new()
+			again.text = "Race again"
+			again.custom_minimum_size = Vector2(0, 52)
+			again.add_theme_font_size_override("font_size", 20)
+			again.pressed.connect(func(): Net.room("playAgain"))
+			v.add_child(again)
+		else:
+			var wait := Label.new()
+			wait.text = "The host can start another race."
+			v.add_child(wait)
+		panel.reset_size()
+		panel.position = -panel.size * 0.5
+	var finish: Dictionary = st.get("finish", {})
+	var order: Array = finish.keys()
+	order.sort_custom(func(a, b): return float(finish[a]) < float(finish[b]))
+	var lines := ["Results"]
+	var n := 1
+	for id in order:
+		var t := float(finish[id])
+		lines.append("%d.  %s   %d:%05.2f" % [n, ("You" if id == Net.me else Net.name_of(id)), int(t / 60.0), fmod(t, 60.0)])
+		n += 1
+	for id in st.get("seats", []):
+		if not finish.has(id):
+			lines.append("–   %s   didn't finish" % ("You" if id == Net.me else Net.name_of(id)))
+	_results.text = "\n".join(lines)
 
 
 ## Behind the lobby: a slow aerial circle round the whole track.
@@ -365,11 +562,13 @@ func _process(delta: float) -> void:
 func _on_lap(k: Kart, lap: int) -> void:
 	if k.finished and not _finish_order.has(k):
 		_finish_order.append(k)
+		_report_finish(k)
 	if k != player_kart:
 		return
 	if k.finished:
 		center_text = "%d%s place!" % [place_of(k), hud._ordinal(place_of(k))]
-		hud.flash("Garage → Restart race to go again", 6.0)
+		if not Net.active:
+			hud.flash("Garage → Restart race to go again", 6.0)
 	elif lap == track.laps:
 		hud.flash("Final lap!")
 	elif lap > 1:

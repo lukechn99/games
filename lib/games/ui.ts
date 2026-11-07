@@ -4,6 +4,7 @@ import SpyfallView from './spyfall/SpyfallView'
 import HauntedView from './haunted/ui/HauntedView'
 import FourView from './fourinarow/FourView'
 import SHView from './secrethitler/SHView'
+import RacingView from './racing/RacingView'
 
 export interface GameViewProps<V = unknown, A = unknown> {
   view: V
@@ -26,4 +27,5 @@ export const GAME_VIEWS: Record<string, ComponentType<GameViewProps<any, any>>> 
   haunted: HauntedView,
   fourinarow: FourView,
   secrethitler: SHView,
+  racing: RacingView,
 }

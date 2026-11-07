@@ -28,6 +28,8 @@ export interface SessionEvents {
   onEnded(reason: EndReason): void
   /** Our PeerJS peer is ready (or gone). The video call rides on it. */
   onPeer?(peer: import('peerjs').Peer | null): void
+  /** Fast game data from another player (see Session.relay). */
+  onRelay?(from: string, data: unknown): void
 }
 
 export interface Session {
@@ -41,4 +43,10 @@ export interface Session {
   destroy(): void
   /** Host clock estimate, for countdowns. */
   hostNow(): number
+  /**
+   * Send fast, throwaway game data to everyone else in the room, outside the
+   * game state: things like kart positions many times a second, which would
+   * be far too much to push through the rules and snapshots.
+   */
+  relay(data: unknown): void
 }

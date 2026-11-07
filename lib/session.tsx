@@ -56,6 +56,10 @@ interface SessionContextValue {
   act(action: RoomAction): void
   leave(): void
   hostNow(): number
+  /** Fast game data to everyone else (kart positions); see Session.relay. */
+  relay(data: unknown): void
+  /** Listen for other players' fast game data. Returns an unsubscribe. */
+  onRelay(listener: (from: string, data: unknown) => void): () => void
   /** Video call */
   call: CallSnapshot
   /** Who's in the call, by peer id. `video` = holds a camera slot. */
@@ -97,6 +101,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [linkCode, setLinkCode] = useState<string | null>(null)
   const [notices, setNotices] = useState<Notice[]>([])
   const sessionRef = useRef<Session | null>(null)
+  const relayListeners = useRef(new Set<(from: string, data: unknown) => void>())
   // Video call: the manager lives as long as the provider; React gets snapshots.
   const [call, setCall] = useState<CallSnapshot>(() => ({
     inCall: false, joining: false, video: false, switching: false, micOn: true, local: null, remotes: new Map(), error: null,
@@ -136,6 +141,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setRoom((r) => (r ? { ...r, status } : r))
         },
         onNotice: notify,
+        onRelay: (from, data) => {
+          if (sessionRef.current !== current) return
+          for (const l of relayListeners.current) l(from, data)
+        },
         onPeer: (peer) => {
           if (sessionRef.current !== current) return
           callManager.setPeer(peer)
@@ -282,6 +291,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       startClient(normalizeCode(code), name, false)
     },
     act: (action) => sessionRef.current?.act(action),
+    relay: (data) => sessionRef.current?.relay(data),
+    onRelay: (listener) => {
+      relayListeners.current.add(listener)
+      return () => {
+        relayListeners.current.delete(listener)
+      }
+    },
     leave: () => {
       callManager.leave()
       sessionRef.current?.leave()

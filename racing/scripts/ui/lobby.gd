@@ -13,6 +13,10 @@ extends CanvasLayer
 
 signal parts_changed(chassis: String, tires: String, driver: String)
 signal all_ready
+## Online: the player tapped Ready (the room decides when everyone is).
+signal ready_pressed
+
+var online := false
 
 var choice := {"chassis": "frame", "tires": "slicks", "driver": "fox"}
 var players: Array = []   # [{name, ready}]
@@ -287,10 +291,24 @@ func _refresh() -> void:
 			_list.add_child(l)
 
 
+## Online: who's racing and who's ready, straight from the room.
+func set_players(list: Array) -> void:
+	players = list
+	_refresh()
+
+
+func close() -> void:
+	visible = false
+	Controls.publish_tilt_button(Rect2())
+
+
 func _on_ready() -> void:
-	players[0]["ready"] = true
 	_ready_btn.disabled = true
 	_ready_btn.text = "Waiting for everyone…"
+	if online:
+		ready_pressed.emit()
+		return
+	players[0]["ready"] = true
 	_refresh()
 	if players.all(func(p): return p["ready"]):
 		visible = false

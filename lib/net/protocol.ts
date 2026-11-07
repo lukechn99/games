@@ -8,6 +8,8 @@ export type ClientMessage =
   | { t: 'action'; seq: number; action: RoomAction }
   | { t: 'leave' }
   | { t: 'ping' }
+  /** Fast, throwaway game data (kart positions): the host passes it on to everyone else. */
+  | { t: 'relay'; d: unknown }
 
 /** Host → player */
 export type HostMessage =
@@ -18,6 +20,8 @@ export type HostMessage =
   | { t: 'kicked' }
   | { t: 'closed' }
   | { t: 'pong' }
+  /** Another player's fast game data, passed on by the host. */
+  | { t: 'relay'; from: PlayerId; d: unknown }
 
 export function isObject(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null

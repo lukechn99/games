@@ -8,8 +8,9 @@ import { spyfall } from './spyfall/rules'
 import { hauntedHouse } from './haunted/rules'
 import { fourInARow } from './fourinarow/rules'
 import { secretHitler } from './secrethitler/rules'
+import { racing } from './racing/rules'
 
-export const GAME_MODULES: GameModule[] = [spyfall as GameModule, hauntedHouse as GameModule, fourInARow as GameModule, secretHitler as GameModule]
+export const GAME_MODULES: GameModule[] = [spyfall as GameModule, hauntedHouse as GameModule, fourInARow as GameModule, secretHitler as GameModule, racing as GameModule]
 
 const byId = new Map(GAME_MODULES.map((g) => [g.id, g]))
 

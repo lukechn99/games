@@ -264,6 +264,14 @@ Every track has three layers:
 - **Coal piles** in the tunnels slow you a little if you drive into them. Coal dust splatters across your screen and slowly blows away.
 - **A mine-cart rail section** crosses a deep, dark cavern. Stay on the rails or fall into the cavern (and get put back on the track).
 
+**Layout (the user's sketch, `docs/racing/mine-shaft-sketch.png`):**
+
+![Mine Shaft layout sketch](mine-shaft-sketch.png)
+
+- **Brown, the main loop:** runs round the outside of the mountain on a ledge, with the cliff dropping away on the right.
+- **Blue, through the mountain:** the mine tunnel, with a cavern in the middle. It's shorter, but you have to dodge coal piles and other obstacles.
+- **Red, the bridge shortcut:** a wooden rope bridge on the other side. It sways back and forth in the wind, which makes it easy to fall off.
+
 **Decided launch tracks:** **Meadow Loop** (asphalt and grass, highway guardrails, tumbleweeds) and **Frosty Pass** (snow and ice, where the growing snowball appears and studded tires shine). The rest stay on the list for later.
 
 ## 9. Characters and art style
@@ -450,6 +458,29 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 - **Items:** using an item sends a reliable "spawned" message directly to every phone (what, where, when, which direction). Every phone simulates the item from that. **The phone of the kart that gets hit decides whether it was hit**, then tells everyone. So you never get hit by something that clearly missed on your own screen.
 - **Fair-ish:** the host checks checkpoints in order and a minimum lap time, and finish times come from the host's clock. A determined cheater could still drive faster than possible on their own phone. Among friends, that's acceptable.
 
+### 13.5 What's built (M4, first version)
+- **In the games menu:** Game Night Karts is a room game for 1–8 players. The host can add computer drivers.
+- **Room rules** (`lib/games/racing/rules.ts`, with tests) hold only what everyone must agree on:
+  - the track and lap count;
+  - each racer's kart parts and whether they're ready;
+  - when the lights go green, on the host's clock, 5 seconds after the last player is ready;
+  - the finishing times.
+
+  The results come up when everyone has finished, or 30 seconds after the first finisher.
+- **The game runs in a frame on the room page** (`RacingView.tsx`), which passes messages between the game and the room:
+  - the race state goes to the game;
+  - the game's actions go to the room;
+  - kart positions go through a new fast **relay** in the room connection. The host passes each player's data on to everyone else, outside the rules and snapshots.
+- **Positions:**
+  - Each game drives its own kart, and the host's game also drives the computer drivers.
+  - Each game sends its karts' positions 15 times a second.
+  - Other players' karts glide toward their latest position, and each game counts laps for every kart itself.
+- **Bumps:** each game only pushes its own karts. Another player's kart feels very heavy, and their game does their side of the bump.
+- **Finishes:** each game reports its own finish, and the host's game reports the computer drivers'.
+- **Race again:** the host starts another round, and the game reloads fresh for it.
+- **First version, star-shaped:** everything goes through the host. Direct player-to-player kart data (the mesh in 13.2) is the next step if there's lag.
+- **Map selection (Planned):** a page to pick the track, before the kart builder and the map load. The rules already carry a `track` (only Meadow Loop for now).
+
 ## 14. Building and shipping
 **Proposed**
 - Godot **4.4.1**, as Bulwark uses, with GDScript, the Compatibility renderer and the web export **without threads**. GitHub Pages can't send the headers threaded exports need.
@@ -605,3 +636,5 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-06 | Lobby preview shows just the kart, no stand or standing animal | The user's direction: the standing animal looked odd |
 | 2026-11-06 | Drivers redesigned to look cute (chibi proportions, big sparkly eyes, cheeks, snout, smile) | The user's direction: they looked uncanny |
 | 2026-11-06 | Lobby shows the chosen animal seated in the kart | The user's direction |
+| 2026-11-06 | Mine Shaft layout: outer ledge loop with a cliff, a shorter tunnel through the mountain with coal piles and a cavern, and a swaying rope-bridge shortcut | The user's sketch |
+| 2026-11-06 | Karts is a multiplayer room game in the games menu; a map selection page will come before the kart builder | The user's request |

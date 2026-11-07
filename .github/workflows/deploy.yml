@@ -63,7 +63,7 @@ jobs:
           mkdir -p public/racing
           ~/godot/godot --headless --path racing --export-release "Web" "$PWD/public/racing/index.html"
           test -f public/racing/index.wasm
-          cp racing/web/tilt.js public/racing/
+          cp racing/web/tilt.js racing/web/net.js public/racing/
       - run: npm run build
         env:
           # Project sites live at https://<user>.github.io/<repo>/

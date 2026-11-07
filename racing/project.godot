@@ -15,6 +15,7 @@ boot_splash/show_image=false
 [autoload]
 
 Controls="*res://scripts/input/controls.gd"
+Net="*res://scripts/net/net.gd"
 
 [display]
 

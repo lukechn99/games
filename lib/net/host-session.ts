@@ -298,6 +298,21 @@ export class HostSession implements Session {
       case 'ping':
         this.send(link, { t: 'pong' })
         return
+      case 'relay': {
+        const from = link.playerId
+        if (!from) return
+        for (const other of this.links.values()) {
+          if (other !== link && other.playerId) this.send(other, { t: 'relay', from, d: msg.d })
+        }
+        this.events.onRelay?.(from, msg.d)
+        return
+      }
+    }
+  }
+
+  relay(data: unknown) {
+    for (const link of this.links.values()) {
+      if (link.playerId) this.send(link, { t: 'relay', from: this.room.hostId, d: data })
     }
   }
 

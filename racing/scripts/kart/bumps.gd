@@ -52,8 +52,12 @@ func _pair(a: Kart, b: Kart) -> void:
 				normal = d.normalized() if d.length() > 0.001 else Vector3.RIGHT
 	if deepest <= 0.0:
 		return
-	var inv_a := 1.0 / a.mass
-	var inv_b := 1.0 / b.mass
+	if a.remote and b.remote:
+		return  # their own games handle bumps between them
+	# Each game only pushes its own karts: another player's kart acts like
+	# something very heavy here, and their game pushes them back.
+	var inv_a := 0.0 if a.remote else 1.0 / a.mass
+	var inv_b := 0.0 if b.remote else 1.0 / b.mass
 	var share_a := inv_a / (inv_a + inv_b)
 	# Separate them, the lighter kart moving further.
 	var fix := normal * deepest

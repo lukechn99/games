@@ -181,8 +181,80 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		_calm_vy = maxf(state.linear_velocity.y, 0.0)
 
 
+## Another player's kart (online): it isn't simulated here. It follows the
+## positions that player's game sends, smoothly, and only counts laps.
+var remote := false
+var _net_pos := Vector3.ZERO
+var _net_rot := Quaternion.IDENTITY
+var _net_vel := Vector3.ZERO
+var _net_age := 0.0
+var _net_seen := false
+
+
+func make_remote() -> void:
+	remote = true
+	freeze = true
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	contact_monitor = false
+
+
+## Latest state from the network: [x, y, z, qx, qy, qz, qw, vx, vy, vz,
+## steer, flags, lap, next checkpoint, finished, race time].
+func apply_net(a: Array) -> void:
+	if a.size() < 16:
+		return
+	_net_pos = Vector3(a[0], a[1], a[2])
+	_net_rot = Quaternion(a[3], a[4], a[5], a[6]).normalized()
+	_net_vel = Vector3(a[7], a[8], a[9])
+	steer_angle = float(a[10])
+	var flags := int(a[11])
+	drifting = flags & 1 != 0
+	boost_time = 0.3 if flags & 2 != 0 else 0.0
+	lap = int(a[12])
+	next_checkpoint = int(a[13])
+	finished = bool(a[14])
+	race_time = float(a[15])
+	_net_age = 0.0
+	if not _net_seen:
+		_net_seen = true
+		global_transform = Transform3D(Basis(_net_rot), _net_pos)
+		reset_physics_interpolation()
+
+
+func net_state() -> Array:
+	var q := global_transform.basis.get_rotation_quaternion()
+	var p := global_position
+	var v := linear_velocity
+	var r := func(x: float) -> float: return snappedf(x, 0.001)
+	return [r.call(p.x), r.call(p.y), r.call(p.z), r.call(q.x), r.call(q.y), r.call(q.z), r.call(q.w),
+		r.call(v.x), r.call(v.y), r.call(v.z), r.call(steer_angle), (1 if drifting else 0) | (2 if boost_time > 0.0 else 0),
+		lap, next_checkpoint, finished, r.call(race_time)]
+
+
+func _follow_net(delta: float) -> void:
+	if not _net_seen:
+		return
+	_net_age += delta
+	# Where it should be now: the last position, moved on by its speed (a
+	# little guess bridges the gap between updates), then eased toward.
+	var target := _net_pos + _net_vel * minf(_net_age, 0.25)
+	var t := clampf(delta * 14.0, 0.0, 1.0)
+	var xf := global_transform
+	xf.origin = xf.origin.lerp(target, t)
+	xf.basis = Basis(xf.basis.get_rotation_quaternion().slerp(_net_rot, t))
+	global_transform = xf
+	linear_velocity = _net_vel
+	speed = _net_vel.dot(-xf.basis.z)
+	wheel_spin += speed / maxf(wheel_radius(), 0.1) * delta
+	for i in 4:
+		wheel_compression[i] = SUSPENSION_TRAVEL * 0.4
+
+
 func _physics_process(delta: float) -> void:
 	if _wheel_mounts.is_empty():
+		return
+	if remote:
+		_follow_net(delta)
 		return
 	var xf := global_transform
 	var up := xf.basis.y

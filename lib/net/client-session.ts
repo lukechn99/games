@@ -169,7 +169,14 @@ export class ClientSession implements Session {
         return
       case 'pong':
         return
+      case 'relay':
+        this.events.onRelay?.(msg.from, msg.d)
+        return
     }
+  }
+
+  relay(data: unknown) {
+    this.send({ t: 'relay', d: data })
   }
 
   private send(msg: ClientMessage): boolean {

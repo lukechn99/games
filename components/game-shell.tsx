@@ -5,7 +5,7 @@ import { GAME_VIEWS } from '@/lib/games/ui'
 import { useSession } from '@/lib/session'
 import { TroubleBanner } from './status'
 import { CallButton } from './call'
-import { Menu, X } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 export default function GameShell() {
@@ -51,13 +51,13 @@ export default function GameShell() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="relative -ml-1.5 rounded-md p-1.5 text-muted-foreground hover:bg-secondary"
+              className="relative -ml-1.5 rounded-md p-1.5 text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
               aria-expanded={menuOpen}
               aria-controls="room-controls"
               aria-label={menuOpen ? 'Hide room controls' : 'Show room controls'}
               onClick={() => setMenuOpen((o) => !o)}
             >
-              {menuOpen ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
+              <Menu className="size-5" aria-hidden="true" />
               {call.inCall && !menuOpen && (
                 <span className="absolute right-1 top-1 size-2 rounded-full bg-ok" aria-hidden="true" />
               )}
@@ -67,7 +67,7 @@ export default function GameShell() {
               {snapshot.code}
             </span>
           </div>
-          <nav id="room-controls" aria-label="Room" className={`-mx-2 mt-1 items-center gap-1 whitespace-nowrap ${menuOpen ? "flex" : "hidden"}`}>
+          <nav id="room-controls" aria-label="Room" className={`-mx-2 items-center gap-1 whitespace-nowrap ${menuOpen ? "flex" : "hidden"}`}>
             <CallButton align="left" />
             <span className="flex-1" />
             {isHost && (

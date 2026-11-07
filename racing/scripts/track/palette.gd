@@ -119,8 +119,8 @@ static func toon(c: Color, vertex_colors := false, outline := 0.0, finish := Fin
 			m.roughness = 0.35
 			m.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
 			m.rim_enabled = true
-			m.rim = 0.2
-			m.rim_tint = 0.6
+			m.rim = 0.12
+			m.rim_tint = 0.9   # rim light in the paint colour, so it doesn't wash out
 			m.clearcoat = 0.6
 			m.clearcoat_roughness = 0.15
 			m.set_meta("paint", true)

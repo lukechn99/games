@@ -12,21 +12,33 @@ def reset():
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
 
-def material(name, color, rough=0.5, metal=0.0, emit=None, emit_strength=0.0, alpha=1.0, clearcoat=0.0):
+def srgb(r, g, b):
+    """Pick colours as the game (and a paint program) does; Blender wants linear."""
+    def lin(v):
+        return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+    return (lin(r), lin(g), lin(b))
+
+
+def material(name, color, rough=0.5, metal=0.0, emit=None, emit_strength=0.0, alpha=1.0, clearcoat=0.0, transmission=0.0):
+    """`color` is sRGB (as in the game)."""
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     b = m.node_tree.nodes["Principled BSDF"]
-    b.inputs["Base Color"].default_value = (*color, 1.0)
+    b.inputs["Base Color"].default_value = (*srgb(*color), 1.0)
+    if transmission:
+        b.inputs["Transmission Weight"].default_value = transmission
+        b.inputs["IOR"].default_value = 1.3
     b.inputs["Roughness"].default_value = rough
     b.inputs["Metallic"].default_value = metal
     if clearcoat:
         b.inputs["Coat Weight"].default_value = clearcoat
     if emit:
-        b.inputs["Emission Color"].default_value = (*emit, 1.0)
+        b.inputs["Emission Color"].default_value = (*srgb(*emit), 1.0)
         b.inputs["Emission Strength"].default_value = emit_strength
     if alpha < 1.0:
         b.inputs["Alpha"].default_value = alpha
-        m.blend_method = "BLEND" if hasattr(m, "blend_method") else None
+        if hasattr(m, "surface_render_method"):
+            m.surface_render_method = "BLENDED"
     return m
 
 
@@ -81,13 +93,13 @@ def preview(path, target=(0, 0, 0.5), dist=4.0, elev=22.0, azim=35.0, size=(640,
     world = bpy.data.worlds.new("w") if scene.world is None else scene.world
     scene.world = world
     world.use_nodes = True
-    world.node_tree.nodes["Background"].inputs["Color"].default_value = (*bg, 1)
+    world.node_tree.nodes["Background"].inputs["Color"].default_value = (*srgb(*bg), 1)
     world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.9
     # Floor
     bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, 0))
     floor = bpy.context.object
     floor.name = "_preview_floor"
-    assign(floor, material("_floor", (0.42, 0.42, 0.44), 0.9))
+    assign(floor, material("_floor", (0.72, 0.72, 0.7), 0.9))
     # Sun
     bpy.ops.object.light_add(type="SUN", location=(4, -4, 8))
     sun = bpy.context.object
@@ -95,6 +107,11 @@ def preview(path, target=(0, 0, 0.5), dist=4.0, elev=22.0, azim=35.0, size=(640,
     sun.data.energy = 4.0
     sun.data.angle = math.radians(8)
     sun.rotation_euler = (math.radians(50), math.radians(10), math.radians(35))
+    bpy.ops.object.light_add(type="AREA", location=(-4, 3, 3))
+    fill = bpy.context.object
+    fill.name = "_preview_fill"
+    fill.data.energy = 250
+    fill.data.size = 4
     # Camera
     e, a = math.radians(elev), math.radians(azim)
     tx, ty, tz = target
@@ -109,7 +126,25 @@ def preview(path, target=(0, 0, 0.5), dist=4.0, elev=22.0, azim=35.0, size=(640,
     scene.camera = cam
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
-    for name in ["_preview_floor", "_preview_sun", "_preview_cam"]:
+    for name in ["_preview_floor", "_preview_sun", "_preview_cam", "_preview_fill"]:
         o = bpy.data.objects.get(name)
         if o:
             bpy.data.objects.remove(o, do_unlink=True)
+
+
+def sheet(path, angles, target=(0, 0, 0.5), dist=4.0, size=(560, 420), samples=40, bg=(0.62, 0.8, 0.98)):
+    """Render several views and put them side by side in one PNG."""
+    import os
+    from PIL import Image
+    files = []
+    for i, (elev, azim) in enumerate(angles):
+        f = path.replace(".png", "_%d.png" % i)
+        preview(f, target=target, dist=dist, elev=elev, azim=azim, size=size, samples=samples, bg=bg)
+        files.append(f)
+    ims = [Image.open(f) for f in files]
+    out = Image.new("RGB", (size[0] * len(ims), size[1]))
+    for i, im in enumerate(ims):
+        out.paste(im.convert("RGB"), (i * size[0], 0))
+    out.save(path)
+    for f in files:
+        os.remove(f)

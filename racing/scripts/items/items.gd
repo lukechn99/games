@@ -60,42 +60,48 @@ func setup(t: Track, all: Array[Kart], mine: Array[Kart]) -> void:
 
 static var _crate_mat: ShaderMaterial
 static var _mark_mat: ShaderMaterial
-static var _box_shell: Mesh
-static var _box_mark: Mesh
+static var _box_parts: Array = []   # [mesh, material, transform]
 static var _honey_mat: StandardMaterial3D
 static var _weed_mat: StandardMaterial3D
 
 
 func _crate_mesh() -> Node3D:
 	# The item box is a model built in Blender (tools/blender/item_box.py): a
-	# rounded glass cube with a question mark inside, each with its own shader.
+	# pink jelly cube with a yellow question mark inside, rimmed in orange.
 	var root := Node3D.new()
-	if _box_shell == null:
+	if _box_parts.is_empty():
 		var scene: PackedScene = load("res://assets/models/item_box.glb")
 		var inst := scene.instantiate()
-		for mi in inst.find_children("*", "MeshInstance3D", true, false):
-			if (mi as MeshInstance3D).name.begins_with("Shell"):
-				_box_shell = (mi as MeshInstance3D).mesh
-			elif (mi as MeshInstance3D).name.begins_with("Mark"):
-				_box_mark = (mi as MeshInstance3D).mesh
-		inst.free()
 		_crate_mat = ShaderMaterial.new()
 		_crate_mat.shader = load("res://shaders/item_box.gdshader")
 		_mark_mat = ShaderMaterial.new()
 		_mark_mat.shader = load("res://shaders/item_mark.gdshader")
-	var shell := MeshInstance3D.new()
-	shell.mesh = _box_shell
-	shell.material_override = _crate_mat
-	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	shell.rotation = Vector3(0.35, 0.0, 0.35)
-	shell.scale = Vector3.ONE * 1.15
-	root.add_child(shell)
-	var mark := MeshInstance3D.new()
-	mark.mesh = _box_mark
-	mark.material_override = _mark_mat
-	mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mark.name = "Mark"
-	root.add_child(mark)
+		var rim := ShaderMaterial.new()
+		rim.shader = _mark_mat.shader
+		rim.set_shader_parameter("color", Color(1.0, 0.45, 0.08))
+		rim.set_shader_parameter("lift", 0.0)
+		_mark_mat.render_priority = 2
+		rim.render_priority = 1
+		for mi in inst.find_children("*", "MeshInstance3D", true, false):
+			var m := mi as MeshInstance3D
+			var mat: Material = _crate_mat
+			if m.name.begins_with("MarkEdge"):
+				mat = rim
+			elif m.name.begins_with("Mark"):
+				mat = _mark_mat
+			_box_parts.append([m.mesh, mat, m.transform])
+		inst.free()
+	var spin := Node3D.new()
+	spin.rotation = Vector3(0.0, 0.0, 0.25)
+	spin.scale = Vector3.ONE * 1.2
+	root.add_child(spin)
+	for p in _box_parts:
+		var mi := MeshInstance3D.new()
+		mi.mesh = p[0]
+		mi.material_override = p[1]
+		mi.transform = p[2]
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		spin.add_child(mi)
 	return root
 
 

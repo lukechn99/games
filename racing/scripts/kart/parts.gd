@@ -23,28 +23,28 @@ const CHASSIS := {
 		"size": Vector3(1.3, 0.5, 2.0), "wheelbase": 1.45, "track": 1.2,
 		"mass": 140.0, "max_steer": 0.5, "high_speed_steer": 0.42,
 		"top_speed": 27.0, "accel": 1500.0,
-		"wheel_radius": [0.26, 0.36], "color": Color(0.95, 0.35, 0.3),
+		"wheel_radius": [0.26, 0.36], "color": Color(0.9, 0.14, 0.12),
 	},
 	"soapbox": {
 		"name": "Soapbox", "blurb": "Light and nimble: turns tightest, smallest to hit",
 		"size": Vector3(1.05, 0.5, 1.6), "wheelbase": 1.15, "track": 1.0,
 		"mass": 110.0, "max_steer": 0.6, "high_speed_steer": 0.5,
 		"top_speed": 25.5, "accel": 1300.0,
-		"wheel_radius": [0.22, 0.3], "color": Color(0.3, 0.65, 0.95),
+		"wheel_radius": [0.22, 0.3], "color": Color(0.1, 0.45, 0.95),
 	},
 	"hauler": {
 		"name": "Hauler", "blurb": "Heavy and wide: shoves others aside, turns wider",
 		"size": Vector3(1.6, 0.65, 2.3), "wheelbase": 1.7, "track": 1.45,
 		"mass": 210.0, "max_steer": 0.42, "high_speed_steer": 0.38,
 		"top_speed": 27.5, "accel": 2050.0,
-		"wheel_radius": [0.3, 0.42], "color": Color(0.96, 0.72, 0.2),
+		"wheel_radius": [0.3, 0.42], "color": Color(1.0, 0.68, 0.05),
 	},
 	"racer": {
 		"name": "Racer", "blurb": "Long and fast, but turns wide",
 		"size": Vector3(1.15, 0.42, 2.5), "wheelbase": 1.9, "track": 1.15,
 		"mass": 150.0, "max_steer": 0.44, "high_speed_steer": 0.36,
 		"top_speed": 29.0, "accel": 1450.0,
-		"wheel_radius": [0.24, 0.32], "color": Color(0.45, 0.85, 0.45),
+		"wheel_radius": [0.24, 0.32], "color": Color(0.15, 0.72, 0.28),
 	},
 }
 

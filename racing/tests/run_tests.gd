@@ -572,10 +572,9 @@ func _test_frost() -> void:
 	await physics_frame
 	# Dropped through a hole in the ice: lands on the sunken road under the
 	# lake, isn't reset, and can drive on out the far end.
-	var bi := FrostTrack.lake_branch(track)
 	var span := FrostTrack.lake_span(track)
 	var h: Array = FrostTrack.HOLES[2]
-	var f := track.branch_frame(lerpf(span.x, span.y, float(h[0])), bi)
+	var f := track.transform_at(lerpf(span.x, span.y, float(h[0])))
 	var k := Kart.new()
 	k.configure("frame", "studded", "fox")
 	k.track = track
@@ -589,11 +588,34 @@ func _test_frost() -> void:
 		await physics_frame
 		lowest = minf(lowest, k.global_position.y)
 	check(lowest < -5.0 and resets.is_empty(), "falling through the ice lands on the sunken road", "lowest %.1f m, resets %s" % [lowest, resets])
+	# At full racing speed, straight over a hole: you still go through.
+	var h2: Array = FrostTrack.HOLES[3]
+	var hf := track.transform_at(lerpf(span.x, span.y, float(h2[0])))
+	var hc: Vector3 = hf.origin + hf.basis.x * float(h2[1])
+	var fast := Kart.new()
+	fast.configure("racer", "slicks", "fox")
+	fast.track = track
+	_world.add_child(fast)
+	fast.global_transform = Transform3D(hf.basis, hc + hf.basis.z * 30.0 + Vector3.UP * 0.6)
+	fast.linear_velocity = -hf.basis.z * 27.0
+	var low2 := 99.0
+	for i in 150:
+		fast.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+		await physics_frame
+		low2 = minf(low2, fast.global_position.y)
+	check(low2 < -4.0, "flat out over a hole, you still drop through", "lowest %.1f m" % low2)
+	fast.queue_free()
 	# Drive on (steering for the shortcut's line) and come up the far end.
 	var out := false
 	for i in 900:
 		var o := track.offset_of(k.global_position)
-		var aim := track.branch_frame(o + 12.0, bi).origin
+		var aim := track.transform_at(o + 12.0).origin
+		# Weave round the sunken boulders.
+		for r in FrostTrack.SUNKEN_ROCKS:
+			var rf := track.transform_at(lerpf(span.x, span.y, float(r[0])))
+			var rp: Vector3 = rf.origin + rf.basis.x * float(r[1])
+			if Vector2(rp.x - aim.x, rp.z - aim.z).length() < 4.5:
+				aim += rf.basis.x * (6.0 if float(r[1]) <= 0.0 else -6.0)
 		var to := (aim - k.global_position)
 		var steer := clampf(k.global_transform.basis.x.dot(to.normalized()) * 2.0, -1.0, 1.0)
 		k.input = {"steer": steer, "throttle": 1.0, "brake": 0.0, "drift": false}
@@ -620,6 +642,8 @@ func _test_frost() -> void:
 		b.respawned.connect(func(): respawns[idx] += 1)
 	var lap_time := [0.0, 0.0, 0.0, 0.0]
 	var on_lake := false
+	var on_detour := false
+	var di := FrostTrack.detour_branch(track)
 	var t := 0.0
 	while t < 220.0:
 		await physics_frame
@@ -632,11 +656,14 @@ func _test_frost() -> void:
 				lap_time[i] = t + lap_time[i]
 			if FrostTrack.in_lake(b.global_position, 0.9):
 				on_lake = true
+			var bo := track.offset_of(b.global_position)
+			if track.branch_at(bo) == di and Vector2(b.global_position.x - track.branch_frame(bo, di).origin.x, b.global_position.z - track.branch_frame(bo, di).origin.z).length() < 8.0 and absf(track.branch_offset(bo, di)) > 25.0:
+				on_detour = true
 		if lap_time.all(func(x): return x > 0.0):
 			break
 	for i in bots.size():
 		check(lap_time[i] > 0.0, "%s bot (%s) laps Frosty Pass" % [builds[i][2], builds[i][0]],
 			"lap %.1f s, %d resets, now lap %d at %d m" % [lap_time[i], respawns[i], bots[i].lap, int(track.offset_of(bots[i].global_position))])
-	check(on_lake, "bots take the frozen lake shortcut", "")
+	check(on_lake and on_detour, "bots cross the frozen lake, and some take the detour", "lake %s, detour %s" % [on_lake, on_detour])
 	check(respawns.reduce(func(a, x): return a + x, 0) <= 6, "bots rarely need resetting on Frosty Pass", "%s" % [respawns])
 	print("  lap length %.0f m" % track.length)

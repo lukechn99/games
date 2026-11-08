@@ -16,27 +16,33 @@ const POINTS := [
 	Vector3(100, 8.5, -5), Vector3(130, 10, 4), Vector3(152, 11.5, -15), Vector3(160, 13, -60),
 	# Up to the summit.
 	Vector3(165, 15, -120), Vector3(150, 16, -175), Vector3(110, 16, -205),
-	# The descent (rolling snowballs).
-	Vector3(50, 9, -225), Vector3(-20, 2, -225),
-	# Round the bottom of the pass, the lake inside the bend.
-	Vector3(-80, 0, -205), Vector3(-140, 0, -175), Vector3(-185, 0, -110), Vector3(-190, 0, -40),
-	Vector3(-160, 0, 25), Vector3(-110, 0, 55),
+	# The descent (rolling snowballs), swinging round to aim at the lake.
+	Vector3(50, 9, -225), Vector3(-20, 2, -225), Vector3(-62, 0.5, -200),
+	# Straight across the frozen lake, through its glacier gateway.
+	Vector3(-86, 0, -150), Vector3(-93, 0, -80), Vector3(-95, 0, -10), Vector3(-110, 0, 55),
 	# Home.
 	Vector3(-60, 0, 90), Vector3(-18, 0, 105), Vector3(0, 0, 85),
 ]
-## The shortcut across the frozen lake: from the start of the bend to its end.
-## The road leads onto the ice, which is wide open, but has holes in it:
-## drop through one and you land on a sunken road under the ice, which runs
-## the length of the lake and climbs back out through an opening at the
-## far shore.
-const SHORTCUT := [Vector2(-80, -205), Vector2(-88, -150), Vector2(-93, -80), Vector2(-95, -10), Vector2(-110, 55)]
+## The racing line runs straight across the frozen lake, in a glacier basin:
+## open ice, slippery, with holes that give way under you. Drop through one
+## and you land on a sunken road under the ice, with boost strips (and
+## boulders to dodge between them), which climbs back out through an
+## opening at the far shore. The safe way round is a detour: the old road
+## round the bottom of the pass, longer, but solid.
+const DETOUR := [Vector2(-62, -200), Vector2(-130, -195), Vector2(-180, -130), Vector2(-190, -40), Vector2(-160, 25), Vector2(-110, 55)]
 const LAKE_CENTER := Vector3(-92, 0, -75)
 const LAKE_RX := 40.0
 const LAKE_RZ := 105.0
 const ICE_Y := 0.1
 const DEEP := -7.5          # the sunken road's surface
 ## Holes in the ice: [fraction along the lake, sideways metres, radius].
-const HOLES := [[0.2, -6.0, 3.6], [0.31, 7.0, 3.4], [0.43, -1.5, 4.0], [0.55, 7.5, 3.4], [0.66, -7.5, 3.8], [0.74, 2.0, 3.2]]
+## Spread over the whole width, so you have to weave between them.
+const HOLES := [[0.16, -9.0, 5.0], [0.22, 6.0, 5.5], [0.32, -2.0, 5.5], [0.4, 11.0, 5.0], [0.47, -11.0, 5.0],
+	[0.55, 3.0, 5.8], [0.63, -6.5, 5.2], [0.71, 9.0, 5.0], [0.77, -1.0, 4.8]]
+## Boost strips on the sunken road [fraction along], and boulders between
+## them [fraction, sideways metres].
+const SUNKEN_BOOSTS := [0.18, 0.4, 0.62]
+const SUNKEN_ROCKS := [[0.26, -3.5], [0.31, 4.0], [0.48, 0.0], [0.53, -5.0], [0.69, 4.5], [0.74, -2.5]]
 const EXIT_LEN := 30.0      # the ramp out climbs over the last metres of the lake
 const EXIT_HALF := 9.0
 
@@ -67,8 +73,13 @@ static func plan(t: Track) -> void:
 	var bp := t.offset_of(POINTS[13]) + 20.0
 	zones.append({"from": bp / L, "to": (bp + 14.0) / L, "surface": "boost"})
 	t.surface_zones = zones
-	_add_chord(t, SHORTCUT, "lake")
-	t.branches[t.branches.size() - 1]["surface"] = "ice"
+	# No banking from before the detour leaves to after it rejoins (set
+	# before the detour is laid out, so it follows the flat road).
+	var o0 := t.offset_of(Vector3(DETOUR[0].x, 0, DETOUR[0].y))
+	var o1 := t.offset_of(Vector3(DETOUR[DETOUR.size() - 1].x, 0, DETOUR[DETOUR.size() - 1].y))
+	t._flat_from = o0 - 40.0
+	t._flat_to = o1 + 40.0
+	_add_chord(t, DETOUR, "detour")
 
 
 ## The shortcut as its own path: the polyline smoothed, walked at an even
@@ -109,9 +120,9 @@ static func build(t: Track) -> void:
 	t.add_child(r)
 
 
-static func lake_branch(t: Track) -> int:
+static func detour_branch(t: Track) -> int:
 	for i in t.branches.size():
-		if t.branches[i]["kind"] == "lake":
+		if t.branches[i]["kind"] == "detour":
 			return i
 	return -1
 
@@ -123,32 +134,39 @@ static func in_lake(p: Vector3, grow := 1.0) -> bool:
 	return dx * dx + dz * dz < 1.0
 
 
-## The shortcut has ordinary road only on land: over the lake it's ice.
-static func has_road(t: Track, i: int, d: float) -> bool:
-	return not in_lake(t.branch_frame(d, i).origin, 1.02)
+## The detour is ordinary road all the way.
+static func has_road(_t: Track, _i: int, _d: float) -> bool:
+	return true
 
 
-## Where the shortcut is over the lake: [first offset, last offset].
+## No road surface on the main line over the lake: it's ice (track.gd asks).
+static func main_on_ice(p: Vector3) -> bool:
+	return in_lake(p, 1.02)
+
+
+## Where the racing line is over the lake: [first offset, last offset].
 static func lake_span(t: Track) -> Vector2:
-	var bi := lake_branch(t)
-	var b: Dictionary = t.branches[bi]
 	var a := INF
 	var z := -INF
-	var d: float = b["from"]
-	while d <= float(b["to"]):
-		if in_lake(t.branch_frame(d, bi).origin):
+	var d := 0.0
+	while d < t.length:
+		if in_lake(t.transform_at(d).origin):
 			a = minf(a, d)
 			z = maxf(z, d)
 		d += 1.0
 	return Vector2(a, z)
 
 
+static func lake_frame(t: Track, u: float) -> Transform3D:
+	var span := lake_span(t)
+	return t.transform_at(lerpf(span.x, span.y, u))
+
+
 ## Item crates: on the start straight, on the descent, and a row down on the
 ## sunken road (a reward for falling in).
 static func crate_frames(t: Track) -> Array[Transform3D]:
 	var out: Array[Transform3D] = [t.transform_at(75.0), t.transform_at(t.offset_of(POINTS[14]) + 25.0)]
-	var span := lake_span(t)
-	var f := t.branch_frame(lerpf(span.x, span.y, 0.5), lake_branch(t))
+	var f := lake_frame(t, 0.5)
 	f.origin.y = DEEP + 1.2
 	out.append(f)
 	return out
@@ -200,18 +218,17 @@ static func ground_collision(t: Track, body: StaticBody3D) -> void:
 ## The frozen lake: an ice sheet with holes, dark water showing through
 ## them, and under it a lakebed with a sunken road and kelp.
 static func _frozen_lake(t: Track) -> void:
-	var bi := lake_branch(t)
 	var span := lake_span(t)
 	var holes: Array[Vector3] = []   # (x, z, radius)
 	for h in HOLES:
-		var f := t.branch_frame(lerpf(span.x, span.y, float(h[0])), bi)
+		var f := t.transform_at(lerpf(span.x, span.y, float(h[0])))
 		var p: Vector3 = f.origin + f.basis.x * float(h[1])
 		holes.append(Vector3(p.x, p.z, float(h[2])))
 	# The exit opening, along the road's line for the last EXIT_LEN metres.
 	var exit_frames: Array[Transform3D] = []
 	var d := span.y - EXIT_LEN
 	while d <= span.y + 4.0:
-		exit_frames.append(t.branch_frame(d, bi))
+		exit_frames.append(t.transform_at(d))
 		d += 2.0
 
 	var in_hole := func(p: Vector3) -> bool:
@@ -294,9 +311,9 @@ static func _frozen_lake(t: Track) -> void:
 	var nseg := 40
 	for k in nseg:
 		var a1 := TAU * k / nseg
-		ring.append(LAKE_CENTER + Vector3(cos(a1) * LAKE_RX * 1.05, DEEP - 0.4, sin(a1) * LAKE_RZ * 1.05))
+		ring.append(LAKE_CENTER + Vector3(cos(a1) * LAKE_RX * 1.05, DEEP + 0.01, sin(a1) * LAKE_RZ * 1.05))
 	for k in nseg:
-		for v in [LAKE_CENTER + Vector3.UP * (DEEP - 0.4), ring[k], ring[(k + 1) % nseg]]:
+		for v in [LAKE_CENTER + Vector3.UP * (DEEP + 0.01), ring[k], ring[(k + 1) % nseg]]:
 			bst.set_color(Color(0.55, 0.62, 0.6))
 			bst.set_normal(Vector3.UP)
 			bst.add_vertex(v)
@@ -326,14 +343,41 @@ static func _frozen_lake(t: Track) -> void:
 	# through the opening at the far end.
 	var road := SurfaceTool.new()
 	road.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var boosts := SurfaceTool.new()
+	boosts.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var skirt := SurfaceTool.new()
+	skirt.begin(Mesh.PRIMITIVE_TRIANGLES)
 	d = span.x
 	var idx := 0
 	while d < span.y + 6.0:
-		var fa := t.branch_frame(d, bi)
-		var fb := t.branch_frame(d + 2.0, bi)
+		var fa := t.transform_at(d)
+		var fb := t.transform_at(d + 2.0)
 		fa.origin.y = _deep_y(d, span)
 		fb.origin.y = _deep_y(d + 2.0, span)
+		var u := (d - span.x) / (span.y - span.x)
+		var boost := false
+		for bu in SUNKEN_BOOSTS:
+			if absf(u - float(bu)) < 7.0 / (span.y - span.x):
+				boost = true
+		if boost:
+			# Boost strips: glowing cyan, the middle of the road.
+			t._quad_strip(boosts, fa, fb, "boost", idx, d, 0.0, 0.03, Color(0.3, 0.95, 1.0))
 		t._quad_strip(road, fa, fb, "asphalt", idx, d, 0.0, 0.0, Color(0.36, 0.42, 0.5))
+		# Where it climbs, sloped sides down to the bed, so you can get back on.
+		var ha := fa.origin.y - DEEP
+		var hb := fb.origin.y - DEEP
+		if maxf(ha, hb) > 0.1:
+			for sx: float in [-1.0, 1.0]:
+				var ea := fa.origin + fa.basis.x * sx * (Track.ROAD_WIDTH * 0.5 + 1.1) + Vector3.UP * 0.04
+				var eb := fb.origin + fb.basis.x * sx * (Track.ROAD_WIDTH * 0.5 + 1.1) + Vector3.UP * 0.04
+				var ga := fa.origin + fa.basis.x * sx * (Track.ROAD_WIDTH * 0.5 + 1.1 + ha * 1.8)
+				var gb := fb.origin + fb.basis.x * sx * (Track.ROAD_WIDTH * 0.5 + 1.1 + hb * 1.8)
+				ga.y = DEEP + 0.01
+				gb.y = DEEP + 0.01
+				var quad := [ea, gb, ga, ea, eb, gb] if sx > 0 else [ea, ga, gb, ea, gb, eb]
+				for v in quad:
+					skirt.set_color(Color(0.42, 0.5, 0.52))
+					skirt.add_vertex(v)
 		d += 2.0
 		idx += 1
 	road.generate_normals()
@@ -348,12 +392,58 @@ static func _frozen_lake(t: Track) -> void:
 	rshape.backface_collision = true
 	rcol.shape = rshape
 	rbody.add_child(rcol)
+	skirt.generate_normals()
+	var sk_mesh := skirt.commit()
+	if sk_mesh.get_surface_count() > 0:
+		var sk_body := t._body("sand", true)
+		var sk_mi := MeshInstance3D.new()
+		sk_mi.mesh = sk_mesh
+		sk_mi.material_override = bmat
+		sk_body.add_child(sk_mi)
+		var sk_col := CollisionShape3D.new()
+		var sk_shape := sk_mesh.create_trimesh_shape()
+		sk_shape.backface_collision = true
+		sk_col.shape = sk_shape
+		sk_body.add_child(sk_col)
+	boosts.generate_normals()
+	var bm2 := boosts.commit()
+	var bbody := t._body("boost", true)
+	var bmi2 := MeshInstance3D.new()
+	bmi2.mesh = bm2
+	var glow := Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.PAINT).duplicate() as StandardMaterial3D
+	glow.emission_enabled = true
+	glow.emission = Color(0.2, 0.75, 0.9)
+	glow.emission_energy_multiplier = 0.6
+	bmi2.material_override = glow
+	bbody.add_child(bmi2)
+	var bcol2 := CollisionShape3D.new()
+	var bshape2 := bm2.create_trimesh_shape()
+	bshape2.backface_collision = true
+	bcol2.shape = bshape2
+	bbody.add_child(bcol2)
+	# Boulders on the sunken road, between the boosts: solid.
+	var rocks: Array[Transform3D] = []
+	var solid := t._body("rock")
+	for r in SUNKEN_ROCKS:
+		var f := t.transform_at(lerpf(span.x, span.y, float(r[0])))
+		var p: Vector3 = f.origin + f.basis.x * float(r[1])
+		p.y = DEEP - 0.3
+		var sc := 2.6
+		rocks.append(Transform3D(Basis(Vector3.UP, float(r[0]) * 40.0).scaled(Vector3(sc, sc * 1.6, sc)), p))
+		var col3 := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = 0.38 * sc
+		cyl.height = 2.4
+		col3.shape = cyl
+		col3.position = p + Vector3.UP * 1.2
+		solid.add_child(col3)
+	t._scatter(Track.KIT_NATURE + "rock_largeA.glb", rocks)
 	# Kelp swaying either side of the sunken road.
 	var kelp := SetPieces._new_st()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
 	for k in 60:
-		var f := t.branch_frame(lerpf(span.x, span.y - EXIT_LEN, rng.randf()), bi)
+		var f := t.transform_at(lerpf(span.x, span.y - EXIT_LEN, rng.randf()))
 		var side := -1.0 if k % 2 == 0 else 1.0
 		var p := f.origin + f.basis.x * side * rng.randf_range(Track.ROAD_WIDTH * 0.5 + 3.0, 30.0)
 		if not in_lake(p, 0.9):
@@ -364,7 +454,99 @@ static func _frozen_lake(t: Track) -> void:
 	SetPieces._commit(t, kelp, Palette.leaves(Color(0.25, 0.6, 0.3)))
 	for i in 4:
 		var zc := LAKE_CENTER.z + (i - 1.5) * LAKE_RZ * 0.5
-		t._keep_clear.append(Vector3(LAKE_CENTER.x, zc, LAKE_RX + 6.0))
+		t._keep_clear.append(Vector3(LAKE_CENTER.x, zc, LAKE_RX + 24.0))
+	_glacier(t)
+	_gateway(t, span)
+	var holes_node := Holes.new()
+	holes_node.holes = holes
+	t.add_child(holes_node)
+
+
+## The lake sits in a glacier basin: a ring of jagged ice and rock walls
+## round the shore, gapped where the roads come in. They also catch anyone
+## sliding off the ice.
+static func _glacier(t: Track) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 120
+	var noise := FastNoiseLite.new()
+	noise.seed = 21
+	noise.frequency = 0.12
+	var keep := []
+	for k in n:
+		var a := TAU * k / n
+		# Any part of the wall (out to the foot of its back slope) near a road: gap.
+		var gap := false
+		for r in [1.0, 6.0, 12.0, 22.0]:
+			var pt := LAKE_CENTER + Vector3(cos(a) * (LAKE_RX * 1.06 + r), 0, sin(a) * (LAKE_RZ * 1.03 + r))
+			if t._distance_to_line(pt) < Track.ROAD_WIDTH * 0.5 + 7.0:
+				gap = true
+		keep.append(not gap)
+	for k in n:
+		if not keep[k] or not keep[(k + 1) % n]:
+			continue
+		var prof := []
+		for j in 2:
+			var kk := (k + j) % n
+			var a := TAU * kk / n
+			var dir := Vector3(cos(a), 0, sin(a))
+			var h := 9.0 + noise.get_noise_1d(kk * 3.0) * 6.0 + absf(noise.get_noise_1d(kk * 11.0)) * 5.0
+			var base := LAKE_CENTER + Vector3(dir.x * LAKE_RX * 1.05, -0.3, dir.z * LAKE_RZ * 1.02)
+			var lip := LAKE_CENTER + Vector3(dir.x * (LAKE_RX * 1.07 + 1.5), h, dir.z * (LAKE_RZ * 1.03 + 1.5))
+			var top := LAKE_CENTER + Vector3(dir.x * (LAKE_RX * 1.07 + 6.0), h * 0.85, dir.z * (LAKE_RZ * 1.03 + 6.0))
+			var back := LAKE_CENTER + Vector3(dir.x * (LAKE_RX * 1.07 + 22.0), -0.3, dir.z * (LAKE_RZ * 1.03 + 22.0))
+			prof.append([base, lip, top, back])
+		for seg in 3:
+			var p0: Vector3 = prof[0][seg]
+			var p1: Vector3 = prof[0][seg + 1]
+			var q0: Vector3 = prof[1][seg]
+			var q1: Vector3 = prof[1][seg + 1]
+			for v in [p0, q0, q1, p0, q1, p1]:
+				st.add_vertex(v)
+	st.generate_normals()
+	var mesh := st.commit()
+	var body := t._body("rock")
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	# Glacier ice: blue-white bands, snow on the tops.
+	var m := MineTrack.rock_material()
+	m.set_shader_parameter("tone_a", Color(0.72, 0.86, 0.96))
+	m.set_shader_parameter("tone_b", Color(0.6, 0.78, 0.92))
+	m.set_shader_parameter("tone_c", Color(0.52, 0.66, 0.8))
+	m.set_shader_parameter("seam", Color(0.36, 0.48, 0.62))
+	m.set_shader_parameter("snow_line", 6.0)
+	m.set_shader_parameter("band_m", 2.2)
+	m.set_shader_parameter("use_gravel", false)
+	mi.material_override = m
+	body.add_child(mi)
+	var col := CollisionShape3D.new()
+	var shape := mesh.create_trimesh_shape()
+	shape.backface_collision = true
+	col.shape = shape
+	body.add_child(col)
+
+
+## An arch of ice over the way onto the lake, hung with icicles: you can see
+## from the descent that the road goes across the lake.
+static func _gateway(t: Track, span: Vector2) -> void:
+	var f := t.transform_at(span.x - 6.0)
+	var st := SetPieces._new_st()
+	var w := Track.ROAD_WIDTH + 6.0
+	var ice := Color(0.78, 0.9, 1.0)
+	for sx: float in [-1.0, 1.0]:
+		var foot := f.origin + f.basis.x * sx * w * 0.5
+		SetPieces._box(st, Transform3D(f.basis.rotated(Vector3.UP, sx * 0.1), foot + Vector3.UP * 4.5), Vector3(2.2, 9.0, 2.2), ice)
+		SetPieces._box(st, Transform3D(f.basis, foot + Vector3.UP * 9.2), Vector3(3.0, 1.0, 3.0), Color(0.95, 0.98, 1.0))
+	var top := f.origin + Vector3.UP * 9.6
+	SetPieces._box(st, Transform3D(f.basis, top), Vector3(w + 3.0, 1.6, 2.4), ice)
+	SetPieces._box(st, Transform3D(f.basis, top + Vector3.UP * 0.9), Vector3(w + 3.4, 0.5, 2.8), Color(0.97, 0.99, 1.0))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	for k in 16:
+		var x := lerpf(-w * 0.5, w * 0.5, (k + 0.5) / 16.0)
+		var l := rng.randf_range(0.8, 2.4)
+		SetPieces._box(st, Transform3D(f.basis.rotated(f.basis.z, rng.randf_range(-0.1, 0.1)), top + f.basis.x * x - Vector3.UP * (0.8 + l * 0.5)), Vector3(0.22, l, 0.22), Color(0.85, 0.95, 1.0))
+	SetPieces._commit(t, st, Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.PAINT), true, "rock")
 
 
 ## The sunken road's height: deep under the lake, rising to the shore over
@@ -384,6 +566,40 @@ static func _snowmen(t: Track) -> void:
 		var face := Basis.looking_at(-(f.basis.x * float(spot[1])), Vector3.UP)
 		xs.append(Transform3D(face.scaled(Vector3.ONE * 1.2), p))
 	t._scatter(Track.MODELS + "snowman.glb", xs)
+
+
+## The ice gives way: a kart over a hole is pulled down through it (at
+## speed you'd otherwise skim straight across), with a little tug toward
+## the middle so it drops cleanly instead of catching the edge.
+class Holes extends Node:
+	var holes: Array[Vector3] = []   # (x, z, radius)
+	var _karts: Array = []
+	var _find := 0.0
+
+	func _physics_process(delta: float) -> void:
+		_find -= delta
+		if _find <= 0.0:
+			_find = 1.0
+			_karts = get_tree().root.find_children("*", "Kart", true, false)
+		for k in _karts:
+			if not is_instance_valid(k):
+				continue
+			var kart := k as Kart
+			if kart == null or kart.remote:
+				continue
+			var p := kart.global_position
+			if p.y > ICE_Y + 2.0 or p.y < DEEP + 1.0:
+				continue
+			for h in holes:
+				var rel := Vector2(p.x - h.x, p.z - h.y)
+				if rel.length() < h.z - 0.6:
+					var v := kart.linear_velocity
+					v.y = minf(v.y, -9.0)
+					var pull := -rel.normalized() * 6.0 * delta
+					v.x += pull.x
+					v.z += pull.y
+					kart.linear_velocity = v
+					break
 
 
 ## Giant snowballs rolling down across the road on the descent, one after

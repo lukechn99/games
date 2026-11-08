@@ -110,6 +110,8 @@ var branch_side := 1.0        # which side the second route swings out to
 var _keep_clear: Array[Vector3] = []   # (x, z, radius): no scenery here
 var _branch_samples: Array[Vector3] = []
 var _branch_sample_offsets: PackedFloat32Array = []
+var _flat_from := 0.0   # a stretch with no banking (set by a layout)
+var _flat_to := 0.0
 
 
 func _ready() -> void:
@@ -195,6 +197,8 @@ func _flat_dir(offset: float) -> Vector3:
 func bank_at(offset: float) -> float:
 	if _bank.is_empty():
 		return 0.0
+	if layout == "frost" and _flat_from < _flat_to and fposmod(offset, length) > _flat_from and fposmod(offset, length) < _flat_to:
+		return 0.0   # the frozen lake and its detour: flat, so the roads meet level
 	var x := fposmod(offset, length) / 2.0
 	var i := int(x) % _bank.size()
 	return lerpf(_bank[i], _bank[(i + 1) % _bank.size()], x - floorf(x))
@@ -448,7 +452,9 @@ func _build_road() -> void:
 			# there are no overlapping layers and no seams (design doc 9.4).
 			_merged_strip(st, d, minf(d + step, length), int(d / step), bi)
 		else:
-			_quad_strip(st, a, b, s, int(d / step), d)
+			# (Across Frosty Pass's frozen lake the ice is the road.)
+			if not (layout == "frost" and FrostTrack.main_on_ice(a.origin) and FrostTrack.main_on_ice(b.origin)):
+				_quad_strip(st, a, b, s, int(d / step), d)
 			if shift >= BRANCH_SPLIT and _branch_has_road(bi, d):
 				var bend: float = branches[bi]["to"]
 				var ba := _branch_strip_frame(d, bi)

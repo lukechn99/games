@@ -93,6 +93,14 @@ func _ready() -> void:
 			ChaseCamera.review_offset = Vector2(4.0, 2.5)
 		if q.contains("introt="):
 			_intro_pin = float(q.split("introt=")[1].split("&")[0])
+		if q.contains("bench"):
+			# Measure the race (tools/bench): ?bench or ?bench=SECONDS.
+			var bench := Bench.new()
+			bench.race = self
+			if q.contains("bench="):
+				bench.seconds = float(q.split("bench=")[1].split("&")[0])
+			_benching = true
+			add_child(bench)
 		if q.contains("intro"):
 			# Start from the aerial tour, as after the kart builder.
 			_fly_over(0.0)
@@ -120,6 +128,7 @@ var _by_id := {}                  # player id -> Kart
 var _send_t := 0.0
 var _reported := {}               # player id -> true once their finish is sent
 var results: ResultsScreen
+var _benching := false          # ?bench: keep the quality fixed
 var _autopilot_review := false   # ?autodrive: a bot drives you all along
 var _autopilot: BotDriver        # drives your kart on after you finish
 var _done := false                # online: the room says the race is over
@@ -651,7 +660,8 @@ func _fit_resolution() -> void:
 ## can't keep up (6 seconds of racing under 45 frames a second), step back
 ## down a level, without overwriting their saved choice.
 func _watch_frame_rate(delta: float) -> void:
-	if Controls.quality == Controls.Quality.LOW:
+	# (Not while benchmarking: the quality asked for is the one measured.)
+	if Controls.quality == Controls.Quality.LOW or _benching:
 		return
 	_fps_time += delta
 	_fps_frames += 1

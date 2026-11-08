@@ -636,6 +636,15 @@ What we measured: the game logic and physics are cheap (6 karts cost about 0.6 m
 
 Sources: [How to make Godot 3D look better](https://codingquests.io/blog/how-to-make-godot-3d-look-better) (sun, sky and tonemapper first; shadows cost the most; turn effects off one at a time to measure), [Godot forum: web export stutters on mobile](https://forum.godotengine.org/t/godot-4-web-export-stutters-on-mobile-its-probably-your-art-pipeline-not-your-code-31fps-to-60fps-benchmarks-inside/143268) (texture compression, atlases, draw calls), [shader compilation lag in web builds](https://forum.godotengine.org/t/handling-particle-shader-compilation-lag-in-godot-4-web-compatibility-renderer/36170/2) (draw everything once at load), [Godot: reducing pipeline compilation stutter](https://docs.godotengine.org/en/stable/tutorials/performance/pipeline_compilations.html), [Godot: jitter and stutter](https://docs.godotengine.org/en/4.2/tutorials/rendering/jitter_stutter.html).
 
+### 14.2 Measuring (Decided)
+Every change is checked with two commands whose output is a few lines, so checking stays cheap (for us and for the AI doing the work).
+- **`racing/tools/check.sh`**: all correctness checks (game tests, site tests, types, lint). One line per step when it passes, only the failures when it doesn't.
+- **`node racing/tools/bench/bench.mjs`**: races each track at Low and High with a computer driving (`?autodrive&bench`), re-exporting the game first if its sources changed. It reports, per run: draw calls, triangles, objects, physics time, kart resets, the longest a kart was stuck, laps and console errors, compared with `tools/bench/baseline.json`, and names only what got worse. `--sources` lists where the draw calls come from; `--update` saves a new baseline (commit it with the change that earned it).
+- **`node racing/tools/bench/sheet.mjs`**: several views as one small contact-sheet image, for visual checks.
+- Draw calls, triangles and resets are trustworthy from the build machine. Frame rate isn't: it draws in software. Real frame rates come from opening `?autodrive&bench` on a real device, which shows the result on screen.
+- The bench keeps the quality fixed. Normally the game drops a level when the frame rate is low, which would make High measure as Medium.
+- First baseline finding: wheels were about half of all draw calls (each wheel is several separate meshes, on every kart).
+
 ## 15. Accessibility
 - Colour-blind-safe kart colours, plus a number on each kart.
 - Assists: automatic gas, steering help and auto-drift.

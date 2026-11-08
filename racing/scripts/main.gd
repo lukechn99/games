@@ -330,22 +330,26 @@ func _fly_over(delta: float) -> void:
 	var center := track.map_centre()
 	var r := track.map_radius() * 1.05 + 40.0
 	var a := _tour * 0.08
-	camera.global_position = center + Vector3(cos(a) * r, 150.0 + r * 0.1, sin(a) * r)
+	_tour_pos = center + Vector3(cos(a) * r, 150.0 + r * 0.1, sin(a) * r)
+	camera.global_position = _tour_pos
 	camera.look_at(center + Vector3(0, -10, 0), Vector3.UP)
 	camera.fov = 55.0
 
 
 # --- Fly-in -------------------------------------------------------------
-# Once everyone's ready, the camera carries on from the aerial tour round
-# the map: one more full circle, spiralling down toward the grid, ending
-# right behind your kart where the race camera takes over.
+# Once everyone's ready, the camera carries on from exactly where the aerial
+# tour has it, turning the same way at the same pace, and spirals down round
+# the middle of the map to come to rest right where the race camera sits
+# behind your kart. Nothing jumps: position, aim and speed all carry on.
 
-const INTRO := 8.0   # slow: one unhurried turn, coming down
+const INTRO := 8.0         # slow: one unhurried turn, coming down
+const TOUR_SPIN := 0.08    # the aerial tour's turn rate, rad/s
 var _intro_len := INTRO
 var _intro_left := 0.0
-var _intro_pin := -1.0   # ?introt=T: hold the fly-in at T (0..1), for checking it
-var _intro_ceiling := 0.0
-var _intro_from := Vector3.ZERO   # [radius, height, angle] when it began
+var _intro_pin := -1.0     # ?introt=T: hold the fly-in at T (0..1), for checking it
+var _intro_from := Vector3.ZERO   # [radius, height, angle] round the map's middle
+var _intro_lift := 0.0     # extra height to clear hills, eased in and out
+var _tour_pos := Vector3.ZERO     # where the aerial tour last put the camera
 
 
 func _begin_intro(seconds := INTRO) -> void:
@@ -353,11 +357,13 @@ func _begin_intro(seconds := INTRO) -> void:
 		return   # already flying in
 	_intro_len = seconds
 	_intro_left = seconds
-	# Start from where the aerial tour is now, not from the camera: by this
-	# point the race camera has already been snapped behind the kart.
-	var r := track.map_radius() * 1.05 + 40.0
-	_intro_from = Vector3(r, 150.0 + r * 0.1, _tour * 0.08)
-	_intro_ceiling = -1.0   # measured on the first frame (the scenery's solid by then)
+	# From where the aerial tour put the camera (by now the race camera has
+	# already been snapped behind the kart, so not from the camera itself).
+	if _tour_pos == Vector3.ZERO:
+		_fly_over(0.0)
+	var off := _tour_pos - track.map_centre()
+	_intro_from = Vector3(Vector2(off.x, off.z).length(), _tour_pos.y, atan2(off.z, off.x))
+	_intro_lift = 0.0
 	camera.set_process(false)
 	hud.visible = false
 	# Standalone: the countdown starts after the fly-in. (Online it's set by
@@ -366,67 +372,45 @@ func _begin_intro(seconds := INTRO) -> void:
 		_countdown = 3.0 + seconds
 
 
-## How high the scenery reaches, so the high part of the circle clears it.
-func _measure_ceiling() -> void:
-	var c := track.map_centre()
-	_intro_ceiling = 0.0
-	var sp := get_world_3d().direct_space_state
-	var rr := track.map_radius()
-	for ix in 13:
-		for iz in 13:
-			var p := c + Vector3((ix / 6.0 - 1.0) * rr, 0.0, (iz / 6.0 - 1.0) * rr)
-			var hit := sp.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 400.0, p + Vector3.DOWN * 200.0))
-			if not hit.is_empty():
-				_intro_ceiling = maxf(_intro_ceiling, (hit["position"] as Vector3).y)
-	_intro_from.y = maxf(_intro_from.y, _intro_ceiling + 60.0)
-
-
 func _intro(delta: float) -> void:
-	if _intro_ceiling < 0.0:
-		_measure_ceiling()
 	_intro_left = maxf(0.0, _intro_left - delta)
 	var t := 1.0 - _intro_left / _intro_len
 	if _intro_pin >= 0.0:
 		t = _intro_pin
 		_intro_left = _intro_len
-	var e := t * t * (3.0 - 2.0 * t)   # ease in and out
-	var grid := player_kart.global_position if player_kart else track.grid_transform(0).origin
+	var s := t * t * (3.0 - 2.0 * t)   # ease in and out
 	var rest: Array = camera.rest_view()
-	# The circle's centre slides from the middle of the map to the grid as
-	# it tightens and drops; the last part blends onto the race camera.
-	# Circle outside the track, round the middle of the map, looking in at
-	# the stretch of road below; one full turn plus whatever it takes to end
-	# over the grid. (Outside the track, the mountain stays behind the road
-	# instead of between it and the camera.)
-	var mid := track.map_centre()
-	# End the circle right above where the race camera will be, so the last
-	# swoop is straight down onto it.
 	var rest0: Vector3 = rest[0]
-	var to_grid := Vector2(rest0.x - mid.x, rest0.z - mid.z)
-	var end_ang := atan2(to_grid.y, to_grid.x)
-	# One turn at most: whatever's left to reach the grid's side, plus a full
-	# turn only if that would be too little to feel like a circle.
-	var sweep := fposmod(end_ang - _intro_from.z, TAU)
-	if sweep < PI * 0.75:
+	var mid := track.map_centre()
+	var to_end := Vector2(rest0.x - mid.x, rest0.z - mid.z)
+	# Round the middle, the way the tour was turning, to come out on the
+	# race camera's side: whatever's left of the turn, or one more if that's
+	# too little to read as a circle.
+	var sweep := fposmod(atan2(to_end.y, to_end.x) - _intro_from.z, TAU)
+	if sweep < PI * 0.5:
 		sweep += TAU
-	var ang := _intro_from.z + sweep * e
-	var radius := lerpf(_intro_from.x, to_grid.length(), e)
-	# Coming down from the tour's height to a lower top view; the last part
-	# swoops from there straight down onto the kart.
-	var height := lerpf(_intro_from.y, maxf(_intro_ceiling + 30.0, grid.y + 45.0), e * e)   # stays high, then drops
-	var pos := mid + Vector3(cos(ang) * radius, 0.0, sin(ang) * radius)
-	pos.y = height
-	var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(pos + Vector3.UP * 200.0, pos + Vector3.DOWN * 300.0))
+	# Hermite: starts at the tour's own turn rate, eases to a stop on the grid.
+	var h10 := t * t * t - 2.0 * t * t + t
+	var h01 := -2.0 * t * t * t + 3.0 * t * t
+	var ang := _intro_from.z + TOUR_SPIN * _intro_len * h10 + sweep * h01
+	var radius := lerpf(_intro_from.x, to_end.length(), s)
+	# Holds its height for a while, then comes down onto the kart.
+	var height := lerpf(_intro_from.y, rest0.y, s * s)
+	var pos := mid + Vector3(cos(ang) * radius, height, sin(ang) * radius)
+	# Keep clear of hills on the way, letting the margin go as it lands.
+	var need := 0.0
+	var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(pos + Vector3.UP * 300.0, pos + Vector3.DOWN * 300.0))
 	if not hit.is_empty():
-		pos.y = maxf(pos.y, (hit["position"] as Vector3).y + 30.0)
-	var below := track.transform_at(track.offset_of(pos)).origin
-	var look := below.lerp(grid + Vector3.UP * 0.8, smoothstep(0.35, 0.8, e))
-	var land := smoothstep(0.62, 1.0, t)
-	pos = pos.lerp(rest[0], land)
-	look = look.lerp(rest[1], land)
+		need = maxf(0.0, (hit["position"] as Vector3).y + 25.0 - pos.y)
+	need *= 1.0 - smoothstep(0.8, 1.0, t)
+	_intro_lift = need if _intro_pin >= 0.0 else lerpf(_intro_lift, need, 1.0 - exp(-delta * 3.0))
+	pos.y += _intro_lift
+	# Aim: from the middle of the map (where the tour looked) round to the
+	# race camera's view of the road ahead.
+	var look := (mid + Vector3(0, -10, 0)).lerp(rest[1], smoothstep(0.1, 1.0, t))
 	camera.global_position = pos
 	camera.look_at(look, Vector3.UP)
-	camera.fov = lerpf(55.0, ChaseCamera.BASE_FOV, land)
+	camera.fov = lerpf(55.0, ChaseCamera.BASE_FOV, smoothstep(0.5, 1.0, t))
 	if _intro_left <= 0.0:
 		camera.follow(camera.target)
 		camera.set_process(true)

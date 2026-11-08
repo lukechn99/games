@@ -51,21 +51,23 @@ Name: **Karts & Wheels** (Decided).
 | Karts per race | **Proposed:** up to 8 people plus bots, 8 karts total. Possibly 12 later; see 13.3. |
 | Devices | Phones first (iOS Safari, Android Chrome), then desktop browsers. |
 | Orientation | Landscape while racing (**Proposed**). Portrait is fine in the kart builder. |
-| Session | One room plays many races in a row (a "cup"). |
+| Session | One room plays many races in a row: single races, or a Grand Prix of every track with points (4). |
 
 ## 4. Stages of the game
 
-**Proposed flow**
+**The flow (Decided, built unless marked)**
 
-1. **Lobby.** The existing Game Night lobby. The host picks the kart racer and adds bots as usual.
-2. **Track vote.** Everyone votes from the available tracks. The host can override, or choose "random".
-3. **Kart builder** (section 5). Players pick a driver, chassis, wheels and colour, with a live stats panel and a 3D preview that spins. The build is saved on your phone for next time. A 45-second timer keeps it moving; anyone who runs out of time keeps their last build.
-4. **Loading.** Every phone loads the track and reports "ready". Anyone still loading after 20 seconds becomes a spectator for this race.
-5. **Countdown.** "3, 2, 1, go", in sync across phones using the host's clock. Pressing gas right at "go" gives a small launch boost.
+1. **Lobby.** The existing Game Night lobby. The host picks Karts & Wheels and adds bots as usual.
+2. **Track picker.** The host picks one of the tracks, or **Grand Prix**, on the room page: a card for each with an aerial thumbnail and its name, nothing more. Everyone else sees who is picking. (A vote, with the host able to override, is still a possible later change.)
+3. **Kart builder** (section 5). Each player picks a chassis, wheels and driver over a slow aerial tour of the track, with the kart turning on the right, then taps Ready.
+4. **Fly-in.** Once everyone is ready, the camera carries on from exactly where the aerial tour was, turning the same way, and spirals down in one slow circle (8 s) to stop behind your kart, in place for the race.
+5. **Countdown.** "3, 2, 1, GO", in sync across phones on the host's clock. Karts sit on a level grid and are held still until GO. **Proposed:** pressing gas right at GO gives a small launch boost.
 6. **Race.** Laps, positions, a minimap, items, and screen shake on crashes.
-7. **Finish.** Players who finish watch the others. After the first player finishes, the rest have 30 seconds before the race ends (DNF, "did not finish", for anyone still out).
-8. **Results.** A podium, times and best lap, plus fun awards like "most items landed", "most airtime" and "biggest crash".
-9. **Next.** Back to the track vote, with builds kept. You can tweak your kart, "race again", or go "back to lobby". A cup is **Open**: 3–4 races with points carried over.
+7. **Finish.** When you cross the line, a computer driver takes over your kart for a cool-down lap and a results screen opens in the middle of the screen: your place, each lap time (the best marked), your total, and the standings filling in as the others finish. After the first finisher, the rest have 30 seconds (DNF, "did not finish", for anyone still out).
+8. **Results.** The standings by the room's finishing times. **Proposed for later:** a podium with the top three drivers, and fun awards like "most items landed", "most airtime" and "biggest crash".
+9. **Next.** For a single race, the host's **Race again** goes back to the track picker. In a **Grand Prix**, it's **Next race** (below).
+
+**Grand Prix (Decided, built).** Every track in turn: Meadow Loop, Mining Mountain, then Frosty Pass. Each finish scores points as in Mario Kart: 15, 12, 10, 8, 6, 4, 2, 1 for 1st to 8th, nothing for not finishing. The room adds them up when each race ends. The results screen then shows the cup standings (total, and what each racer got that race), and the host's **Next race** takes everyone back to the kart builder, builds kept, on the next track. After the last race: final standings and the winner, then **Race again**. A banner at the start of each race says which race of the cup it is.
 
 Reconnecting follows the platform rules. A player who drops mid-race gets their kart back if they return before the race ends; otherwise their kart is parked and they get a DNF. If the host drops, the race pauses until the host returns, as in the other games.
 
@@ -102,6 +104,12 @@ Each chassis sets **turning**, its **hit box** size and shape, and some **weight
 | Hauler | A truck of a kart, hard to push around | Wide | Large | Heavy |
 | Racer | Long and low, fast but takes the long way round | Wide-ish | Long and narrow | Medium |
 
+**Built in Blender (Decided).** Each chassis has its own body, modelled by script and fitted to its wheelbase and track:
+- **Go-kart frame:** a classic sprint kart: one smooth shell from a low nose over the cowl to the engine cover, front fenders, a bucket seat, twin exhausts.
+- **Soapbox:** a teardrop gravity racer on wooden axle beams, with a brake lever, a tail fin and a little windscreen. No engine.
+- **Hauler:** a chunky work truck: grille, headlights, bull bar, black arches over fat wheels, a roll cage and tall exhaust stacks.
+- **Racer:** a long, low single-seater: needle nose, front and rear wings, sidepods, an air intake behind the driver, twin exhausts.
+
 ### 5.3 Wheels and tires (Decided: affect handling and friction on the road)
 Tires set **grip, handling and drift**, and how much grip they keep **on each surface**. This is where track choice matters: pick tires for the terrain.
 
@@ -133,7 +141,11 @@ Tires set **grip, handling and drift**, and how much grip they keep **on each su
 
 **Proposed:** launch with 8 of these. If one turns out hard to make readable, swap it for another (**Decided**: the roster can change). Features are separate small parts that attach to standard points on the base body (head top, face, back, tail). So a new animal is mostly new features, new colours and a name. Each driver has a light weight class (small, medium or large). It changes the base body's scale a little and adds weight to the kart.
 
-**Cute, not uncanny (Decided).** Chibi proportions: a big round head on a small body. Big glossy eyes with white sparkles, pink cheeks, a small snout and nose, a little "w" smile (the frog gets a wide one), and paws on the arms. Animal features sit on top: inner ears, round ears, horn, antlers, a tail. Close-ups for checking them: `/games/racing/?showroom&drivers&face=0` (0 to 3).
+**Built: fox, frog, rhino and deer (Decided for launch).** More can come from the table above.
+
+**Racers, not mascots (Decided).** They began cute (big sparkly eyes, pink cheeks, a "w" smile); the user asked to turn that down so they look like racers with a competitive glint. Now: narrowed eyes under heavy lids that slant down toward the nose and a hard brow, so they glare; one sharp glint in each eye; a lopsided smirk; no blush; longer, slyer muzzles on the fox and deer; and racing goggles pushed up on the forehead (the frog, whose eyes are on top of its head, wears a red sweatband). Proportions stay chibi: a big head on a small body.
+
+**Sculpted in Blender (Decided).** `racing/tools/blender/drivers.py` builds each animal from soft shapes (ellipsoids, capsules, tapered cones) joined with a smooth blend, so an ear grows out of the head with a rounded join instead of a cone stuck on a sphere. Colour patches (belly, muzzle, inner ears, ear tips, tail tip) are painted into the surface. Eyes, lids, brows, nose, mouth and goggles are small separate pieces. The fox's tail and the deer's antlers are separate so they still wobble. Each driver has a seated body and a standing, waving one (for the lobby). About 6,500 triangles each in a race.
 
 ### 5.5 Every combination works and looks good (Decided)
 Any chassis with any wheels and any driver has to drive properly and look right. **Proposed** rules that guarantee it:
@@ -151,14 +163,14 @@ All builds should finish within about 5% of each other on a lap when driven well
 **Decided:** items you collect on the track, designed by us so they aren't copies of Mario Kart.
 **Proposed rules:** item crates sit in rows across the track and reappear 3 seconds after being picked up. You hold one item at a time. What you get depends on your position: karts near the back get more catch-up items.
 
-**Decided launch items:** the **honey puddle**, the **tumbleweed** and the **growing snowball**. The snowball only appears on snowy tracks.
-**Proposed:** each track has its own item pool, so items can match the terrain (snowballs on snow, tumbleweeds in dry country). That leaves room to add more items without every track getting every item.
+**Decided launch items:** the **honey puddle**, the **tumbleweed** and the **growing snowball**, all built.
+**Decided:** each track has its own item pool, so items match the terrain. For now the snowball comes only from crates on Frosty Pass; honey and tumbleweeds come everywhere.
 
 | Launch item | What it does | Where |
 |---|---|---|
-| **Honey puddle** | Dropped behind you. Karts that drive through it slow down and steer sluggishly for 2 seconds. It lasts 15 seconds or until 3 karts have driven through it | All tracks |
+| **Honey puddle** | Dropped behind you. It grabs: a kart that drives into it loses half its speed at once, then is held to 45% and steers sluggishly for 2 seconds. It lasts 15 seconds or until 3 karts have driven through it | All tracks |
 | **Tumbleweed** | Rolled backwards down the track. It bounces unpredictably and knocks karts sideways | Meadow Loop, Canyon Run, dry tracks |
-| **Snowball** | Rolled forward along the track. It grows as it rolls, so the further it travels, the bigger the hit. It bursts on walls | Snowy tracks only |
+| **Snowball** | Bowled forward along the track, faster than any kart. It grows as it rolls (from about 1 m across to 3 m), so the further it travels, the bigger the hit. It bursts on the first kart it reaches (knocking it aside and nearly stopping it) or when it leaves the road | Frosty Pass |
 
 **Candidates for later** (each fills a role every kart racer needs, with our own twist):
 
@@ -178,6 +190,9 @@ All builds should finish within about 5% of each other on a lap when driven well
 - **Roulette:** picking one up spins through the icons for under a second, then you hold the item until you use it (item button, or E).
 - **Honey puddle:** works as in the table above: slow and sluggish steering for 2 seconds, lasting 15 seconds or 3 karts.
 - **Tumbleweed:** rolls backwards down the road from your kart, wandering and hopping. A hit shoves you sideways and slows you, but never spins you round or flips you.
+- **Snowball:** as in the table. Computer drivers bowl it at a kart up to 45 m ahead.
+- **Coins:** rows of spinning coins on the road, each +1% top speed up to 10; an item hit costs 3. **Decided:** they run in diagonal lines across the road, alternating direction, so collecting a whole line takes steering.
+- **Item boxes:** a squishy pink jelly cube with a fat yellow question mark inside, its hook curling well down (drawn as a stroke, not taken from a font).
 - **Computer drivers** use an item when someone is close behind them, or after 8 seconds.
 - **Online:** using an item is sent to everyone so every game shows it, and each game only applies hits to the karts it drives.
 
@@ -287,21 +302,43 @@ Every track has three layers:
 - **Computer drivers:** split between the routes lap by lap. Easy drivers leave the bridge alone, anyone who falls off it keeps to the ledge for the rest of that lap, and on the trestle and bridge they drive down the middle.
 - **Joining roads:** where a route comes back in at a steep angle, the shared piece of road squares up with the main road and follows its bank, so there's no gap or lip at the join (this also fixed a hole karts could fall through).
 
-**Decided launch tracks:** **Meadow Loop** (asphalt and grass, highway guardrails, tumbleweeds) and **Frosty Pass** (snow and ice, where the growing snowball appears and studded tires shine). The rest stay on the list for later.
+**Mining Mountain, later changes (2026-11-07):**
+- A timber portal at each tunnel mouth (posts, a header beam, braces) with a **MINE** sign over the way in; the cuttings leading in and out are lined with layered rock slabs.
+- The mountain is whole from the air: over the tunnel it arches over the tunnel's rock shell instead of leaving a gap, and that surface is only for looking at (as solid ground it upset the karts below).
+- The rope bridge spans a **ravine**: a gorge falls from the road edge to a floor 20 m below the deck, with a rocky ridge on the far side, instead of hanging over open air. Falling in still resets you.
+- The orange dirt stretch is darker ochre gravel with ruts, like the rest of the road.
+
+**Decided launch tracks:** **Meadow Loop**, **Mining Mountain** and **Frosty Pass**, all built. The rest stay on the list for later.
+
+**Frosty Pass (Built, 2026-11-07).** A snowy mountain pass, about 1,340 m round (`racing/scripts/track/frost_track.gd`):
+- **The climb:** up two **icy hairpins** from the start straight (low grip: studded tyres shine), over a summit with **snowdrifts**.
+- **The descent:** a boost pad, then **giant snowballs** that roll across the road one after another. They run on the race clock (the host's, online), so every phone sees them in the same place. One knocks you sideways.
+- **The frozen lake (Decided: on the main line).** The descent aims straight at an **ice gateway** hung with icicles, and the racing line runs across the lake, in a **glacier basin** (jagged blue-white walls round the shore, gapped where the roads come in, which also catch anyone sliding off the ice). The ice is open and slippery, with **nine holes** spread across the width, each ringed with broken ice. Over a hole the ice gives way and pulls you down, even flat out.
+- **Under the ice:** you land on a **sunken road** with kelp swaying, light through the holes and a blue-green tint. It has **boost strips** with **solid boulders** between them, and a row of item boxes, and it climbs back out through an opening at the far shore: high risk, high reward. The bed is level with the road, and the ramp out has sloped sides, so sliding off never strands you.
+- **The detour:** the old road round the bottom of the pass, longer but solid, peels off before the gateway.
+- **Look:** snow-laden pines and snowmen (Blender), snow on the ground and banks, blue and white kerbs, snow-capped backdrop peaks, a frosted ice road, and a **Frosty Pass** arch in rounded letters.
+
+**Start arches (Decided):** each track's name in lettering that suits it: *Meadow Loop* in a soft rounded script (Pacifico), **MINING MOUNTAIN** in chunky squared-off stencil (Black Ops One), **Frosty Pass** in rounded block letters (Lilita One). The fonts are free (SIL Open Font License), with their licences in `racing/assets/fonts/`.
+
+**Scenery rule (Decided):** the scenery must be complete wherever the camera can be, including the fly-in from high above: no holes in a mountain, no flat ground ending short of the backdrop, no sky showing through anything.
 
 ## 9. Characters and art style
 
 ### 9.1 Look and performance
 **Decided:** a cartoonish, Mario Kart–like style with animal characters.
-**Proposed, to keep phones fast:**
-- **Look:** chunky, rounded, toy-like shapes; bright saturated colours; simple **toon shading** (2–3 flat bands of light) in Godot's Compatibility renderer.
-- **Outlines** only on karts and drivers, the things you care about. They cost extra triangles, so they come with a low-quality setting to turn them off.
+**Decided (2026-11-07): soft, glossy shading and no outlines, as in Mario Kart.** Mario Kart has no black ink outlines: light, rim light and reflections shape everything. So:
+- **Karts and drivers** use their own shader (`shaders/kart.gdshader`): soft but definite sunlight, a clear highlight, a lit rim on the edges, and a cheap reflection of the sky (a sky-to-ground gradient, strongest at grazing angles) that makes paint look glossy. Fur and rubber have no gloss. Its fill light is neutral: with the renderer's blue sky light, soft-shaded red went pink and yellow went tan.
+- **Blender models bake ambient occlusion** into their vertex colours when they export (`tools/blender/common.py`), so creases, wheel wells and undersides are darker for free at run time.
+- **Scenery** uses soft wrap-around light instead of hard cartoon steps, and less of the sky's blue in its fill light. The trees and bushes are our smooth Blender ones (puffy tree, pine, round tree, cluster bush; snow pines on Frosty Pass), replacing the faceted kit models.
+
+**To keep phones fast:**
+- **Look:** chunky, rounded, toy-like shapes; bright saturated colours, in Godot's Compatibility renderer.
 - **Materials:** one shared colour-palette texture for everything, with no detailed texture maps. That makes downloads small and drawing fast.
 - **Lighting:** baked into the track, with soft "blob" shadows under karts instead of real-time shadows.
 - **Kart assembly:** at race start, each kart's chassis, wheels and driver are merged into as few meshes as possible. Eight karts cost about 16 draw calls, not 80.
 - **Level of detail:** karts further away switch to simpler versions; distant scenery is plain silhouettes.
-- **Budget per kart:** about 3,000 triangles (kart plus driver), and 100,000 on screen in total, at most around 150 draw calls.
-- **Quality settings:** automatic based on frame rate, plus a manual high, medium or low (outlines, effects, draw distance, resolution).
+- **Budget per kart:** body up to 7,000 triangles, each wheel 2,400, the driver about 6,500 (models are thinned to their budget when exported), at most around 150 draw calls on screen.
+- **Quality settings (Decided):** everyone starts on **Low**, remembered per device once raised in the garage (Low, Medium, High); Low draws the 3D view at 0.6 MP, without kart-shaped shadows, with small scenery at 45% range. It still steps down by itself if the frame rate drops.
 
 ### 9.2 Driver animation (Decided: believable, not rigid)
 Drivers have to look alive: body parts move believably and react to what the kart is doing. **Proposed** approach, layering simple animations with movement worked out live from the kart's physics:
@@ -323,8 +360,8 @@ Free packs (CC0: free for any use, no credit required) exist from two well-known
 - **Quaternius** (quaternius.com and itch.io): low-poly animated animals (farm animals, a pug, a llama, dinosaurs, monsters) and nature packs (trees, rocks, plants). Clean, flat-coloured style.
 - **Kenney** (kenney.nl): a Toy Car Kit, a Car Kit and a Racing Kit (track pieces, barriers and props), plus nature and city kits. A chunky, toy-like style.
 
-**Decided: a mix.**
-- **Karts and drivers: built by us** in code, with scripts for Blender (the 3D modelling program), so every part follows the standard mounting points and the shared body. Consistent, easy to change, and no outside dependency.
+**Decided: a mix, moving toward our own.**
+- **Karts, drivers and most scenery: built by us** with scripts for Blender (the 3D modelling program) in `racing/tools/blender/`: the four kart bodies, wheels, the four drivers, the item box, coins, trees, bushes, pines, snowmen, lamps, guardrails, windmills, lanterns, rocks, the boulder wall and cliff slabs. Consistent, easy to change, and no outside dependency.
 - **Environment: free CC0 packs as a starting point** (trees, rocks, fences, guardrails and other props), restyled to our palette. This is easy to reverse: tracks use our own wrapper scenes (for example `props/tree_pine.tscn`), each of which contains a pack model. Swapping a pack model for our own later means editing that one wrapper, not every track.
 
 **Keeping the assets (Decided)**
@@ -434,9 +471,37 @@ Phones are held sideways in both hands, so controls go where the thumbs rest: th
 - **Full screen:** the Game Night header hides during a race. iPhone browsers don't allow true full-screen pages, so the layout is designed around the browser's own bars too.
 
 ## 11. Audio
-- Engine sound with pitch tied to speed (different per chassis), tyre screech while sliding, bumps, item sounds, countdown beeps, a finish fanfare and animal voices (a happy chirp or grunt).
-- Music: **Open** (one looping track per course is the usual choice).
+**Not built yet.**
+- **Sound effects (Proposed):** engine sound with pitch tied to speed (different per chassis), tyre screech while sliding, bumps, item sounds, countdown beeps, a finish fanfare and animal voices (a happy chirp or grunt).
+- **Music:** see 11.1.
 - Everything ducks under the video call, so you can still hear your friends.
+
+### 11.1 Music (Open: to work out together)
+Nothing is decided yet. These are the questions, with options for each.
+
+**1. What should it sound like?**
+
+| Style | Feels like | Notes |
+|---|---|---|
+| Upbeat pop-rock or funk | Mario Kart 8 and World: live-band energy, bright brass, slap bass | The closest match to the look we're going for |
+| Chiptune or 8-bit | Retro handheld racers | Small files, easy to make in code; can sound thin next to the 3D look |
+| Electronic or synthwave | Modern arcade racers | Driving and energetic; less "party" |
+| A theme per track | Meadow: light and breezy; Mining Mountain: banjo or Western twang over a stomping beat; Frosty Pass: sleigh bells and chimes | Mario Kart does this: each track has its own tune |
+
+**2. How many pieces?** The usual set: a lobby and kart-builder loop, one loop per track, a short "final lap" lift (Mario Kart speeds the music up), a finish jingle and a results loop. A Grand Prix could have a trophy fanfare at the end.
+
+**3. Where does it come from?** The game can't download anything while it runs, so music has to live in the repo.
+- **Composed in code:** written as notes by script and rendered to audio files when we build, or played live by the game's synthesiser. Fully ours and tiny, but limited in instruments.
+- **Free music (CC0 or CC-BY):** packs from sites like OpenGameArt; CC-BY needs a credit in the game. Committed to the repo with their licences, like the 3D kits (9.3).
+- **Music you supply:** tracks you make or license.
+
+**4. How it behaves:**
+- Phones don't allow sound until the player has tapped, so music starts on the first tap (the Ready button, say).
+- A volume control and a mute switch, remembered per device; music quieter than sound effects by default; both duck under the video call.
+- **Size:** about 1 MB per minute of compressed audio, so a budget of perhaps 3–5 MB in all, loaded when needed rather than with the game.
+- Loops must join seamlessly.
+
+**To decide first:** the style (1), and where the music comes from (3).
 
 ## 12. Bots (computer drivers)
 **Proposed:** bots drive on the host's phone and send their karts out like players do. They follow the racing line, looking ahead and braking for corners by how sharp they are. They pick items and use them with simple rules: drop traps when someone's close behind, fire when lined up with a kart ahead. Difficulty sets their speed, how early they brake, their mistakes, how smart they are with items, and a little catch-up help.
@@ -519,7 +584,7 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 - **Finishes:** each game reports its own finish, and the host's game reports the computer drivers'.
 - **Race again:** the host starts another round, and the game reloads fresh for it.
 - **Mesh for fast data (Decided, built):** players link directly to each other for kart positions and items, so each update takes one hop instead of two and the host's phone isn't passing on everyone's data. The host was already one hop from everyone. If a pair can't link directly (some home routers), their data goes through the host as before. The links don't resend lost updates, because a newer position is always on its way. The room rules (ready-up, start time, finishes) stay with the host.
-- **Track picker (Built):** each race starts with the host picking **Meadow Loop** or **Mining Mountain** on the room page (a picture and a line about each); everyone else sees who is picking. Then the game loads that track and the kart builder opens. If the host is only watching, any racer can pick. **Race again** comes back to the picker. On its own (outside a room), the game takes `?track=mine`.
+- **Track picker (Built):** each race starts with the host picking **Meadow Loop**, **Mining Mountain**, **Frosty Pass** or **Grand Prix** on the room page (an aerial thumbnail and the name; tap the card); everyone else sees who is picking. Then the game loads that track and the kart builder opens. If the host is only watching, any racer can pick. **Race again** comes back to the picker; in a Grand Prix, **Next race** goes on to the next track (4). On its own (outside a room), the game takes `?track=mine` or `?track=frost`.
 
 ## 14. Building and shipping
 **Proposed**
@@ -534,10 +599,10 @@ What we measured: the game logic and physics are cheap (6 karts cost about 0.6 m
 2. **No first-time hitches.** The browser renderer compiles each shader the first time it's drawn, so the tunnel, crowd, flames and dust each caused a freeze the first time they appeared. Every mesh and material, including lamp-lit versions, is now drawn once behind the lobby. Rule: anything new must be in the scene when the lobby opens.
 3. **Pixel budget.** Phones draw 3 pixels per point, 5 to 9 times a laptop's pixels. The 3D view is drawn to a budget (High about 2 million pixels, Medium 1.4, Low 0.9) and scaled up; menus stay sharp.
 4. **Draw calls (the usual browser limit, about 100–200 a frame).**
-   - Karts were about 48 draws each. The ink outline is now a separate mesh only drawn within 28 m.
+   - Karts were about 48 draws each; each moving group is now merged into one mesh per finish. (The ink outline that was here is gone: 9.1.)
    - **Next:** one skinned mesh per kart (a skeleton for wheels, driver and ears), which would bring a kart to 2–3 draws.
    - Scenery is in 160 m patches so off-screen patches are skipped, and flowers and bushes stop drawing far away.
-5. **Quality that adapts:** start on High, step down automatically under 45 fps (9.1).
+5. **Quality that adapts:** start on Low, raise it in the garage, and step down automatically under 45 fps (9.1).
 6. **Later:**
    - VRAM-compressed textures (ETC2/ASTC) once the texture set grows.
    - Fewer, larger textures (atlases).
@@ -568,17 +633,14 @@ Sources: [How to make Godot 3D look better](https://codingquests.io/blog/how-to-
 | M5 | Items | The launch set of items, synced across phones. |
 | M6 | Second track and polish | The second terrain, audio, effects and performance tuning. |
 
+**Where it stands (2026-11-07):** M0 to M5 are built, and M6 is mostly done: three tracks (Meadow Loop, Mining Mountain, Frosty Pass), the Grand Prix, Blender karts and drivers, and the new soft look. Still to do for M6: audio (11), and testing on real phones with several players.
+
 ## 16a. Implementation notes (from building M0)
 
 Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/run_tests.gd`, and the tilt reader in `racing/web/tilt.js`. The deploy runs the tests and exports the game to `/games/racing/`.
 
 - **Parts are data.** `scripts/kart/parts.gd` holds every chassis, tire, driver and surface as numbers. The garage panel swaps parts live while tuning.
-- **Kart models** are built in code (`kart_visual.gd`) from tubes and tapered shells, placed from each chassis's wheel mounts:
-  - **Go-kart frame:** a classic sprint kart with a nose cone and side pods.
-  - **Soapbox:** an egg-shaped shell and no engine.
-  - **Hauler:** wide pods, double bumpers and a roll hoop.
-  - **Racer:** a long pointed nose with a rear wing.
-  Open `/games/racing/?showroom` (add `&tires=knobby&driver=deer` to swap parts) to see every chassis side by side.
+- **Kart models** were first built in code (`kart_visual.gd`) from tubes and tapered shells; every chassis now has a Blender body (5.2), with per-model seat, steering-wheel and exhaust positions (`KartVisual.MODEL_FIT`). Open `/games/racing/?showroom` (add `&tires=knobby&driver=deer` to swap parts, `&flip` to see them from behind) to see every chassis side by side.
 - **Drifting is arcade, not physical.** Real tire grip can't hold a tight drift at speed. During a drift the kart's nose points about 28° into the corner, the momentum is steered to follow it round, and sideways tire friction is mostly switched off, so drifts keep their speed. Coming out, grip blends back in over 0.35 seconds while the momentum straightens. Holding a drift charges three boost stages (0.7, 1.5 and 2.4 seconds).
 - **No hidden drag.** Godot adds default damping to rigid bodies; karts replace it, so all drag comes from surfaces and rolling resistance.
 - **Crashes for screen shake** are detected from sudden changes in velocity, scaled 0–1. A test checks that ordinary cornering never triggers a shake.
@@ -594,7 +656,7 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - **Out of bounds.** A kart under the road, more than 6 m below it, or more than 45 m from it is put back on the road after 0.4 seconds, like falling off the course in Mario Kart. The road and banks are also solid from both sides, so karts can't slip through.
 - **Finishes (9.4).** Metal shines sharply, paint softly, rubber and fur stay matte; each kart is merged into one mesh per finish. Every kart has a soft blob shadow. Real sun shadows exist behind `?shadows=on` and a garage toggle, but stay off by default for now: turning them on brightens the whole scene in Godot's Compatibility renderer (seen on a real GPU too), which needs fixing first.
 - **Winding fix.** The grassy banks were built facing the wrong way: invisible from above (you saw the flat ground through them) though still solid. That's part of why the road looked like it floated and why karts could seem to drive "under" it. They now face up and are lit properly.
-- **Graphics levels (9.1).** Everyone starts on **High**: 4x anti-aliasing, glow on bright things, surface relief (normal maps made from the detail textures), clear-coat paint, chrome-like metal reflecting the sky, a warm sun, and lamps that really light the tunnel. **Medium** keeps glow and relief with 2x anti-aliasing; **Low** drops those and draws the 3D view at 75% resolution. If a race runs under 45 frames a second for 6 seconds, it steps down a level by itself and says so; the garage has a Graphics switch. Add `?quality=low|medium|high` to force one.
+- **Graphics levels (9.1).** (Everyone now starts on **Low**; see 9.1.) **High**: 4x anti-aliasing, glow on bright things, surface relief (normal maps made from the detail textures), clear-coat paint, chrome-like metal reflecting the sky, a warm sun, and lamps that really light the tunnel. **Medium** keeps glow and relief with 2x anti-aliasing; **Low** drops those and draws the 3D view at 75% resolution. If a race runs under 45 frames a second for 6 seconds, it steps down a level by itself and says so; the garage has a Graphics switch. Add `?quality=low|medium|high` to force one.
 - **Pedals when tilting (10.3).** With tilt steering there's no joystick, so gas sits in the bottom-right corner, brake in the bottom-left, and the item button above gas.
 - **The phantom hits, found.** At speed, downforce squashed the suspension all the way, so the kart's hit box scraped along the road. It caught on the edges where road pieces meet (like the boost pad) and threw the kart sideways or up. Now:
   - a firm bump stop keeps the box clear of the road (firm going down, soft coming back, so landings don't bounce);
@@ -604,9 +666,10 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
   A test drives straight from pole through the first 165 m and must hit nothing.
 - **Kart selection (4).** Every race starts in a lobby: a see-through menu over a slow aerial tour of the whole track. Chassis, wheels, driver and steering (joystick or tilt) are on the left. The chosen kart, with the chosen animal in the driver's seat, slowly turns on the right; drag it to spin it. Ready is in the bottom-right corner, and the race starts when everyone is ready (bots always are; online players will come from the room).
 - **Landscape only on phones.** On the first tap, Android browsers go full screen and lock to landscape. iPhones can't lock, so a "turn your phone sideways" card covers the game while it's upright. Full tilt lock is now 25°, so there's no need to tip the phone far.
-- **Kart meshes are merged** into one vertex-coloured mesh per moving group, with an ink outline. Stretched shells (nose cones, pods, the soapbox egg) stay separate pieces, because merging them shaded wrongly.
+- **Kart meshes are merged** into one vertex-coloured mesh per moving group (no outline since 9.1's change). Stretched shells stay separate pieces, because merging them shaded wrongly. A rebuild (changing parts) detaches the old pieces at once: left until the end of the frame, the old outline shell was merged in as solid bodywork and the kart came out nearly black.
+- **Routes beside the main road** can be given as a sideways offset from it (Meadow's cave, the mine's tunnel and bridge) or as their own path (Frosty Pass's detour, whose offset would fold back on itself round a tight bend). Lap position prefers a route the kart is clearly on, so a shortcut across the inside of a bend isn't mistaken for another part of the lap.
 
-**Automated tests (44), run on every deploy:**
+**Automated tests (61 in the game, 66 on the site), run on every deploy.** Since this list was written, tests also cover Mining Mountain (bots lap it, use both routes, a clean start, sitting on the sagging bridge) and Frosty Pass (bots lap it and use both ways, falling through a hole lands on the sunken road even flat out, and it climbs out at the far shore), and a whole Grand Prix in the room rules. The original list:
 - All four chassis settle on four wheels.
 - Each reaches its top speed, and 72 km/h in a fair time.
 - The soapbox turns tightest and the hauler and racer widest.
@@ -623,13 +686,14 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - Crates give items, items get used up, honey sticks, and a tumbleweed hit shoves without spinning.
 
 ## 17. Open questions
-2. Which 8 drivers for launch (5.4); swappable as we go.
+1. **Music (11.1):** style, which pieces, and where it comes from.
+2. **Sound effects (11):** not built yet.
 3. The balancing rules for parts (5.1), later.
-4. Showing the held item: on the item button, on the kart, or both (6.1).
-5. Which environment packs to start from (9.3).
-6. The kart limit: 8 at launch, 12 later (13.3).
-8. Cups and points across races (4).
-9. Music (11).
+4. The kart limit: 8 at launch, 12 later (13.3), once tested on real phones.
+5. More drivers beyond the four built (5.4).
+6. A track vote instead of the host picking (4), a podium and race awards (4), a launch boost at GO (4).
+
+Settled since the first list: the launch drivers (fox, frog, rhino, deer), showing the held item (both: the item button and the kart's rack), environment models (mostly our own now, 9.3), and cups (the Grand Prix, 4).
 
 ## 18. Decision log
 
@@ -691,3 +755,21 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 | 2026-11-07 | Everyone starts on Low graphics (remembered per device once raised; the garage button steps Low, Medium, High). Low draws the 3D view at 0.6 MP, has no kart-shaped shadows and draws small scenery at 45% range. Ground detail finer than ~20 cm removed (it shimmered like static at speed); baked road tiles span 9 m. Mining Mountain: rock collars round the tunnel mouths, and the cavern ends sealed under the floor, so you can't see out of the mountain | The user's feedback from playing on their phone |
 | 2026-11-07 | Mining Mountain's ledge sits about two thirds of the way up the mountain: outside it the rock falls away as steeply as the face above, in rough steps, to a hazy valley floor about 50 m below (no grass bank) | The user's direction |
 | 2026-11-07 | Grids are level and karts are held still until GO. After everyone is ready, a fly-in: the camera carries on from the aerial tour for one more full circle outside the track, high above the scenery, then swoops down to behind your kart; 3, 2, 1 follows (online the start is 8 s after the last Ready). Mining Mountain gets a rounded summit with a small snow cap | The user's request |
+| 2026-11-07 | The fly-in is one slow, continuous spiral from wherever the aerial tour is, ending exactly at the race camera | The user's feedback: it was fast, jumpy and repeated |
+| 2026-11-07 | At the finish a computer driver takes over your kart and a centred results screen shows place, lap times and standings | The user's request; the old panel landed in a corner |
+| 2026-11-07 | Raised kerbs: a 10 cm rumble strip with a shaded ramp, part of the road's collision | Next on the list; the user agreed |
+| 2026-11-07 | The item box's question mark is drawn as a stroke whose hook curls well down | The user's feedback on the font's short hook |
+| 2026-11-07 | Scenery must be complete wherever the camera can be | The user's rule, after holes in Mining Mountain showed in the fly-in |
+| 2026-11-07 | Themed start arches: Meadow Loop in a soft script, MINING MOUNTAIN in squared stencil (later Frosty Pass in rounded block letters) | The user's request |
+| 2026-11-07 | Meadow's ledge bank: turf on top and down the back, taller boulders, trees and bushes along it | Next on the list (the grey slab) |
+| 2026-11-07 | Mining Mountain: open tunnel mouths, gravel stretch, timber portals with a MINE sign, rock-lined cuttings, a ravine under the rope bridge | The user's feedback and requests |
+| 2026-11-07 | Blender bodies for the soapbox, hauler and racer | The user's request ("go ahead with the new Blender models") |
+| 2026-11-07 | No black outlines; soft, glossy kart shading with a fake sky reflection; ambient occlusion baked into Blender models | The user: "Mario Kart doesn't use black outlines", and why the Blender renders looked better |
+| 2026-11-07 | Drivers sculpted in Blender with smooth joins; less cute, more competitive (lids, brows, glint, smirk, goggles) | The user's feedback: shiny fur, blocky ears, then "racers with a competitive glint" |
+| 2026-11-07 | Frosty Pass built, with the snowball item (Frosty Pass only), rolling snowballs, icy hairpins and a frozen lake with holes into a sunken road | The user's pick and the user's idea for the lake |
+| 2026-11-07 | Coins in diagonal lines; honey grabs (half your speed at once) | The user's feedback |
+| 2026-11-07 | Track picker shows just a thumbnail and the name | The user's request |
+| 2026-11-07 | The frozen lake is on the main line, in a glacier basin, with holes that pull you through and boosts and boulders underneath; the old road is the detour | The user's feedback: make the lake part of the track, holes easier to fall into, high risk and high reward |
+| 2026-11-07 | Grand Prix: all three tracks in a row, Mario Kart points, Next race between them | The user's request |
+| 2026-11-07 | Scenery in the new style: soft lighting and smooth Blender trees | The user's priority |
+| 2026-11-07 | A music section in the design doc, to decide together | The user's request |

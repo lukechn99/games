@@ -13,6 +13,7 @@ import type { GameModule, PlayerId, RuleResult } from '@/lib/engine/types'
 export const TRACKS = [
   { id: 'meadow', name: 'Meadow Loop' },
   { id: 'mine', name: 'Mining Mountain' },
+  { id: 'frost', name: 'Frosty Pass' },
 ] as const
 export type TrackId = (typeof TRACKS)[number]['id']
 

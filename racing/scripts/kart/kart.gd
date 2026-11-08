@@ -145,7 +145,7 @@ func wheel_mount(i: int) -> Vector3:
 
 
 func top_speed() -> float:
-	var honey := 0.55 if sticky_time > 0.0 else 1.0
+	var honey := 0.45 if sticky_time > 0.0 else 1.0
 	honey *= 1.0 + 0.01 * coins
 	return float(chassis["top_speed"]) * float(tires["top_speed"]) * (BOOST_SPEED if boost_time > 0.0 else 1.0) * honey
 
@@ -166,6 +166,11 @@ signal splattered
 func stick(seconds: float) -> void:
 	if sticky_time <= 0.0:
 		crashed.emit(0.2)
+		# It grabs: lose half your speed on the spot (only lowering the top
+		# speed let you coast through it hardly slowed).
+		if not remote:
+			var up := linear_velocity.project(global_transform.basis.y)
+			linear_velocity = up + (linear_velocity - up) * 0.5
 	sticky_time = maxf(sticky_time, seconds)
 
 
@@ -537,6 +542,8 @@ func _fallen_off() -> bool:
 	# line runs, but you're on it, not off it.
 	if _on_deck_time > 0.0 or track.on_bridge(global_position):
 		return track.in_water(global_position)
+	if track.under_lake(global_position):
+		return false   # dropped through the ice onto the sunken road
 	var local: Vector3 = track.road_local(global_position)
 	var under_road: bool = local.y < -2.0 and absf(local.x) < Track.ROAD_WIDTH * 0.5 + 2.0
 	return under_road or local.y < -6.0 or absf(local.x) > 45.0 or track.in_water(global_position)

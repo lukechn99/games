@@ -29,6 +29,8 @@ var owned: Array[Kart] = []
 var _crates: Array[Dictionary] = []      # {node, pos, away}
 var _honey: Array[Dictionary] = []       # {node, pos, life, uses, inside: {}}
 var _weeds: Array[Dictionary] = []       # {node, pos, vel, life, rng, hit: {}}
+var _snowballs: Array[Dictionary] = []   # {node, pos, vel, age}
+const SNOWBALL_SPEED := 34.0              # faster than any kart
 var _was_pressed := {}
 var _rng := RandomNumberGenerator.new()
 var _bot_wait := {}
@@ -158,6 +160,7 @@ func _physics_process(delta: float) -> void:
 	_update_honey(delta)
 	_update_coins(delta)
 	_update_weeds(delta)
+	_update_snowballs(delta)
 
 
 func _crate_pickups(delta: float) -> void:
@@ -178,12 +181,18 @@ func _crate_pickups(delta: float) -> void:
 				node.visible = false
 				if owned.has(k) and k.held_item == "" and k.item_spin <= 0.0:
 					k.item_spin = SPIN
-					k.set_meta("pending_item", KINDS[_rng.randi() % KINDS.size()])
+					var pool := pool()
+					k.set_meta("pending_item", pool[_rng.randi() % pool.size()])
 				break
 	for k in owned:
 		if k.item_spin <= 0.0 and k.has_meta("pending_item"):
 			k.held_item = k.get_meta("pending_item")
 			k.remove_meta("pending_item")
+
+
+## What crates can give here: the snowball only on snowy tracks (design doc 6).
+func pool() -> Array:
+	return KINDS + ["snowball"] if track and track.layout == "frost" else KINDS
 
 
 func _use_items() -> void:
@@ -200,8 +209,11 @@ func _use_items() -> void:
 			back.y = 0.0
 			back = back.normalized()
 			var seed_value := _rng.randi()
-			spawn(kind, k.global_position + back * 2.6, back, seed_value)
-			used.emit(kind, k.global_position + back * 2.6, back, seed_value)
+			# Dropped behind, except the snowball, which is bowled ahead.
+			var dir := -back if kind == "snowball" else back
+			var at := k.global_position + dir * (3.2 if kind == "snowball" else 2.6)
+			spawn(kind, at, dir, seed_value)
+			used.emit(kind, at, dir, seed_value)
 
 
 ## Computer drivers use an item when someone is close behind, or after a while.
@@ -214,7 +226,11 @@ func _bot_wants(k: Kart) -> bool:
 		if other == k:
 			continue
 		var rel := other.global_position - k.global_position
-		if rel.length() < 25.0 and rel.dot(k.global_transform.basis.z) > 3.0:
+		if k.held_item == "snowball":
+			# Bowl it at someone a little way ahead.
+			if rel.length() < 45.0 and rel.dot(-k.global_transform.basis.z) > 6.0:
+				return true
+		elif rel.length() < 25.0 and rel.dot(k.global_transform.basis.z) > 3.0:
 			return true
 	return _bot_wait[k] > 8.0
 
@@ -235,6 +251,12 @@ func spawn(kind: String, pos: Vector3, dir: Vector3, seed_value: int) -> void:
 			var rng := RandomNumberGenerator.new()
 			rng.seed = seed_value
 			_weeds.append({"node": n, "pos": pos + Vector3.UP * 0.8, "vel": dir * 13.0, "life": 9.0, "rng": rng, "hit": {}, "hop": 0.0})
+		"snowball":
+			var n := MeshInstance3D.new()
+			n.mesh = _snow_mesh()
+			n.position = pos
+			add_child(n)
+			_snowballs.append({"node": n, "pos": pos, "vel": dir * SNOWBALL_SPEED, "age": 0.0})
 
 
 func _ground_below(p: Vector3) -> Vector3:
@@ -293,6 +315,98 @@ func _update_weeds(delta: float) -> void:
 		if w["life"] <= 0.0:
 			node.queue_free()
 			_weeds.erase(w)
+
+
+# --- Snowball -----------------------------------------------------------------
+# Bowled ahead along the road, growing as it rolls (design doc 6): the further
+# it goes, the bigger the hit. Bursts on the first kart it reaches, or when
+# it leaves the road (a bank or a wall), or after a while.
+
+static var _snow: SphereMesh
+
+
+func _snow_mesh() -> SphereMesh:
+	if _snow == null:
+		_snow = SphereMesh.new()
+		_snow.radius = 1.0
+		_snow.height = 2.0
+		_snow.radial_segments = 16
+		_snow.rings = 8
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(0.96, 0.97, 1.0)
+		m.albedo_texture = load(Palette.TEX_DIR + "ice.png")
+		m.roughness = 0.85
+		_snow.material = m
+	return _snow
+
+
+func _update_snowballs(delta: float) -> void:
+	for b in _snowballs.duplicate():
+		b["age"] += delta
+		var age: float = b["age"]
+		var r := 0.45 + 1.05 * minf(1.0, age / 3.0)
+		var off := track.offset_of(b["pos"])
+		var frame := track.transform_at(off)
+		var vel: Vector3 = b["vel"]
+		var along := -frame.basis.z if vel.dot(-frame.basis.z) > 0.0 else frame.basis.z
+		var to_line: Vector3 = frame.origin - b["pos"]
+		to_line.y = 0.0
+		# Follows the road round the bends, drifting a little toward its middle.
+		vel = vel.lerp(along * SNOWBALL_SPEED + to_line * 0.25, clampf(delta * 3.0, 0.0, 1.0))
+		b["vel"] = vel
+		var pos: Vector3 = b["pos"] + vel * delta
+		var ground := _ground_below(pos + Vector3.UP * 2.0)
+		pos.y = ground.y + r
+		b["pos"] = pos
+		var node: Node3D = b["node"]
+		node.position = pos
+		node.scale = Vector3.ONE * r
+		if vel.length() > 0.1:
+			node.rotate(Vector3.UP.cross(vel.normalized()).normalized(), delta * vel.length() / r)
+		var burst := age > 6.0
+		var local: Vector3 = track.road_local(pos)
+		if absf(local.x) > Track.ROAD_WIDTH * 0.5 + 2.0:
+			burst = true   # into the bank or a wall
+		for k in karts:
+			if age > 0.25 and k.global_position.distance_to(pos) < r + 0.9:
+				if owned.has(k):
+					k.knock(pos)
+					k.linear_velocity *= 0.55   # a big snowball stops you, not just shoves you
+				burst = true
+				break
+		if burst:
+			_puff(pos, r)
+			node.queue_free()
+			_snowballs.erase(b)
+
+
+## A burst of snow.
+func _puff(at: Vector3, r: float) -> void:
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.amount = 18
+	p.lifetime = 0.7
+	p.explosiveness = 1.0
+	p.direction = Vector3.UP
+	p.spread = 80.0
+	p.initial_velocity_min = 3.0 * r
+	p.initial_velocity_max = 6.0 * r
+	p.gravity = Vector3(0, -14, 0)
+	p.scale_amount_min = 0.25 * r
+	p.scale_amount_max = 0.5 * r
+	var m := SphereMesh.new()
+	m.radius = 0.5
+	m.height = 1.0
+	m.radial_segments = 6
+	m.rings = 3
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.97, 0.98, 1.0)
+	m.material = mat
+	p.mesh = m
+	p.position = at
+	add_child(p)
+	p.emitting = true
+	get_tree().create_timer(1.2).timeout.connect(p.queue_free)
 
 
 # --- Coins ------------------------------------------------------------------

@@ -17,12 +17,6 @@ const BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
  * Messages to the game:  { source: 'game-night', kind: 'state' | 'relay', ... }
  * Messages from the game: { source: 'racing', kind: 'ready' | 'act' | 'relay', ... }
  */
-/** What each track is like, for the picker. */
-const ABOUT: Record<string, string> = {
-  meadow: 'Rolling hills, a lake and a stone bridge. The fork drops into a glowing cave.',
-  mine: 'A cliff-edge ledge round the mountain, a coal mine through it, and a swaying rope bridge.',
-}
-
 export default function RacingView(props: GameViewProps<View, RacingAction>) {
   // The host picks the track first; the game loads once it's chosen.
   if (props.view.phase === 'track') return <TrackPicker {...props} />
@@ -37,23 +31,23 @@ function TrackPicker({ view, snapshot, me, isHost, act }: GameViewProps<View, Ra
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-8">
       <h2 className="text-2xl font-semibold">{canPick ? 'Pick a track' : `${host} is picking the track`}</h2>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {TRACKS.map((t) => (
-          <div key={t.id} className="flex flex-col gap-3 rounded-xl border p-4">
+          <button
+            key={t.id}
+            type="button"
+            disabled={!canPick}
+            onClick={() => act({ type: 'track', id: t.id })}
+            className="group flex flex-col gap-2 rounded-xl border p-2 text-left transition-colors enabled:hover:border-foreground/40 enabled:hover:bg-muted/50 disabled:cursor-default"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element -- a static export, no image optimiser */}
             <img
               src={`${BASE}/tracks/${t.id}.jpg`}
               alt=""
               className="aspect-video w-full rounded-lg bg-muted object-cover"
             />
-            <div>
-              <div className="font-medium">{t.name}</div>
-              <p className="text-sm text-muted-foreground">{ABOUT[t.id]}</p>
-            </div>
-            {canPick && (
-              <Button onClick={() => act({ type: 'track', id: t.id })}>Race on {t.name}</Button>
-            )}
-          </div>
+            <span className="px-1 pb-1 font-medium">{t.name}</span>
+          </button>
         ))}
       </div>
     </div>

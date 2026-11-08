@@ -232,6 +232,7 @@ var _item: Label
 var _item_box: ItemBox
 var _lines: SpeedLines
 var _splat: SplatOverlay
+var _under: ColorRect
 var _splat_kart: Kart
 
 
@@ -265,6 +266,15 @@ func _process(delta: float) -> void:
 		_splat = SplatOverlay.new()
 		_root.add_child(_splat)
 		_root.move_child(_splat, 0)
+	# Under the frozen lake: everything through blue-green water.
+	if _under == null:
+		_under = ColorRect.new()
+		_under.color = Color(0.05, 0.35, 0.5, 0.32)
+		_under.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_root.add_child(_under)
+		_root.move_child(_under, 0)
+	_under.size = _root.size
+	_under.visible = race.camera != null and race.track.under_lake(race.camera.global_position)
 	if _lines == null:
 		_lines = SpeedLines.new()
 		_root.add_child(_lines)
@@ -289,7 +299,8 @@ func _process(delta: float) -> void:
 	# The item you hold, with a quick spin through the icons as you pick it up.
 	var shown := me.held_item
 	if me.item_spin > 0.0:
-		shown = Items.KINDS[int(me.item_spin * 12.0) % Items.KINDS.size()]
+		var pool: Array = race.items.pool() if race.items else Items.KINDS
+		shown = pool[int(me.item_spin * 12.0) % pool.size()]
 	touch.held_item = shown
 	_item.text = ""
 	if _item_box.item != shown:

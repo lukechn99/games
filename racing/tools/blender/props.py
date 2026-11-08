@@ -206,8 +206,67 @@ def coin():
     return finish(parts), (0, 0, 0.6), 2.2
 
 
+def _pine(tiers):
+    """A pine of stacked, slightly drooping tiers, each with a snow cap that
+    hangs over its edge in a scalloped lip."""
+    needles = c.material("Needles", (0.12, 0.38, 0.26), 0.85)
+    needles2 = c.material("Needles_dark", (0.09, 0.3, 0.22), 0.85)
+    snow = c.material("Snow", (0.95, 0.97, 1.0), 0.7)
+    bark = c.material("Bark", (0.42, 0.27, 0.16), 0.85)
+    parts = [(s.cylinder("Bark_trunk", (0, 0.7, 0), 0.26, 1.4, "y", 12, 0.03), bark)]
+    for i, (h, R, H) in enumerate(tiers):
+        tier = s.lathe("Needles_tier", [(h - 0.15, 0.25), (h, R), (h + 0.18, R * 0.9), (h + H * 0.6, R * 0.38), (h + H, 0.04)], segs=20,
+                       tread=lambda k, j, R=R: 1.0 + (0.07 * math.sin(k * 2.6) if j == 1 else 0.0))
+        parts.append((_stand_up(tier), needles if i % 2 == 0 else needles2))
+        # The snow: the top of the tier, a little proud of it, scalloped
+        # where it hangs over.
+        cap = s.lathe("Snow_cap", [(h + H * 0.45, R * 0.6), (h + H * 0.5, R * 0.57), (h + H * 0.75, R * 0.3), (h + H + 0.07, 0.03)], segs=20,
+                      tread=lambda k, j: 1.0 + (0.1 * max(0.0, math.sin(k * 3.14159 * 6 / 20)) if j == 0 else 0.0))
+        parts.append((_stand_up(cap), snow))
+    return finish(parts)
+
+
+def snowpine_tall():
+    return _pine([(1.0, 2.0, 2.0), (2.5, 1.6, 1.9), (3.9, 1.2, 1.7), (5.1, 0.8, 1.7)]), (0, 0, 3.4), 13.0
+
+
+def snowpine_round():
+    return _pine([(0.9, 2.5, 2.1), (2.3, 2.0, 1.9), (3.6, 1.4, 1.8)]), (0, 0, 2.8), 12.0
+
+
+def snowman():
+    snow = c.material("Snow", (0.95, 0.97, 1.0), 0.7)
+    coal = c.material("Coal", (0.08, 0.08, 0.1), 0.6)
+    carrot = c.material("Carrot", (1.0, 0.48, 0.1), 0.6)
+    scarf = c.material("Scarf", (0.85, 0.12, 0.12), 0.8)
+    stick = c.material("Stick", (0.4, 0.26, 0.15), 0.9)
+    parts = [(blob("Snow_base", (0, 0.85, 0), 0.95, 0.92, 1), snow),
+             (blob("Snow_mid", (0, 2.05, 0), 0.68, 0.95, 2), snow),
+             (blob("Snow_head", (0, 2.95, 0), 0.48, 1.0, 3), snow)]
+    nose = s.lathe("Carrot_nose", [(0.0, 0.08), (0.4, 0.01)], segs=10)
+    nose.rotation_euler = (0, 0, math.radians(90))   # lathe x (Godot) -> point forward (-z Godot is +y Blender)
+    bpy.context.view_layer.objects.active = nose
+    bpy.ops.object.select_all(action="DESELECT")
+    nose.select_set(True)
+    bpy.ops.object.transform_apply(rotation=True)
+    nose.location = s.g(0, 2.93, -0.44)
+    parts.append((nose, carrot))
+    for sx in (-1, 1):
+        parts.append((s.cylinder("Coal_eye", (sx * 0.16, 3.08, -0.41), 0.06, 0.05, "z", 10, 0.01), coal))
+        parts.append((s.tube("Stick_arm", [(sx * 0.6, 2.15, 0), (sx * 1.15, 2.55, -0.05), (sx * 1.35, 2.85, -0.1)], 0.045, 2), stick))
+    for k in range(3):
+        parts.append((s.cylinder("Coal_button", (0, 1.8 + k * 0.26, -0.66 + abs(k - 1) * 0.04), 0.06, 0.05, "z", 10, 0.01), coal))
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.46, minor_radius=0.1, location=s.g(0, 2.55, 0))
+    ring = bpy.context.object
+    ring.name = "Scarf_wrap"
+    parts.append((ring, scarf))
+    parts.append((s.box("Scarf_tail", (0.28, 2.3, -0.42), (0.18, 0.5, 0.06), 0.03, 2), scarf))
+    return finish(parts), (0, 0, 1.7), 8.0
+
+
 BUILDERS = {"tree_puffy": tree_puffy, "lamp_post": lamp_post, "guardrail": guardrail,
-            "windmill": windmill, "lantern": lantern, "coin": coin}
+            "windmill": windmill, "lantern": lantern, "coin": coin,
+            "snowpine_tall": snowpine_tall, "snowpine_round": snowpine_round, "snowman": snowman}
 
 if __name__ == "__main__":
     outdir = sys.argv[1]

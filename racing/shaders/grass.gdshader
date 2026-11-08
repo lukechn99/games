@@ -17,6 +17,8 @@ uniform vec2 dist_origin;
 uniform vec2 dist_size = vec2(1.0);
 uniform bool use_dist = false;
 uniform vec3 sand : source_color = vec3(0.86, 0.66, 0.44);
+// A hole in the ground (Frosty Pass's frozen lake): centre x, z, radii.
+uniform vec4 hole = vec4(0.0, 0.0, 0.0, 0.0);
 
 varying vec3 wpos;
 
@@ -37,6 +39,9 @@ float vnoise(vec2 p) {
 
 void fragment() {
 	vec2 p = wpos.xz;
+	if (hole.z > 0.0 && length((p - hole.xy) / hole.zw) < 1.0) {
+		discard;
+	}
 	float broad = vnoise(p / 60.0) * 0.65 + vnoise(p / 23.0) * 0.35;
 	float fine = vnoise(p / 3.1);
 	vec3 c = mix(deep, fresh, smoothstep(0.25, 0.6, broad));

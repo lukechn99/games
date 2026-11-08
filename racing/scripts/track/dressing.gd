@@ -108,8 +108,11 @@ static func _coins(t: Track) -> void:
 			d += 40.0
 		if t.branch_at(d) >= 0:
 			continue
-		var lane := 3.0 if k % 2 == 0 else -3.0
+		# A diagonal across the road, alternating which way, so you have to
+		# steer across to collect the whole line.
+		var dir := 1.0 if k % 2 == 0 else -1.0
 		for j in 5:
-			var f := t.road_frame(d + j * 3.5)
+			var f := t.road_frame(d + j * 4.0)
+			var lane := dir * lerpf(-4.5, 4.5, j / 4.0)
 			spots.append(f.origin + f.basis.x * lane + f.basis.y * 0.9)
 	t.coin_spots = spots

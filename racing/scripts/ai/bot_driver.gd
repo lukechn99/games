@@ -59,7 +59,12 @@ func _physics_process(delta: float) -> void:
 	if take and narrow:
 		wander *= 0.15   # down the middle of the planks
 	var target := aim.origin + aim.basis.x * wander
-	if take:
+	# A route given as its own path (Frosty Pass's lake): follow the path.
+	var on_path: bool = take and not (track.branches[bi].get("pts", PackedVector3Array()) as PackedVector3Array).is_empty()
+	if on_path:
+		var bf := track.branch_frame(off + look, bi)
+		target = bf.origin + bf.basis.x * wander
+	elif take:
 		target += aim.basis.x * track.branch_offset(off + look, bi)
 
 	var to := target - kart.global_position
@@ -71,9 +76,16 @@ func _physics_process(delta: float) -> void:
 	var steer := clampf(-angle * 2.4, -1.0, 1.0)
 
 	# Corner speed: how much the line turns over the next stretch.
-	var bend := _bend_ahead(off + 4.0, 10.0 + spd * float(cfg["brake_early"]) * 1.3)
+	var span := 10.0 + spd * float(cfg["brake_early"]) * 1.3
+	var bend := _bend_ahead(off + 4.0, span)
+	if on_path:
+		var fa := -track.branch_frame(off + 4.0, bi).basis.z
+		var fb := -track.branch_frame(off + 4.0 + span, bi).basis.z
+		bend = absf(fa.signed_angle_to(fb, Vector3.UP)) / span
 	var corner_speed := sqrt(9.8 * Parts.tire_grip(kart.tires, kart.surface_name) * 0.95 / maxf(bend, 0.0005))
 	var want := minf(kart.top_speed() * float(cfg["pace"]), corner_speed * float(cfg["pace"]))
+	if kart.surface_name == "ice":
+		want *= 0.88   # a little careful on ice
 	var throttle := 1.0
 	var brake := 0.0
 	if spd > want + 1.5:

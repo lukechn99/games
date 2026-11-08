@@ -24,9 +24,11 @@ static func build(t: Track) -> void:
 		_ledge_wall(t, rng)
 		_bank_top(t, rng)
 		_verge_rocks(t, rng, 70, 3.5, 30.0)
-	else:
+	elif t.layout == "mine":
 		_mine_cliffs(t, rng)
 		_verge_rocks(t, rng, 90, 3.0, 40.0)
+	else:
+		_verge_rocks(t, rng, 60, 3.5, 30.0)
 
 
 static func _flat_facing(f: Transform3D, side: float) -> Basis:

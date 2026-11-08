@@ -35,6 +35,8 @@ func _ready() -> void:
 	var q0 := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else ""
 	if q0.contains("track=mine"):
 		track.layout = "mine"
+	elif q0.contains("track=frost"):
+		track.layout = "frost"
 	if q0.contains("laps="):   # for checking the finish quickly
 		track.laps = clampi(int(q0.split("laps=")[1].split("&")[0]), 1, 9)
 	add_child(track)

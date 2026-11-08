@@ -97,12 +97,19 @@ func map_radius() -> float:
 	return r
 
 
+## Under the frozen lake's ice (Frosty Pass): on the sunken road, not off
+## the track.
+func under_lake(pos: Vector3) -> bool:
+	return layout == "frost" and pos.y < 0.0 and pos.y > FrostTrack.DEEP - 4.0 and FrostTrack.in_lake(pos, 1.05)
+
+
 ## On the rope bridge's deck (see SwayBridge.holds).
 func on_bridge(pos: Vector3) -> bool:
 	return bridge != null and bridge.holds(pos)
 var branch_side := 1.0        # which side the second route swings out to
 var _keep_clear: Array[Vector3] = []   # (x, z, radius): no scenery here
 var _branch_samples: Array[Vector3] = []
+var _branch_sample_offsets: PackedFloat32Array = []
 
 
 func _ready() -> void:
@@ -115,6 +122,18 @@ func _ready() -> void:
 		_build_road()
 		_build_start(false)
 		MineTrack.build(self)
+		_build_scenery()
+		return
+	if layout == "frost":
+		FrostTrack.configure(self)
+		_build_curve()
+		FrostTrack.plan(self)
+		_build_ground()
+		_build_road()
+		_build_rails()
+		_build_start()
+		SetDressing.build(self)
+		FrostTrack.build(self)
 		_build_scenery()
 		return
 	_build_curve()
@@ -203,7 +222,21 @@ func road_frame(offset: float) -> Transform3D:
 
 
 func offset_of(pos: Vector3) -> float:
-	return curve.get_closest_offset(pos)
+	var main := curve.get_closest_offset(pos)
+	if _branch_samples.is_empty():
+		return main
+	# On a route beside the main road (a shortcut across a lake, say), the
+	# nearest bit of main road can be a quite different part of the lap:
+	# go by the route instead when it's clearly the closer road.
+	var dm := curve.get_closest_point(pos).distance_to(pos)
+	var best := dm - 4.0
+	var off := main
+	for i in _branch_samples.size():
+		var dd := _branch_samples[i].distance_to(pos)
+		if dd < best:
+			best = dd
+			off = _branch_sample_offsets[i]
+	return off
 
 
 func surface_at_fraction(f: float) -> String:
@@ -224,6 +257,17 @@ func _road_mat(kind := "asphalt") -> ShaderMaterial:
 	var dirt := kind == "dirt" or layout == "mine"
 	var m := ShaderMaterial.new()
 	m.shader = load("res://shaders/road.gdshader")
+	if kind == "ice":
+		# Glassy, frosted: the ice texture, its edge lines, and some sheen.
+		m.set_shader_parameter("detail", load(Palette.TEX_DIR + "ice.png"))
+		m.set_shader_parameter("paint", true)
+		m.set_shader_parameter("wear", 0.0)
+		m.set_shader_parameter("surf", load(Palette.TEX_DIR + "surf_asphalt.png"))
+		m.set_shader_parameter("surf_n", load(Palette.TEX_DIR + "surf_asphalt_n.png"))
+		m.set_shader_parameter("relief", 0.4 if Palette.relief_on else 0.0)
+		m.set_shader_parameter("ruts", false)
+		Palette.relief_shaders.append(m)
+		return m
 	m.set_shader_parameter("detail", load(Palette.TEX_DIR + ("dirt" if dirt else "asphalt") + ".png"))
 	m.set_shader_parameter("paint", not dirt)
 	m.set_shader_parameter("wear", 0.2 if kind == "dirt" else (0.35 if layout == "mine" else 0.5))
@@ -242,6 +286,13 @@ func _grass_mat(banks: bool) -> ShaderMaterial:
 	m.shader = load("res://shaders/grass.gdshader")
 	m.set_shader_parameter("detail", load(Palette.TEX_DIR + "grass.png"))
 	m.set_shader_parameter("use_vertex", banks)
+	if layout == "frost":
+		# Snow: blue-white in the hollows, bright on top, a hint of warmth.
+		m.set_shader_parameter("deep", Color(0.78, 0.85, 0.95))
+		m.set_shader_parameter("fresh", Color(0.95, 0.97, 1.0))
+		m.set_shader_parameter("dry", Color(0.98, 0.97, 0.95))
+		m.set_shader_parameter("detail", load(Palette.TEX_DIR + "ice.png"))
+		m.set_shader_parameter("tile_m", 11.0)
 	_grass_mats.append(m)
 	if _road_dist:
 		_apply_road_distance(m)
@@ -344,12 +395,15 @@ func _body(surface: String, floor := false) -> StaticBody3D:
 
 func _build_ground() -> void:
 	var b := _body("grass", true)
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3(1400, 2, 1400)
-	shape.shape = box
-	shape.position = Vector3(80, ground_y - 1.0, -30)
-	b.add_child(shape)
+	if layout == "frost":
+		FrostTrack.ground_collision(self, b)   # with the frozen lake cut out
+	else:
+		var shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(1400, 2, 1400)
+		shape.shape = box
+		shape.position = Vector3(80, ground_y - 1.0, -30)
+		b.add_child(shape)
 	var plane := PlaneMesh.new()
 	# Out past the farthest mountains, so from high up (the fly-in) the
 	# ground runs on under them instead of stopping short.
@@ -358,6 +412,9 @@ func _build_ground() -> void:
 	mi.mesh = plane
 	mi.position = Vector3(80, ground_y, -30)
 	mi.material_override = _grass_mat(false)
+	if layout == "frost":
+		var gm: ShaderMaterial = mi.material_override
+		gm.set_shader_parameter("hole", Vector4(FrostTrack.LAKE_CENTER.x, FrostTrack.LAKE_CENTER.z, FrostTrack.LAKE_RX, FrostTrack.LAKE_RZ))
 	if layout == "mine":
 		# The valley floor far below the ledge, softened into haze.
 		var m: ShaderMaterial = mi.material_override
@@ -396,7 +453,7 @@ func _build_road() -> void:
 				var bend: float = branches[bi]["to"]
 				var ba := _branch_strip_frame(d, bi)
 				var bb := _branch_strip_frame(minf(d + step, bend), bi)
-				var bs := "boost" if _in_moss(d) else "asphalt"
+				var bs: String = "boost" if _in_moss(d) else branches[bi].get("surface", "asphalt")
 				# The moss glows green rather than boost-pad orange.
 				var moss := Color(0.35, 1.0, 0.45) if bs == "boost" else Color(0, 0, 0, 0)
 				_quad_strip(_group(groups, bs) if bs != s else st, ba, bb, bs, int(d / step), d, 0.0, 0.0, moss)
@@ -415,6 +472,8 @@ func _build_road() -> void:
 func _branch_has_road(i: int, d: float) -> bool:
 	if layout == "mine":
 		return MineTrack.has_road(self, i, d)
+	if layout == "frost":
+		return FrostTrack.has_road(self, i, d)
 	return true
 
 
@@ -456,6 +515,8 @@ func _merged_strip(st: SurfaceTool, da: float, db: float, index: int, bi := 0) -
 	far_b.y = lerpf((mb.origin + mb.basis.x * (branch_offset(db, bi) + side * half)).y, far_b.y, clampf(absf(branch_offset(db, bi)) / BRANCH_SPLIT, 0.0, 1.0))
 	var base: Color = Parts.surface("asphalt")["color"]
 	var kerb := Color(0.92, 0.22, 0.2) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
+	if layout == "frost":
+		kerb = Color(0.2, 0.45, 0.92) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
 	if layout == "mine":
 		base = MINE_ROAD
 		kerb = Color(0.45, 0.3, 0.17) if index % 2 == 0 else Color(0.38, 0.25, 0.14)
@@ -547,6 +608,8 @@ func _commit_groups(groups: Dictionary) -> void:
 			mi.material_override = _road_mat()
 		elif s == "dirt":
 			mi.material_override = _road_mat("dirt")
+		elif s == "ice":
+			mi.material_override = _road_mat("ice")
 		else:
 			var t: Array = SURFACE_TEX.get(s, ["", 1.0])
 			mi.material_override = _mat(Color.WHITE, t[0], t[1])
@@ -564,7 +627,7 @@ func _commit_groups(groups: Dictionary) -> void:
 func _embankment(st: SurfaceTool, rock: SurfaceTool, a: Transform3D, b: Transform3D, index: int, d := -1.0, skip_side := 0.0) -> void:
 	var edge := ROAD_WIDTH * 0.5 + 1.1
 	var widest := 0.0
-	var on_ledge := (d >= LEDGE[0] and d < LEDGE[1]) if layout == "meadow" else true
+	var on_ledge := (d >= LEDGE[0] and d < LEDGE[1]) if layout == "meadow" else layout == "mine"
 	for side in [-1.0, 1.0]:
 		if side == skip_side:
 			continue
@@ -674,6 +737,8 @@ func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, ind
 	# Road, then a kerb on each side (red and white blocks every 2 m). On the
 	# mine the road is packed earth and stone, edged with timber.
 	var kerb := Color(0.92, 0.22, 0.2) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
+	if layout == "frost":
+		kerb = Color(0.2, 0.45, 0.92) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
 	if layout == "mine":
 		kerb = Color(0.45, 0.3, 0.17) if index % 2 == 0 else Color(0.38, 0.25, 0.14)
 		if s == "asphalt" and tint.a == 0.0:
@@ -1114,11 +1179,15 @@ func _plan_set_pieces() -> void:
 
 ## Register another route: sideways offsets from the main road every metre
 ## from `from` to `to` (signed: + is to the right).
-func add_branch(from: float, to: float, shift: PackedFloat32Array, kind: String) -> void:
-	branches.append({"from": from, "to": to, "shift": shift, "kind": kind})
+## `pts` (optional): the route's own path, a point per metre of the main
+## road from `from`, for routes whose sideways offset would fold back on
+## itself (a shortcut across the inside of a tight bend).
+func add_branch(from: float, to: float, shift: PackedFloat32Array, kind: String, pts := PackedVector3Array()) -> void:
+	branches.append({"from": from, "to": to, "shift": shift, "kind": kind, "pts": pts})
 	var d := from
 	while d <= to:
 		_branch_samples.append(branch_frame(d, branches.size() - 1).origin)
+		_branch_sample_offsets.append(d)
 		d += 2.0
 
 
@@ -1131,6 +1200,10 @@ func branch_offset(offset: float, i := 0) -> float:
 	var o := fposmod(offset, length)
 	if o <= b["from"] or o >= b["to"]:
 		return 0.0
+	var pts: PackedVector3Array = b.get("pts", PackedVector3Array())
+	if not pts.is_empty():
+		var f := transform_at(o)
+		return (_branch_point(b, o) - f.origin).dot(f.basis.x)
 	var tab: PackedFloat32Array = b["shift"]
 	var x := o - float(b["from"])
 	var k := int(x)
@@ -1150,6 +1223,18 @@ func branch_at(offset: float) -> int:
 
 ## Route `i`'s road frame: swung out sideways, facing along itself.
 func branch_frame(offset: float, i := 0) -> Transform3D:
+	if i < branches.size() and not (branches[i].get("pts", PackedVector3Array()) as PackedVector3Array).is_empty():
+		var br: Dictionary = branches[i]
+		var o := fposmod(offset, length)
+		if o <= float(br["from"]) or o >= float(br["to"]):
+			return transform_at(o)   # outside its stretch: the main road, as for offset routes
+		var q0 := _branch_point(br, o)
+		var q1 := _branch_point(br, minf(o + 1.0, float(br["to"])))
+		if q1.distance_to(q0) < 0.01:
+			q1 = q0 + (q0 - _branch_point(br, o - 1.0))
+		var fd := q1 - q0
+		fd.y = 0.0
+		return Transform3D(Basis.looking_at(fd.normalized(), Vector3.UP), q0)
 	var a := transform_at(offset)
 	var b := transform_at(offset + 1.0)
 	var pa := a.origin + a.basis.x * branch_offset(offset, i)
@@ -1159,6 +1244,13 @@ func branch_frame(offset: float, i := 0) -> Transform3D:
 	if f.length() < 0.01:
 		return Transform3D(a.basis, pa)
 	return Transform3D(Basis.looking_at(f.normalized(), Vector3.UP), pa)
+
+
+func _branch_point(b: Dictionary, o: float) -> Vector3:
+	var pts: PackedVector3Array = b["pts"]
+	var x := clampf(o - float(b["from"]), 0.0, pts.size() - 1.001)
+	var k := int(x)
+	return pts[k].lerp(pts[mini(k + 1, pts.size() - 1)], x - k)
 
 
 ## Where a kart is relative to the nearest road (the main road or a route
@@ -1181,6 +1273,8 @@ func crate_frames() -> Array[Transform3D]:
 	var out: Array[Transform3D] = []
 	if layout == "mine":
 		return MineTrack.crate_frames(self)
+	if layout == "frost":
+		return FrostTrack.crate_frames(self)
 	for u in [0.36, 0.72]:
 		out.append(branch_frame(lerpf(BRANCH[0], BRANCH[1], u)))
 	return out
@@ -1207,6 +1301,11 @@ func in_water(pos: Vector3) -> bool:
 ## Trees and rocks near the road are solid: drive off line and you'll hit one.
 func _build_scenery() -> void:
 	var kinds := ["tree_default", "tree_oak", "tree_fat", "tree_pineRoundA", "tree_pineRoundB", "tree_pineTallA", "tree_simple", "tree_cone"]
+	var tree_dir := KIT_NATURE
+	if layout == "frost":
+		# Snow-laden pines (our Blender models, about 1 m tall at scale 1).
+		kinds = ["snowpine_tall", "snowpine_round"]
+		tree_dir = MODELS
 	var trees := {}
 	for k in kinds:
 		trees[k] = [] as Array[Transform3D]
@@ -1224,13 +1323,14 @@ func _build_scenery() -> void:
 		if dist < ROAD_WIDTH * 0.5 + 7.0 or _blocked(p):
 			continue
 		var kind: String = kinds[_rng.randi() % kinds.size()]
-		var sc := _rng.randf_range(5.5, 8.5)
+		var sc := _rng.randf_range(5.5, 8.5) if layout != "frost" else _rng.randf_range(0.9, 1.5)
+		var ks := sc * (6.0 if layout == "frost" else 1.0)   # in kit-tree units, for shade and trunks
 		(trees[kind] as Array).append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * sc), p))
-		shade.append([p, 0.3 * sc, 1.3 * sc])
+		shade.append([p, 0.3 * ks, 1.3 * ks])
 		if dist < trees_hit_radius:
 			var col := CollisionShape3D.new()
 			var cyl := CylinderShape3D.new()
-			cyl.radius = 0.06 * sc  # about the trunk, not the leaves
+			cyl.radius = 0.06 * ks  # about the trunk, not the leaves
 			cyl.height = 6.0
 			col.shape = cyl
 			col.position = p + Vector3.UP * 3.0
@@ -1239,7 +1339,7 @@ func _build_scenery() -> void:
 	for k in kinds:
 		var arr: Array[Transform3D] = []
 		arr.assign(trees[k])
-		_scatter(KIT_NATURE + k + ".glb", arr)
+		_scatter(tree_dir + k + ".glb", arr)
 	for i in 70:
 		var p := Vector3(_rng.randf_range(-200, 380), ground_y, _rng.randf_range(-360, 300))
 		var dist := _distance_to_line(p)
@@ -1260,6 +1360,8 @@ func _build_scenery() -> void:
 				col.shape = cyl
 				col.position = p + Vector3.UP * cyl.height * 0.5
 				solid.add_child(col)
+		elif layout == "frost":
+			continue
 		elif i % 3 == 1:
 			bushes.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * _rng.randf_range(3.0, 5.0)), p))
 		else:
@@ -1300,7 +1402,7 @@ func _puffy_trees(shade: Array) -> void:
 			col.shape = cyl
 			col.position = p + Vector3.UP * 2.0
 			solid.add_child(col)
-	_scatter(MODELS + "tree_puffy.glb", xs)
+	_scatter(MODELS + ("snowpine_tall.glb" if layout == "frost" else "tree_puffy.glb"), xs)
 
 
 func _terrain_dressing() -> void:
@@ -1374,6 +1476,8 @@ func _build_mountains() -> void:
 		var side := Vector3(-sin(a), 0, cos(a)) * _rng.randf_range(60, 110)
 		var h := _rng.randf_range(22, 55)
 		var top := Color(0.33, 0.6, 0.3).lerp(Color(0.42, 0.66, 0.34), _rng.randf())
+		if layout == "frost":
+			top = Color(0.84, 0.9, 0.97).lerp(Color(0.93, 0.95, 0.99), _rng.randf())
 		var segs := 10
 		for k in segs:
 			var t0 := PI * k / segs
@@ -1398,6 +1502,10 @@ func _build_mountains() -> void:
 		var body := Color(0.62, 0.75, 0.9) if far else Color(0.38, 0.52, 0.7).lerp(Color(0.44, 0.58, 0.72), _rng.randf())
 		var lit := body.lightened(0.12)
 		var shade := body.darkened(0.12)
+		if layout == "frost":
+			# Snow-capped: the peaks white, fading down into the blue.
+			lit = Color(0.97, 0.98, 1.0)
+			shade = Color(0.8, 0.86, 0.95)
 		var peak := base + Vector3.UP * h + side * _rng.randf_range(-0.25, 0.25)
 		var foot := base + inward * w * 0.4   # the ridge comes toward us
 		var foot_c := body.lerp(haze, 0.6)
@@ -1455,11 +1563,12 @@ func respawn_transform(pos: Vector3) -> Transform3D:
 func _start_sign(a: Transform3D) -> void:
 	var st := SetPieces._new_st()
 	var mine := layout == "mine"
+	var frost := layout == "frost"
 	var c := a.origin + Vector3.UP * 7.1
 	var w := ROAD_WIDTH + 5.6
 	var pillar := Color(0.55, 0.36, 0.2) if mine else Color(0.96, 0.96, 0.96)
-	var trim := Color(0.95, 0.72, 0.15) if mine else Color(0.92, 0.18, 0.18)
-	var board := Color(0.3, 0.2, 0.13) if mine else Color(0.12, 0.6, 0.32)
+	var trim := Color(0.95, 0.72, 0.15) if mine else (Color(0.25, 0.55, 0.95) if frost else Color(0.92, 0.18, 0.18))
+	var board := Color(0.3, 0.2, 0.13) if mine else (Color(0.1, 0.27, 0.58) if frost else Color(0.12, 0.6, 0.32))
 	for side: float in [-1.0, 1.0]:
 		var foot := a.origin + a.basis.x * side * (ROAD_WIDTH * 0.5 + 2.6)
 		SetPieces._box(st, Transform3D(a.basis, foot + Vector3.UP * 3.7), Vector3(1.1, 8.6, 1.1), pillar)
@@ -1472,16 +1581,17 @@ func _start_sign(a: Transform3D) -> void:
 	# The track's name, lettered to suit it: chunky squared-off stencil on the
 	# mine's timber, a soft rounded script over the meadow.
 	var label := Label3D.new()
-	label.text = "MINING MOUNTAIN" if mine else "Meadow Loop"
-	label.font = load("res://assets/fonts/black_ops_one.woff2" if mine else "res://assets/fonts/pacifico.woff2")
+	# (Frosty Pass: chunky rounded letters, snow-white on deep blue.)
+	label.text = "MINING MOUNTAIN" if mine else ("Frosty Pass" if frost else "Meadow Loop")
+	label.font = load("res://assets/fonts/black_ops_one.woff2" if mine else ("res://assets/fonts/lilita_one.woff2" if frost else "res://assets/fonts/pacifico.woff2"))
 	label.font_size = 200
 	label.outline_size = 40 if mine else 48
-	label.modulate = Color(1.0, 0.8, 0.2) if mine else Color(1.0, 0.98, 0.9)
-	label.outline_modulate = Color(0.2, 0.12, 0.06) if mine else Color(0.86, 0.16, 0.16)
+	label.modulate = Color(1.0, 0.8, 0.2) if mine else (Color(0.97, 0.99, 1.0) if frost else Color(1.0, 0.98, 0.9))
+	label.outline_modulate = Color(0.2, 0.12, 0.06) if mine else (Color(0.12, 0.3, 0.7) if frost else Color(0.86, 0.16, 0.16))
 	# As big as fits the board.
 	var text_w := label.font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.font_size).x + label.outline_size
 	var text_h := label.font.get_height(label.font_size)
-	label.pixel_size = minf((w - 1.6) / text_w, (2.4 if mine else 3.9) / text_h)   # (the script runs tall for its size)
+	label.pixel_size = minf((w - 1.6) / text_w, (3.9 if not mine and not frost else 2.6) / text_h)   # (the script runs tall for its size)
 	label.shaded = false
 	label.double_sided = false
 	label.transform = Transform3D(a.basis, c + a.basis.z * 0.5 + Vector3.UP * (0.12 if mine else 0.0))

@@ -29,6 +29,7 @@ func _run() -> void:
 	await _test_clean_start()
 	await _test_items()
 	await _test_mine()
+	await _test_frost()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
 
@@ -557,3 +558,85 @@ func _test_mine() -> void:
 		for i in 37 + trial * 23:
 			await physics_frame
 	check(resets[0] == 0, "sitting on the sagging bridge doesn't reset you", "%d resets %s" % [resets[0], why])
+
+
+func _test_frost() -> void:
+	print("Frosty Pass")
+	if _world:
+		_world.free()
+	_world = Node3D.new()
+	root.add_child(_world)
+	var track := Track.new()
+	track.layout = "frost"
+	_world.add_child(track)
+	await physics_frame
+	# Dropped through a hole in the ice: lands on the sunken road under the
+	# lake, isn't reset, and can drive on out the far end.
+	var bi := FrostTrack.lake_branch(track)
+	var span := FrostTrack.lake_span(track)
+	var h: Array = FrostTrack.HOLES[2]
+	var f := track.branch_frame(lerpf(span.x, span.y, float(h[0])), bi)
+	var k := Kart.new()
+	k.configure("frame", "studded", "fox")
+	k.track = track
+	_world.add_child(k)
+	k.global_transform = Transform3D(f.basis, f.origin + f.basis.x * float(h[1]) + Vector3.UP * 1.5)
+	var resets := []
+	k.respawned.connect(func(): resets.append(k.respawn_reason))
+	var lowest := 99.0
+	for i in 120:
+		k.input = {"steer": 0.0, "throttle": 0.0, "brake": 1.0, "drift": false}
+		await physics_frame
+		lowest = minf(lowest, k.global_position.y)
+	check(lowest < -5.0 and resets.is_empty(), "falling through the ice lands on the sunken road", "lowest %.1f m, resets %s" % [lowest, resets])
+	# Drive on (steering for the shortcut's line) and come up the far end.
+	var out := false
+	for i in 900:
+		var o := track.offset_of(k.global_position)
+		var aim := track.branch_frame(o + 12.0, bi).origin
+		var to := (aim - k.global_position)
+		var steer := clampf(k.global_transform.basis.x.dot(to.normalized()) * 2.0, -1.0, 1.0)
+		k.input = {"steer": steer, "throttle": 1.0, "brake": 0.0, "drift": false}
+		await physics_frame
+		if k.global_position.y > -0.3 and o > span.y:
+			out = true
+			break
+	check(out and resets.is_empty(), "the sunken road climbs out at the far shore", "y %.1f at %d m (lake ends %d), resets %s" % [k.global_position.y, int(track.offset_of(k.global_position)), int(span.y), resets])
+	k.queue_free()
+	await physics_frame
+	# Computer drivers lap it, and use both ways round the lake.
+	var bots: Array[Kart] = []
+	var builds := [["frame", "studded", "hard"], ["hauler", "knobby", "medium"], ["soapbox", "balloon", "easy"], ["racer", "studded", "hard"]]
+	var respawns := [0, 0, 0, 0]
+	for i in builds.size():
+		var b := Kart.new()
+		b.configure(builds[i][0], builds[i][1], "fox")
+		b.track = track
+		_world.add_child(b)
+		b.global_transform = track.grid_transform(i)
+		_world.add_child(BotDriver.new(b, track, builds[i][2], i + 7))
+		bots.append(b)
+		var idx := i
+		b.respawned.connect(func(): respawns[idx] += 1)
+	var lap_time := [0.0, 0.0, 0.0, 0.0]
+	var on_lake := false
+	var t := 0.0
+	while t < 220.0:
+		await physics_frame
+		t += 1.0 / 60.0
+		for i in bots.size():
+			var b := bots[i]
+			if b.lap >= 1 and lap_time[i] == 0.0:
+				lap_time[i] = -t
+			elif b.lap >= 2 and lap_time[i] < 0.0:
+				lap_time[i] = t + lap_time[i]
+			if FrostTrack.in_lake(b.global_position, 0.9):
+				on_lake = true
+		if lap_time.all(func(x): return x > 0.0):
+			break
+	for i in bots.size():
+		check(lap_time[i] > 0.0, "%s bot (%s) laps Frosty Pass" % [builds[i][2], builds[i][0]],
+			"lap %.1f s, %d resets, now lap %d at %d m" % [lap_time[i], respawns[i], bots[i].lap, int(track.offset_of(bots[i].global_position))])
+	check(on_lake, "bots take the frozen lake shortcut", "")
+	check(respawns.reduce(func(a, x): return a + x, 0) <= 6, "bots rarely need resetting on Frosty Pass", "%s" % [respawns])
+	print("  lap length %.0f m" % track.length)

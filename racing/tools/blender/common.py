@@ -78,9 +78,45 @@ def tris(objects):
     return sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in objects if o.type == "MESH")
 
 
-def export(path, objects=None, max_tris=None):
+def bake_ao(objs, distance=0.16, samples=64, ground=True):
+    """Bake ambient occlusion into each mesh's vertex colours (attribute "AO",
+    exported as COLOR_0): creases, undersides and parts tucked behind others
+    come out darker. The game multiplies its paint by it, so models get the
+    soft contact shading of a full render for free at run time."""
+    sc = bpy.context.scene
+    sc.render.engine = "CYCLES"
+    sc.cycles.device = "CPU"
+    sc.cycles.samples = samples
+    if sc.world is None:
+        sc.world = bpy.data.worlds.new("World")
+    sc.world.light_settings.distance = distance
+    plane = None
+    if ground:
+        bpy.ops.mesh.primitive_plane_add(size=12.0, location=(0, 0, 0))
+        plane = bpy.context.object
+    meshes = [o for o in objs if o.type == "MESH"]
+    for o in meshes:
+        me = o.data
+        for a in list(me.color_attributes):
+            me.color_attributes.remove(a)
+        attr = me.color_attributes.new("AO", "BYTE_COLOR", "CORNER")
+        me.color_attributes.active_color = attr
+        me.color_attributes.render_color_index = 0
+        if not me.materials:
+            me.materials.append(bpy.data.materials.new("bake"))
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in meshes:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = meshes[0]
+    bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
+    if plane:
+        bpy.data.objects.remove(plane, do_unlink=True)
+
+
+def export(path, objects=None, max_tris=None, ao=False):
     """Write a .glb. With `max_tris`, thin the meshes down to about that many
-    triangles first (phones draw many copies of these; design doc 14)."""
+    triangles first (phones draw many copies of these; design doc 14). With
+    `ao`, bake ambient occlusion into the vertex colours (bake_ao)."""
     objs = list(objects or bpy.context.scene.objects)
     if max_tris:
         total = tris(objs)
@@ -92,10 +128,13 @@ def export(path, objects=None, max_tris=None):
                     d.ratio = ratio
                     apply_all(o)
         print("tris", os.path.basename(path), total, "->", tris(objs))
+    if ao:
+        bake_ao(objs)
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
         o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True, export_yup=True)
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True, export_yup=True,
+                              export_vertex_color="ACTIVE" if ao else "MATERIAL")
 
 
 def preview(path, target=(0, 0, 0.5), dist=4.0, elev=22.0, azim=35.0, size=(640, 480), samples=48, bg=(0.55, 0.75, 0.95)):

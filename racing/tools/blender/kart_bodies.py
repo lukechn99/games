@@ -254,7 +254,7 @@ if __name__ == "__main__":
         c.reset()
         objs, meta = build(kind)
         path = os.path.abspath(os.path.join(MODELS, "kart_%s.glb" % kind))
-        c.export(path, objs, max_tris=7000)
+        c.export(path, objs, max_tris=7000, ao=True)
         print("wrote", path, json.dumps(meta))
         if out_png:
             preview_wheels(kind)

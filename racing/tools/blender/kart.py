@@ -144,7 +144,7 @@ def build(preview_wheels=False):
 if __name__ == "__main__":
     c.reset()
     objs = build()
-    c.export(os.path.abspath(OUT), objs, max_tris=7000)
+    c.export(os.path.abspath(OUT), objs, max_tris=7000, ao=True)
     print("wrote", os.path.abspath(OUT))
     if len(sys.argv) > 1:
         bpy.ops.import_scene.gltf(filepath=os.path.abspath(os.path.join(os.path.dirname(OUT), "wheel.glb")))

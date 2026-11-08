@@ -145,6 +145,31 @@ static func toon(c: Color, vertex_colors := false, outline := 0.0, finish := Fin
 	return m
 
 
+## Karts and drivers: soft, glossy shading like Mario Kart's rather than
+## the scenery's hard cartoon steps (shaders/kart.gdshader). `c` tints it
+## when there are no vertex colours (pieces kept apart from the merged kart).
+static func kart(finish: int, c := Color.WHITE) -> ShaderMaterial:
+	var key := "kart|%s|%s" % [finish, c.to_html()]
+	if _cache.has(key):
+		return _cache[key]
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/kart.gdshader")
+	m.resource_name = str(finish)
+	m.set_shader_parameter("use_vertex", c == Color.WHITE)
+	m.set_shader_parameter("tint", c)
+	match finish:
+		Finish.METAL:
+			m.set_shader_parameter("gloss", 0.75)
+			m.set_shader_parameter("metal", 1.0)
+		Finish.PAINT:
+			m.set_shader_parameter("gloss", 0.6)
+		_:
+			m.set_shader_parameter("gloss", 0.08)
+			m.set_shader_parameter("rim_amt", 0.18)
+	_cache[key] = m
+	return m
+
+
 ## The ink outline on its own (drawn as a separate, nearby-only mesh).
 static func outline_material(width: float) -> StandardMaterial3D:
 	var key := "outline|%s" % width

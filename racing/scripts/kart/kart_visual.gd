@@ -362,6 +362,7 @@ func rebuild() -> void:
 
 
 const OUTLINE_W := 0.025
+const AO_FLOOR := 0.42   # how dark the deepest baked occlusion gets
 const METAL := Color(0.78, 0.8, 0.84)
 const CHROME := Color(0.86, 0.87, 0.9)
 const DARK := Color(0.16, 0.16, 0.2)
@@ -668,7 +669,7 @@ func _merge(group: Node3D) -> void:
 	var mesh := ArrayMesh.new()
 	for f in by_finish:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, _combine(parts, xforms, by_finish[f]))
-		mesh.surface_set_material(mesh.get_surface_count() - 1, Palette.toon(Color.WHITE, true, 0.0, f))
+		mesh.surface_set_material(mesh.get_surface_count() - 1, Palette.kart(f))
 	# The ink outline is its own single mesh that only draws for karts near
 	# the camera: far away it's too thin to see, and skipping it halves the
 	# draw calls for the rest of the pack (design doc 14).
@@ -683,12 +684,8 @@ func _merge(group: Node3D) -> void:
 	var merged := MeshInstance3D.new()
 	merged.mesh = mesh
 	group.add_child(merged)
-	var outline := MeshInstance3D.new()
-	outline.mesh = ink
-	outline.material_override = Palette.outline_material(OUTLINE_W)
-	outline.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	outline.visibility_range_end = 28.0
-	group.add_child(outline)
+	# (No black ink outline: Mario Kart's karts have none; light, rim and
+	# reflections shape them. The combined shape still makes the cast shadow.)
 	_inks.append([ink, group])
 
 
@@ -705,11 +702,19 @@ func _combine(parts: Array[MeshInstance3D], xforms: Array[Transform3D], which: A
 		var base := verts.size()
 		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 		var n: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+		# Blender models carry baked ambient occlusion in their vertex
+		# colours (tools/blender/common.py bake_ao): darker in creases and
+		# underneath. Softened, so shade never goes to black.
+		var ao: PackedColorArray = arr[Mesh.ARRAY_COLOR] if arr[Mesh.ARRAY_COLOR] != null else PackedColorArray()
 		var nb := xf.basis.inverse().transposed()
 		for k in v.size():
 			verts.append(xf * v[k])
 			normals.append((nb * n[k]).normalized())
-			colors.append(c)
+			if ao.size() == v.size():
+				var o := lerpf(AO_FLOOR, 1.0, smoothstep(0.0, 0.75, ao[k].r))   # only real creases darken
+				colors.append(Color(c.r * o, c.g * o, c.b * o, c.a))
+			else:
+				colors.append(c)
 		var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
 		if idx.is_empty():
 			for k in v.size():
@@ -741,7 +746,7 @@ func _collect(node: Node3D, xf: Transform3D, parts: Array[MeshInstance3D], xform
 				# separate (with the same toon look and outline).
 				var mi := child as MeshInstance3D
 				var m := mi.material_override as StandardMaterial3D
-				mi.material_override = Palette.toon(m.albedo_color, false, OUTLINE_W, int(m.resource_name))
+				mi.material_override = Palette.kart(int(m.resource_name), m.albedo_color)
 				_collect(child, cx, parts, xforms, false)
 				continue
 			parts.append(child)

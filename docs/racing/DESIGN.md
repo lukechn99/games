@@ -597,20 +597,42 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 What we measured: the game logic and physics are cheap (6 karts cost about 0.6 ms per physics step natively, roughly 2–3 ms in the browser). So stutter comes from drawing and from one-off hitches, not from the game code. The strategy, in order of payoff:
 1. **Smooth motion.** Karts move in 60 Hz physics steps and are drawn smoothly between them. The camera must follow the *drawn* position, not the physics one. It didn't, which caused judder at any refresh rate, worst on 90 and 120 Hz screens. Fixed.
 2. **No first-time hitches.** The browser renderer compiles each shader the first time it's drawn, so the tunnel, crowd, flames and dust each caused a freeze the first time they appeared. Every mesh and material, including lamp-lit versions, is now drawn once behind the lobby. Rule: anything new must be in the scene when the lobby opens.
-3. **Pixel budget.** Phones draw 3 pixels per point, 5 to 9 times a laptop's pixels. The 3D view is drawn to a budget (High about 2 million pixels, Medium 1.4, Low 0.9) and scaled up; menus stay sharp.
+3. **Pixel budget.** Phones draw 3 pixels per point, 5 to 9 times a laptop's pixels. The 3D view is drawn to a budget (High about 2 million pixels, Medium 1.4, Low 0.6) and scaled up; menus stay sharp.
 4. **Draw calls (the usual browser limit, about 100–200 a frame).**
    - Karts were about 48 draws each; each moving group is now merged into one mesh per finish. (The ink outline that was here is gone: 9.1.)
-   - **Next:** one skinned mesh per kart (a skeleton for wheels, driver and ears), which would bring a kart to 2–3 draws.
-   - Scenery is in 160 m patches so off-screen patches are skipped, and flowers and bushes stop drawing far away.
-5. **Quality that adapts:** start on Low, raise it in the garage, and step down automatically under 45 fps (9.1).
-6. **Later:**
+   - Drivers are merged the same way (body, head, and each wobbling part).
+   - Scenery is drawn as many copies of one model per 160 m patch (instancing), so off-screen patches are skipped, and flowers, bushes and small rocks stop drawing far away.
+   - Roadside clutter (chevron boards, banners, billboard frames, rock rims, kelp, glacier walls) is merged into a few meshes per track.
+   - (A skeleton per kart, to bring a kart to 2–3 draws, was considered; merging got close enough without it.)
+5. **Quality that adapts (Decided: start on Low).** Everyone starts on Low, after the user found phones dropped there almost at once; it's remembered per device once raised in the garage. Each level also steps down by itself under 45 fps.
+
+   | | Low | Medium | High |
+   |---|---|---|---|
+   | 3D view | 0.6 MP | 1.4 MP | 2 MP |
+   | Anti-aliasing | off | 2x | 4x |
+   | Glow, surface relief | off | on | on |
+   | Clear-coat paint | off | off | on |
+   | Kart-shaped shadows | off (the soft patch stays) | on | on |
+   | Small scenery range | 45% | 100% | 100% |
+
+6. **Triangle budgets, enforced on export.** Every Blender model is thinned to a budget when it's exported: kart body 7,000 triangles, wheel 2,400, item box 2,500, props 1,500–1,800, terrain pieces 3,000, rocks 400. The drivers came out at 24,000 triangles at first; most of that was tiny pieces (eyes, goggle strap, lenses) built in far more detail than needed, and trimming them brought each to about 6,500 in a race.
+7. **Bake it, don't compute it.** Effects are worked out once, ahead of time, wherever possible:
+   - **Surface relief:** asphalt, planks, dirt and cobbles are baked into tiling images with normal maps (`tools/make_surfaces.py`), so a flat road lights as if bumpy with no extra geometry.
+   - **Ambient occlusion:** baked into the Blender models' vertex colours on export.
+   - **Reflections:** karts reflect a sky-to-ground gradient in the shader instead of the real surroundings.
+   - **Shadows:** soft shade patches and a flattened kart-shaped shadow instead of real-time shadows (which also brightened the whole scene in this renderer).
+   - **Moving hazards** (the rolling snowballs) follow the race clock instead of running physics, which also keeps every phone in step for free.
+8. **Detail that reads at speed.** Ground detail finer than about 20 cm was removed and road tiles span 9 m: at kart speeds, fine patterns shimmered like static and cost the same to draw.
+9. **Rejected: sharper karts on Low.** Drawing just the karts at a higher resolution than the scenery would need a second full render pass composited on top, likely dearer than simply choosing Medium.
+10. **Later:**
    - VRAM-compressed textures (ETC2/ASTC) once the texture set grows.
    - Fewer, larger textures (atlases).
    - Level of detail for distant set pieces.
    - Lightmaps baked in the editor for real soft shadows and bounce light. This would replace the fake shade and the broken real-time shadows.
-7. **Measuring:**
+11. **Measuring:**
    - `?perf` shows frame rate, the worst frame, draw calls and triangles, and logs them to the console.
    - Turn one effect off at a time and compare.
+   - **Still to do:** measure on real mid-range phones with several players online, especially Frosty Pass (the lake, glacier and sunken road) and full grids of eight Blender karts and drivers.
 
 Sources: [How to make Godot 3D look better](https://codingquests.io/blog/how-to-make-godot-3d-look-better) (sun, sky and tonemapper first; shadows cost the most; turn effects off one at a time to measure), [Godot forum: web export stutters on mobile](https://forum.godotengine.org/t/godot-4-web-export-stutters-on-mobile-its-probably-your-art-pipeline-not-your-code-31fps-to-60fps-benchmarks-inside/143268) (texture compression, atlases, draw calls), [shader compilation lag in web builds](https://forum.godotengine.org/t/handling-particle-shader-compilation-lag-in-godot-4-web-compatibility-renderer/36170/2) (draw everything once at load), [Godot: reducing pipeline compilation stutter](https://docs.godotengine.org/en/stable/tutorials/performance/pipeline_compilations.html), [Godot: jitter and stutter](https://docs.godotengine.org/en/4.2/tutorials/rendering/jitter_stutter.html).
 

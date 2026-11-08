@@ -122,6 +122,7 @@ var results: ResultsScreen
 var _autopilot_review := false   # ?autodrive: a bot drives you all along
 var _autopilot: BotDriver        # drives your kart on after you finish
 var _done := false                # online: the room says the race is over
+var _state := {}                  # the room's latest state (online)
 var _results_tick := 0.0
 
 
@@ -144,6 +145,7 @@ func _open_lobby_online() -> void:
 
 
 func _on_net_state(st: Dictionary) -> void:
+	_state = st
 	var seats: Array = st.get("seats", [])
 	var picks: Dictionary = st.get("picks", {})
 	if not _online_ready:
@@ -172,6 +174,9 @@ func _on_net_state(st: Dictionary) -> void:
 		# the fly-in fills the time before the numbers.
 		_countdown = maxf(0.5, float(st.get("startAt", 0.0)) / 1000.0 - Net.host_now())
 		_begin_intro(maxf(0.5, _countdown - 3.0))
+		var cup: Variant = st.get("cup")
+		if cup is Dictionary:
+			hud.flash("Grand Prix  race %d of %d" % [int(cup["race"]) + 1, (cup["tracks"] as Array).size()], 5.0)
 		print("[race] green in %.1f s (start %.1f, host now %.1f), %d karts" % [_countdown, float(st.get("startAt", 0.0)) / 1000.0, Net.host_now(), karts.size()])
 	if phase == "done":
 		_show_results(st)
@@ -277,7 +282,11 @@ func _show_results(_st: Dictionary) -> void:
 func _on_again() -> void:
 	if Net.active:
 		if Net.is_host:
-			Net.room("playAgain")
+			var cup: Variant = _state.get("cup")
+			if cup is Dictionary and int(cup["race"]) + 1 < (cup["tracks"] as Array).size():
+				Net.act({"type": "next"})   # the next race of the Grand Prix
+			else:
+				Net.room("playAgain")
 	else:
 		start_race()
 		camera.follow(player_kart)
@@ -300,17 +309,49 @@ func _refresh_results() -> void:
 	var order := karts.duplicate()
 	order.sort_custom(func(a, b): return place_of(a) < place_of(b))
 	var rows := []
+	# Online, the room's record of who finished and when is the word on it.
+	var fin: Dictionary = _state.get("finish", {}) if Net.active else {}
+	if not fin.is_empty():
+		order.sort_custom(func(a, b):
+			var ta: float = float(fin.get(a.get_meta("pid", ""), INF))
+			var tb: float = float(fin.get(b.get_meta("pid", ""), INF))
+			return ta < tb if ta != tb else place_of(a) < place_of(b))
+	var n := 1
 	for k in order:
 		var t: float = k.race_time if k.finished else (-2.0 if _done else -1.0)
-		rows.append([place_of(k), k.display_name, t, k == player_kart])
+		var id: String = k.get_meta("pid", "")
+		if fin.has(id):
+			t = float(fin[id])
+		rows.append([n, k.display_name, t, k == player_kart])
+		n += 1
 	var again := not Net.active or (Net.is_host and _done)
 	var note := ""
+	# A Grand Prix: the standings so far, once the room has added up the race.
+	var cup_rows := []
+	var cup_title := ""
+	var again_label := "Race again"
+	var cup: Variant = _state.get("cup") if Net.active else null
+	if cup is Dictionary:
+		var race := int(cup["race"]) + 1
+		var total := (cup["tracks"] as Array).size()
+		var last_race := race >= total
+		cup_title = "Grand Prix  race %d of %d" % [race, total] if not (_done and last_race) else "Grand Prix  final standings"
+		if not last_race:
+			again_label = "Next race"
+		if _done:
+			var pts: Dictionary = cup["points"]
+			var got: Dictionary = cup.get("last", {})
+			var ids := pts.keys()
+			ids.sort_custom(func(a, b): return int(pts[a]) > int(pts[b]))
+			for i in ids.size():
+				var id: String = ids[i]
+				cup_rows.append([i + 1, "You" if id == Net.me else Net.name_of(id), int(pts[id]), int(got.get(id, 0)), id == Net.me])
 	if Net.active:
 		if not _done:
 			note = "Waiting for the others to finish…"
 		elif not Net.is_host:
-			note = "The host can start another race."
-	results.show_results(place_of(player_kart), lap_times(player_kart), rows, again, note)
+			note = "The host starts the next race." if again_label == "Next race" else "The host can start another race."
+	results.show_results(place_of(player_kart), lap_times(player_kart), rows, again, note, cup_title, cup_rows, again_label)
 	hud.touch.visible = false
 
 

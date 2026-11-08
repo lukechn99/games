@@ -17,6 +17,21 @@ export const TRACKS = [
 ] as const
 export type TrackId = (typeof TRACKS)[number]['id']
 
+/** A Grand Prix runs every track in turn, with points for each finish. */
+export const GP_TRACKS: TrackId[] = ['meadow', 'mine', 'frost']
+/** Points for 1st, 2nd, 3rd... (as in Mario Kart); nothing for not finishing. */
+export const GP_POINTS = [15, 12, 10, 8, 6, 4, 2, 1]
+
+export interface Cup {
+  tracks: TrackId[]
+  /** Which race of the cup this is (0-based). */
+  race: number
+  /** Points so far, per racer. */
+  points: Record<PlayerId, number>
+  /** Points each racer got in the last finished race. */
+  last: Record<PlayerId, number>
+}
+
 export interface Pick {
   chassis: string
   tires: string
@@ -39,10 +54,13 @@ export interface RacingState {
   finish: Record<PlayerId, number>
   /** When the first racer finished: everyone else gets a little longer. */
   firstFinishAt: number | null
+  /** A Grand Prix in progress, or null for a single race. */
+  cup: Cup | null
 }
 
 export type RacingAction =
-  | { type: 'track'; id: TrackId }
+  | { type: 'track'; id: TrackId | 'gp' }
+  | { type: 'next' }
   | { type: 'pick'; chassis: string; tires: string; driver: string; bot?: boolean }
   | { type: 'ready' }
   | { type: 'finish'; time: number; who?: PlayerId }
@@ -61,6 +79,22 @@ function allReady(s: RacingState) {
   return s.seats.every((id) => s.picks[id]?.ready)
 }
 
+/** The race is over: in a Grand Prix, hand out the points. */
+function done(s: RacingState): RacingState {
+  if (s.phase === 'done') return s
+  if (!s.cup) return { ...s, phase: 'done' }
+  const order = Object.keys(s.finish).sort((a, b) => s.finish[a]! - s.finish[b]!)
+  const last: Record<PlayerId, number> = {}
+  const points = { ...s.cup.points }
+  for (const id of s.seats) {
+    const place = order.indexOf(id)
+    const got = place >= 0 ? GP_POINTS[place] ?? 0 : 0
+    last[id] = got
+    points[id] = (points[id] ?? 0) + got
+  }
+  return { ...s, phase: 'done', cup: { ...s.cup, points, last } }
+}
+
 export const racing: GameModule<RacingState, RacingAction, RacingView> = {
   id: 'racing',
   name: 'Karts & Wheels',
@@ -75,7 +109,7 @@ export const racing: GameModule<RacingState, RacingAction, RacingView> = {
       picks[id] = { chassis: 'frame', tires: 'slicks', driver: DRIVERS[i % DRIVERS.length]!, ready: false, bot: false }
     })
     void ctx
-    return { phase: 'track', track: 'meadow', laps: 3, seats: [...players], picks, startAt: null, finish: {}, firstFinishAt: null }
+    return { phase: 'track', track: 'meadow', laps: 3, seats: [...players], picks, startAt: null, finish: {}, firstFinishAt: null, cup: null }
   },
 
   action(s, pid, a, ctx): RuleResult<RacingState> {
@@ -86,8 +120,25 @@ export const racing: GameModule<RacingState, RacingAction, RacingView> = {
         // host; the rules only check it comes from someone in the race.
         if (s.phase !== 'track') return { error: 'The track is already picked.' }
         if (!s.seats.includes(pid)) return { error: 'Only racers can pick the track.' }
+        if (a.id === 'gp') {
+          const points: Record<PlayerId, number> = {}
+          for (const id of s.seats) points[id] = 0
+          return { state: { ...s, track: GP_TRACKS[0]!, phase: 'pick', cup: { tracks: GP_TRACKS, race: 0, points, last: {} } } }
+        }
         if (!TRACKS.some((t) => t.id === a.id)) return { error: 'Unknown track.' }
-        return { state: { ...s, track: a.id, phase: 'pick' } }
+        return { state: { ...s, track: a.id, phase: 'pick', cup: null } }
+      }
+      case 'next': {
+        // The next race of a Grand Prix: back to the kart builder (builds
+        // kept, everyone readies up again), on the next track.
+        if (s.phase !== 'done' || !s.cup) return { error: 'No next race.' }
+        if (s.cup.race + 1 >= s.cup.tracks.length) return { error: 'That was the last race.' }
+        const race = s.cup.race + 1
+        const picks: Record<PlayerId, Pick> = {}
+        for (const id of s.seats) picks[id] = { ...s.picks[id]!, ready: false }
+        return {
+          state: { ...s, phase: 'pick', track: s.cup.tracks[race]!, picks, startAt: null, finish: {}, firstFinishAt: null, cup: { ...s.cup, race, last: {} } },
+        }
       }
       case 'pick': {
         if (s.phase !== 'pick') return { error: 'The race has started.' }
@@ -114,7 +165,7 @@ export const racing: GameModule<RacingState, RacingAction, RacingView> = {
         if (typeof a.time !== 'number' || !(a.time > 0) || a.time > 3600) return { error: 'Bad time.' }
         const finish = { ...s.finish, [who]: Math.round(a.time * 1000) / 1000 }
         const next = { ...s, finish, firstFinishAt: s.firstFinishAt ?? ctx.now }
-        if (next.seats.every((id) => next.finish[id] !== undefined)) return { state: { ...next, phase: 'done' } }
+        if (next.seats.every((id) => next.finish[id] !== undefined)) return { state: done(next) }
         return { state: next }
       }
       default:
@@ -124,7 +175,7 @@ export const racing: GameModule<RacingState, RacingAction, RacingView> = {
 
   tick(s, ctx) {
     if (s.phase === 'race' && s.firstFinishAt !== null && ctx.now - s.firstFinishAt > FINISH_GRACE_MS) {
-      return { ...s, phase: 'done' }
+      return done(s)
     }
     return s
   },
@@ -136,11 +187,13 @@ export const racing: GameModule<RacingState, RacingAction, RacingView> = {
     delete picks[pid]
     const next = { ...s, seats, picks }
     if (next.phase === 'pick' && seats.length > 0 && allReady(next)) return { ...next, phase: 'race' }
-    if (next.phase === 'race' && seats.every((id) => next.finish[id] !== undefined)) return { ...next, phase: 'done' }
+    if (next.phase === 'race' && seats.every((id) => next.finish[id] !== undefined)) return done(next)
     return next
   },
 
-  isOver: (s) => s.phase === 'done',
+  // (Between Grand Prix races the cup isn't over: computer drivers still
+  // need to ready up for the next one.)
+  isOver: (s) => s.phase === 'done' && (!s.cup || s.cup.race + 1 >= s.cup.tracks.length),
 
   view: (s, pid) => ({ ...s, me: pid }),
 

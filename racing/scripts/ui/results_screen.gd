@@ -21,6 +21,8 @@ var _table: VBoxContainer
 var _again: Button
 var _note: Label
 var _body: BoxContainer
+var _cup_title: Label
+var _cup: VBoxContainer
 
 
 func _ready() -> void:
@@ -63,6 +65,11 @@ func _ready() -> void:
 	_label(right, 17, MUTED).text = "Standings"
 	_table = VBoxContainer.new()
 	right.add_child(_table)
+	# Grand Prix standings (hidden for a single race).
+	_cup_title = _label(v, 18, GOLD)
+	_cup_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cup = VBoxContainer.new()
+	v.add_child(_cup)
 	_again = Button.new()
 	_again.text = "Race again"
 	_again.custom_minimum_size = Vector2(0, 50)
@@ -95,7 +102,9 @@ static func clock(t: float) -> String:
 ## place: yours. laps: your lap times. rows: [place, name, time or -1 (still
 ## racing) or -2 (didn't finish), is_you]. can_again: show the button; note
 ## goes under it.
-func show_results(place: int, laps: Array, rows: Array, can_again: bool, note: String) -> void:
+## cup_title / cup_rows: a Grand Prix's standings, rows [place, name,
+## points, points this race, is_you]; empty for a single race.
+func show_results(place: int, laps: Array, rows: Array, can_again: bool, note: String, cup_title := "", cup_rows: Array = [], again_label := "Race again") -> void:
 	visible = true
 	_title.text = "%d%s place!" % [place, _ordinal(place)]
 	_title.add_theme_color_override("font_color", [GOLD, SILVER, BRONZE][place - 1] if place <= 3 else Color.WHITE)
@@ -120,6 +129,19 @@ func show_results(place: int, laps: Array, rows: Array, can_again: bool, note: S
 		var when := clock(t) if t >= 0.0 else ("racing…" if t > -1.5 else "didn't finish")
 		l.text = "%d.  %s   %s" % [int(r[0]), r[1], when]
 		l.add_theme_color_override("font_color", GOLD if bool(r[3]) else (Color.WHITE if t >= 0.0 else MUTED))
+	_cup_title.text = cup_title
+	_cup_title.visible = cup_title != ""
+	_fill(_cup, cup_rows.size())
+	_cup.visible = not cup_rows.is_empty()
+	for i in cup_rows.size():
+		var r: Array = cup_rows[i]
+		var l: Label = _cup.get_child(i)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.text = "%d.  %s   %d pts   (+%d)" % [int(r[0]), r[1], int(r[2]), int(r[3])]
+		if int(r[0]) == 1 and cup_title.ends_with("final standings"):
+			l.text += "   winner!"
+		l.add_theme_color_override("font_color", GOLD if bool(r[4]) else Color.WHITE)
+	_again.text = again_label
 	_again.visible = can_again
 	_note.text = note
 	_note.visible = note != ""

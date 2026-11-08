@@ -31,8 +31,8 @@ function TrackPicker({ view, snapshot, me, isHost, act }: GameViewProps<View, Ra
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-8">
       <h2 className="text-2xl font-semibold">{canPick ? 'Pick a track' : `${host} is picking the track`}</h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {TRACKS.map((t) => (
+      <div className="grid grid-cols-2 gap-3">
+        {[...TRACKS, { id: 'gp', name: 'Grand Prix' } as const].map((t) => (
           <button
             key={t.id}
             type="button"

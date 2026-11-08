@@ -468,6 +468,10 @@ func _merged_strip(st: SurfaceTool, da: float, db: float, index: int, bi := 0) -
 		var p3: Vector3 = band[2] + lift
 		var p2: Vector3 = band[3] + lift
 		var c: Color = band[4]
+		if c != base:
+			# Kerbs: band[0]/[2] are on the road side for the far kerb, band[1]/[3] for the near one.
+			_kerb(st, p0, p1, p3, p2, c, va, vb, band[0] == far_a, side > 0)
+			continue
 		# Across: 0..1 over the road (edge lines at each side); kerbs sit
 		# outside that range so the road shader leaves them plain.
 		var u0 := 0.0 if c == base else -0.2
@@ -683,6 +687,11 @@ func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, ind
 		var p1 := a.origin + a.basis.x * x1 + lift
 		var p2 := b.origin + b.basis.x * x1 + lift
 		var p3 := b.origin + b.basis.x * x0 + lift
+		if band[0] != -half:
+			# A kerb: raised, ramped up from the road (x0 is the road side
+			# for the right-hand kerb, x1 for the left).
+			_kerb(st, p0, p1, p3, p2, c, va, vb, x0 == half, true)
+			continue
 		var u0 := x0 / ROAD_WIDTH + 0.5
 		var u1 := x1 / ROAD_WIDTH + 0.5
 		var uvs := {p0: Vector2(u0, va), p1: Vector2(u1, va), p2: Vector2(u1, vb), p3: Vector2(u0, vb)}
@@ -691,6 +700,41 @@ func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, ind
 			c = c.lightened(0.05)
 		for v in [p0, p2, p1, p0, p3, p2]:
 			st.set_color(c)
+			st.set_uv(uvs[v])
+			st.add_vertex(v)
+
+
+## A kerb from x0 to x1 (a0/a1 at one end of the step, b0/b1 at the other),
+## raised in a low rumble-strip profile: a ramp up from the road, a flat top,
+## a short slope down the outside to meet the bank. `road_at_x0`: which
+## side the road is on. `ccw`: the winding the road strip uses there.
+const KERB_PROFILE := [[0.0, 0.0], [0.32, 0.1], [0.8, 0.1], [1.0, 0.0]]
+
+func _kerb(st: SurfaceTool, a0: Vector3, a1: Vector3, b0: Vector3, b1: Vector3, c: Color, va: float, vb: float, road_at_x0: bool, ccw: bool) -> void:
+	var prev_a := a0
+	var prev_b := b0
+	for k in range(1, KERB_PROFILE.size()):
+		var f0: float = KERB_PROFILE[k - 1][0]
+		var f1: float = KERB_PROFILE[k][0]
+		var h0: float = KERB_PROFILE[k - 1][1]
+		var h1: float = KERB_PROFILE[k][1]
+		if not road_at_x0:
+			# Walk the profile from the outside in.
+			f0 = 1.0 - float(KERB_PROFILE[KERB_PROFILE.size() - k][0])
+			f1 = 1.0 - float(KERB_PROFILE[KERB_PROFILE.size() - k - 1][0])
+			h0 = KERB_PROFILE[KERB_PROFILE.size() - k][1]
+			h1 = KERB_PROFILE[KERB_PROFILE.size() - k - 1][1]
+		var q0 := a0.lerp(a1, f0) + Vector3.UP * h0
+		var q1 := a0.lerp(a1, f1) + Vector3.UP * h1
+		var r0 := b0.lerp(b1, f0) + Vector3.UP * h0
+		var r1 := b0.lerp(b1, f1) + Vector3.UP * h1
+		# Same layout as the road quads: p0=q0, p1=q1, p2=r1, p3=r0.
+		var uvs := {q0: Vector2(-0.15, va), q1: Vector2(-0.12, va), r1: Vector2(-0.12, vb), r0: Vector2(-0.15, vb)}
+		var order := [q0, r1, q1, q0, r0, r1] if ccw else [q0, q1, r1, q0, r1, r0]
+		# The ramp faces a touch darker so the shape reads.
+		var shade := c if absf(h1 - h0) < 0.001 else c.darkened(0.22)
+		for v in order:
+			st.set_color(shade)
 			st.set_uv(uvs[v])
 			st.add_vertex(v)
 

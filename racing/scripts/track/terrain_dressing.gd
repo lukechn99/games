@@ -22,6 +22,7 @@ static func build(t: Track) -> void:
 	rng.seed = 33
 	if t.layout == "meadow":
 		_ledge_wall(t, rng)
+		_bank_top(t, rng)
 		_verge_rocks(t, rng, 70, 3.5, 30.0)
 	else:
 		_mine_cliffs(t, rng)
@@ -43,9 +44,49 @@ static func _ledge_wall(t: Track, rng: RandomNumberGenerator) -> void:
 		var f := t.road_frame(d)
 		var p := f.origin + f.basis.x * inner * (Track.ROAD_WIDTH * 0.5 + 1.9)
 		var b := _flat_facing(f, inner).rotated(Vector3.UP, rng.randf_range(-0.08, 0.08))
-		xs.append(Transform3D(b.scaled(Vector3(1.0, rng.randf_range(1.5, 1.9), 1.0)), p - Vector3.UP * 0.3))
+		xs.append(Transform3D(b.scaled(Vector3(1.0, rng.randf_range(1.9, 2.3), 1.0)), p - Vector3.UP * 0.3))
 		d += 7.0
 	t._scatter(WALL, xs)
+
+
+## Trees and bushes along the turf on top of the bank behind the boulder
+## wall, and down its back slope, so it's a wooded hillside, not a bare
+## green hump. Heights follow the bank's own profile (track.gd _rock_profile).
+static func _bank_top(t: Track, rng: RandomNumberGenerator) -> void:
+	var trees: Array[Transform3D] = []
+	var bushes: Array[Transform3D] = []
+	var inner := -t.ledge_out
+	var edge := Track.ROAD_WIDTH * 0.5 + 1.1
+	var d := Track.LEDGE[0] + 6.0
+	while d < Track.LEDGE[1] - 6.0:
+		var f := t.road_frame(d)
+		var out := (f.basis.x * Vector3(1, 0, 1)).normalized() * inner
+		var prof: Array[Vector2] = t._rock_profile(false, f.origin.y, int(d / 2.0))
+		var e := f.origin + f.basis.x * inner * edge
+		# On the top, back from the lip.
+		var x := rng.randf_range(3.2, 5.0)
+		var y := _profile_y(prof, x)
+		var sc := rng.randf_range(0.9, 1.3)
+		trees.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * sc), Vector3(e.x, e.y + y - 0.2, e.z) + out * x))
+		# Down the back slope.
+		for k in 2:
+			var xb := rng.randf_range(prof[3].x + 1.0, prof[4].x - 2.0)
+			var p := Vector3(e.x, e.y + _profile_y(prof, xb) - 0.3, e.z) + out * xb
+			if rng.randf() < 0.5:
+				trees.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(0.8, 1.2)), p))
+			else:
+				bushes.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(3.0, 4.5)), p))
+		d += rng.randf_range(9.0, 14.0)
+	t._scatter(Track.MODELS + "tree_puffy.glb", trees)
+	t._scatter(Track.KIT_NATURE + "plant_bushLarge.glb", bushes, 220.0)
+
+
+static func _profile_y(prof: Array[Vector2], x: float) -> float:
+	for k in range(1, prof.size()):
+		if x <= prof[k].x:
+			var u := (x - prof[k - 1].x) / maxf(prof[k].x - prof[k - 1].x, 0.001)
+			return lerpf(prof[k - 1].y, prof[k].y, u)
+	return prof[prof.size() - 1].y
 
 
 ## Layered rock slabs climbing the mountain beside the ledge. Each has a

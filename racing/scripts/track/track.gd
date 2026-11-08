@@ -539,6 +539,7 @@ func _commit_groups(groups: Dictionary) -> void:
 				rm.set_shader_parameter("tone_b", Color(0.68, 0.63, 0.56))
 				rm.set_shader_parameter("tone_c", Color(0.6, 0.56, 0.51))
 				rm.set_shader_parameter("seam", Color(0.36, 0.32, 0.29))
+				rm.set_shader_parameter("grass_top", true)
 			mi.material_override = rm
 		elif s == "asphalt":
 			mi.material_override = _road_mat()

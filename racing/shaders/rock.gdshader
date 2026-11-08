@@ -18,6 +18,11 @@ uniform vec3 moss : source_color = vec3(0.42, 0.62, 0.27);
 uniform vec3 snow : source_color = vec3(0.95, 0.97, 1.0);
 uniform vec3 gravel : source_color = vec3(0.8, 0.68, 0.5);
 uniform bool use_gravel = true;   // vertex alpha marks run-off (the mine mountain)
+// The meadow's banks: rock on the steep faces, turf over the top and down
+// the gentler back slopes, so they read as hillside cut for the road.
+uniform bool grass_top = false;
+uniform vec3 turf_deep : source_color = vec3(0.22, 0.55, 0.2);
+uniform vec3 turf_fresh : source_color = vec3(0.42, 0.78, 0.26);
 
 varying vec3 wpos;
 varying vec3 wnorm;
@@ -60,6 +65,15 @@ void fragment() {
 	// (Only up the mountain: near the road it read as a green smear.)
 	flat_ *= smoothstep(32.0, 40.0, wpos.y);
 	c = mix(c, moss * (0.9 + 0.2 * vnoise(wpos.xz / 5.0)), 0.8 * flat_ * step(wpos.y, snow_line + warp * 4.0));
+	if (grass_top) {
+		float lip = vnoise(wpos.xz / 4.0) * 0.12;
+		float gt = smoothstep(0.52 + lip, 0.66 + lip, n.y);
+		float broad = vnoise(wpos.xz / 60.0) * 0.65 + vnoise(wpos.xz / 23.0) * 0.35;
+		vec3 gc = mix(turf_deep, turf_fresh, smoothstep(0.25, 0.6, broad)) * (0.9 + 0.2 * vnoise(wpos.xz / 3.1));
+		// A darker fringe where the turf breaks over the rock.
+		c = mix(c, c * 0.7, smoothstep(0.35, 0.52, n.y) * (1.0 - gt));
+		c = mix(c, gc, gt);
+	}
 	float s = smoothstep(snow_line - 2.0, snow_line + 2.0, wpos.y + warp * 4.0) * smoothstep(0.35, 0.55, n.y);
 	c = mix(c, snow, s);
 	// Beside the road (vertex alpha): packed gravel run-off, speckled.

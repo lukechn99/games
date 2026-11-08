@@ -32,7 +32,8 @@ var _fps_frames := 0
 func _ready() -> void:
 	_build_world()
 	track = Track.new()
-	var q0 := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else ""
+	# (Outside a browser, tools can pass the same flags in KW_QUERY.)
+	var q0 := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else OS.get_environment("KW_QUERY")
 	if q0.contains("track=mine"):
 		track.layout = "mine"
 	elif q0.contains("track=frost"):

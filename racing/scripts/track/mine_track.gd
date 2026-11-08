@@ -192,8 +192,30 @@ static func _mountain(t: Track) -> void:
 			var u := _u(t, ti, d)
 			cav_at.append(u > CAVERN[0] - 0.03 and u < CAVERN[1] + 0.03)
 			d += 3.0
+	# Under the rope bridge: it crosses a notch outside the road's loop,
+	# where there was no mountain at all, just the valley far below. Fill the
+	# notch (between the bridge and the main road) with a rocky gorge.
+	var notch := PackedVector2Array()
+	var deck: Array[Vector3] = []
+	var bi := _branch_index(t, "bridge")
+	if bi >= 0:
+		var bb: Dictionary = t.branches[bi]
+		var dd: float = bb["from"]
+		while dd <= float(bb["to"]):
+			var o := t.branch_frame(dd, bi).origin
+			notch.append(Vector2(o.x, o.z))
+			deck.append(o)
+			dd += 6.0
+		dd = float(bb["to"])
+		while dd >= float(bb["from"]):
+			var o := t.road_frame(dd).origin
+			notch.append(Vector2(o.x, o.z))
+			dd -= 6.0
 	var lo := Vector2(INF, INF)
 	var hi := Vector2(-INF, -INF)
+	for p in notch:
+		lo = lo.min(p - Vector2(26, 26))
+		hi = hi.max(p + Vector2(26, 26))
 	for p in poly:
 		lo = lo.min(p)
 		hi = hi.max(p)
@@ -219,7 +241,22 @@ static func _mountain(t: Track) -> void:
 			var p := lo + Vector2(ix, iz) * step
 			var k := iz * nx + ix
 			var is_in := Geometry2D.is_point_in_polygon(p, poly)
-			inside[k] = 1 if is_in else 0
+			var in_gorge := not is_in and notch.size() > 2 and Geometry2D.is_point_in_polygon(p, notch)
+			# And past the bridge on the outside, a rocky ridge, so it spans a
+			# ravine with rock both sides rather than hanging over thin air.
+			var u := INF
+			var deck_y := 0.0
+			if not is_in and deck.size() > 1:
+				for di in deck.size() - 1:
+					var a2 := Vector2(deck[di].x, deck[di].z)
+					var b2 := Vector2(deck[di + 1].x, deck[di + 1].z)
+					var cp := Geometry2D.get_closest_point_to_segment(p, a2, b2)
+					var du := cp.distance_to(p)
+					if du < u:
+						u = du
+						deck_y = lerpf(deck[di].y, deck[di + 1].y, clampf(cp.distance_to(a2) / maxf(a2.distance_to(b2), 0.01), 0.0, 1.0))
+			var in_ridge := not is_in and not in_gorge and u < 26.0
+			inside[k] = 1 if is_in or in_gorge or in_ridge else 0
 			# Nearest bit of road, and how high it is there.
 			var best := INF
 			var y_r := 0.0
@@ -236,6 +273,17 @@ static func _mountain(t: Track) -> void:
 				# snowfield.
 				var rise := (dist - half - 12.0) * 1.5
 				h += (rise if rise < 55.0 else 55.0 + (rise - 55.0) * 0.35) + noise.get_noise_2d(p.x, p.y) * 7.0
+			if in_ridge:
+				# Up from the ravine floor under the bridge to a lip beside
+				# it, then down steeply to the valley.
+				var lip := deck_y - 20.0 + 16.0 * smoothstep(0.0, 10.0, u)
+				h = lerpf(lip, FLOOR, smoothstep(14.0, 25.0, u)) + noise.get_noise_2d(p.x, p.y) * 2.5
+			if in_gorge:
+				# Falls away steeply from the road edge to a floor well
+				# below the bridge deck.
+				if u == INF:
+					deck_y = deck[0].y
+				h = minf(y_r - 0.35 - maxf(0.0, dist - half - 1.5) * 1.6, deck_y - 20.0) + noise.get_noise_2d(p.x, p.y) * 2.5
 			if dist < half + 1.5:
 				h = y_r - 0.8   # under the road edge
 			# The tunnel: high above it inside, cut down where it comes out.
@@ -537,6 +585,9 @@ static func _portals(t: Track, i: int, d0: float, d1: float) -> void:
 			var f := t.branch_frame(dc, i)
 			for side: float in [-1.0, 1.0]:
 				var p := f.origin + f.basis.x * side * (Track.ROAD_WIDTH * 0.5 + 4.2 + rng.randf_range(0.0, 1.2))
+				# Near the split the cutting runs beside the main road: no slab there.
+				if t.distance_to_road(p) < Track.ROAD_WIDTH * 0.5 + 6.0:
+					continue
 				var x := (f.basis.x * Vector3(1, 0, 1)).normalized() * -side
 				var bb := Basis.looking_at(-x, Vector3.UP).rotated(Vector3.UP, rng.randf_range(-0.15, 0.15))
 				var sc := rng.randf_range(0.9, 1.2)

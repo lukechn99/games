@@ -181,6 +181,7 @@ static func _mountain(t: Track) -> void:
 		ys.append(s.origin.y)
 	var route: Array[Vector3] = []
 	var covered: Array[bool] = []   # under the tunnel's own roof here
+	var cav_at: Array[bool] = []    # in the cavern, where the shell is far wider
 	var ti := _branch_index(t, "tunnel")
 	if ti >= 0:
 		var b: Dictionary = t.branches[ti]
@@ -188,6 +189,8 @@ static func _mountain(t: Track) -> void:
 		while d <= b["to"]:
 			route.append(t.branch_frame(d, ti).origin)
 			covered.append(absf(t.branch_offset(d, ti)) >= 30.0)
+			var u := _u(t, ti, d)
+			cav_at.append(u > CAVERN[0] - 0.03 and u < CAVERN[1] + 0.03)
 			d += 3.0
 	var lo := Vector2(INF, INF)
 	var hi := Vector2(-INF, -INF)
@@ -236,27 +239,51 @@ static func _mountain(t: Track) -> void:
 			# The tunnel: high above it inside, cut down where it comes out.
 			# (Only where the tunnel has its own roof: outside that, an open cut,
 			# so there's never a hole in the mountain without a tunnel in it.)
+			# Where it's buried, the mountain stays whole and arches over the
+			# tunnel's rock shell (much wider over the cavern), so from outside
+			# it's solid all the way over.
+			var cut := INF
+			var arch := -INF
 			for ri in route.size():
 				var r := route[ri]
 				var dr := Vector2(r.x, r.z).distance_to(p)
-				if dr < 9.0:
-					if h > r.y + 6.5 and covered[ri]:
-						h = maxf(h, r.y + 10.0)
+				if dr > 26.0:
+					continue
+				var shell_r := Track.ROAD_WIDTH * 0.5 + (16.0 if cav_at[ri] else 3.2) + 1.5
+				var tall := 0.9 if cav_at[ri] else 0.75
+				if dr < 9.0 and not (covered[ri] and h > r.y + 6.5):
+					cut = minf(cut, r.y - 0.35)
+				elif covered[ri] and dr < shell_r and h > r.y + 6.5:
+					if dr < 9.0:
 						roof[k] = 1
-					else:
-						h = minf(h, r.y - 0.35)
+					arch = maxf(arch, r.y + tall * sqrt(maxf(shell_r * shell_r - dr * dr, 0.0)) + 3.0)
+			if cut < INF:
+				h = minf(h, cut)
+			elif arch > -INF and (dist > half + 12.0 or roof[k] == 1):
+				h = maxf(h, arch)
 			heights[k] = h
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# Right over the tunnel: the same rock surface, but only to look at (as
+	# solid ground it upset the karts below), so the mountain is whole from
+	# the air even where the tunnel's shell is too far away to be drawn.
+	var cap := SurfaceTool.new()
+	cap.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var capped := false
 	for iz in nz - 1:
 		for ix in nx - 1:
 			var ks := [iz * nx + ix, iz * nx + ix + 1, (iz + 1) * nx + ix + 1, (iz + 1) * nx + ix]
 			var all_in := true
+			var over := false
 			for kk in ks:
-				if inside[kk] == 0 or roof[kk] == 1:
+				if inside[kk] == 0:
 					all_in = false
+				if roof[kk] == 1:
+					over = true
 			if not all_in:
 				continue
+			var into := cap if over else st
+			capped = capped or over
 			var v := []
 			var nr := []
 			for kk in ks:
@@ -269,8 +296,14 @@ static func _mountain(t: Track) -> void:
 					var q: Vector3 = v[qi]
 					var c := _mountain_color(q.y, noise.get_noise_2d(q.x * 3.0, q.z * 3.0))
 					c.a = nr[qi]   # the rock shader turns this into gravel run-off
-					st.set_color(c)
-					st.add_vertex(q)
+					into.set_color(c)
+					into.add_vertex(q)
+	if capped:
+		cap.generate_normals()
+		var cmi := MeshInstance3D.new()
+		cmi.mesh = cap.commit()
+		cmi.material_override = rock_material()
+		t.add_child(cmi)
 	st.generate_normals()
 	var mesh := st.commit()
 	var body := StaticBody3D.new()

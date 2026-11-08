@@ -349,7 +349,9 @@ func _build_ground() -> void:
 	shape.position = Vector3(80, ground_y - 1.0, -30)
 	b.add_child(shape)
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(1400, 1400)
+	# Out past the farthest mountains, so from high up (the fly-in) the
+	# ground runs on under them instead of stopping short.
+	plane.size = Vector2(2600, 2600)
 	var mi := MeshInstance3D.new()
 	mi.mesh = plane
 	mi.position = Vector3(80, ground_y, -30)
@@ -1460,16 +1462,22 @@ func _start_sign(a: Transform3D) -> void:
 	SetPieces._box(st, Transform3D(a.basis, c + a.basis.z * 0.12), Vector3(w - 0.4, 2.3, 0.7), board)
 	SetPieces._box(st, Transform3D(a.basis, c + a.basis.z * 0.14 - Vector3.UP * 1.0), Vector3(w - 0.4, 0.3, 0.72), trim)
 	SetPieces._commit(self, st, Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.PAINT))
+	# The track's name, lettered to suit it: chunky squared-off stencil on the
+	# mine's timber, a soft rounded script over the meadow.
 	var label := Label3D.new()
-	label.text = "MINING MOUNTAIN" if mine else "KARTS & WHEELS"
+	label.text = "MINING MOUNTAIN" if mine else "Meadow Loop"
+	label.font = load("res://assets/fonts/black_ops_one.woff2" if mine else "res://assets/fonts/pacifico.woff2")
 	label.font_size = 200
-	label.pixel_size = 0.0085
-	label.outline_size = 44
-	label.modulate = Color(1.0, 0.8, 0.2) if mine else Color(0.98, 0.25, 0.2)
-	label.outline_modulate = Color(0.2, 0.12, 0.06) if mine else Color(1, 1, 1)
+	label.outline_size = 40 if mine else 48
+	label.modulate = Color(1.0, 0.8, 0.2) if mine else Color(1.0, 0.98, 0.9)
+	label.outline_modulate = Color(0.2, 0.12, 0.06) if mine else Color(0.86, 0.16, 0.16)
+	# As big as fits the board.
+	var text_w := label.font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.font_size).x + label.outline_size
+	var text_h := label.font.get_height(label.font_size)
+	label.pixel_size = minf((w - 1.6) / text_w, (2.4 if mine else 3.9) / text_h)   # (the script runs tall for its size)
 	label.shaded = false
 	label.double_sided = false
-	label.transform = Transform3D(a.basis, c + a.basis.z * 0.5 + Vector3.UP * 0.12)
+	label.transform = Transform3D(a.basis, c + a.basis.z * 0.5 + Vector3.UP * (0.12 if mine else 0.0))
 	add_child(label)
 
 

@@ -519,7 +519,7 @@ func _build_world() -> void:
 	mat.sky_horizon_color = Color(0.8, 0.93, 1.0)
 	mat.sky_curve = 0.11
 	mat.ground_horizon_color = Color(0.78, 0.9, 1.0)
-	mat.ground_bottom_color = Color(0.4, 0.6, 0.35)
+	mat.ground_bottom_color = Color(0.66, 0.78, 0.84)   # hazy, in case any shows past the ground
 	mat.sun_angle_max = 20.0
 	sky.sky_material = mat
 	env.sky = sky

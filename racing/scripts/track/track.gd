@@ -218,20 +218,22 @@ const MINE_ROAD := Color(0.47, 0.37, 0.28)
 
 ## The road's own material (shaders/road.gdshader): tarmac with patches,
 ## worn lanes and edge lines; on the mine, packed earth with no paint.
-func _road_mat() -> ShaderMaterial:
+## The road shader for a paved stretch, or (kind "dirt") the loose, rutted
+## stretches that slow you down, which get the same baked relief.
+func _road_mat(kind := "asphalt") -> ShaderMaterial:
+	var dirt := kind == "dirt" or layout == "mine"
 	var m := ShaderMaterial.new()
 	m.shader = load("res://shaders/road.gdshader")
-	m.set_shader_parameter("detail", load(Palette.TEX_DIR + ("dirt" if layout == "mine" else "asphalt") + ".png"))
-	m.set_shader_parameter("paint", layout != "mine")
-	m.set_shader_parameter("wear", 0.35 if layout == "mine" else 0.5)
-	var surf := "dirt" if layout == "mine" else "asphalt"
+	m.set_shader_parameter("detail", load(Palette.TEX_DIR + ("dirt" if dirt else "asphalt") + ".png"))
+	m.set_shader_parameter("paint", not dirt)
+	m.set_shader_parameter("wear", 0.2 if kind == "dirt" else (0.35 if layout == "mine" else 0.5))
+	var surf := "dirt" if dirt else "asphalt"
 	m.set_shader_parameter("surf", load(Palette.TEX_DIR + "surf_" + surf + ".png"))
 	m.set_shader_parameter("surf_n", load(Palette.TEX_DIR + "surf_" + surf + "_n.png"))
-	m.set_shader_parameter("ruts", layout == "mine")
+	m.set_shader_parameter("ruts", dirt)
 	m.set_shader_parameter("relief", 1.0 if Palette.relief_on else 0.0)
 	Palette.relief_shaders.append(m)
 	return m
-
 
 
 ## Grass with drifting patches of colour (shaders/grass.gdshader).
@@ -543,6 +545,8 @@ func _commit_groups(groups: Dictionary) -> void:
 			mi.material_override = rm
 		elif s == "asphalt":
 			mi.material_override = _road_mat()
+		elif s == "dirt":
+			mi.material_override = _road_mat("dirt")
 		else:
 			var t: Array = SURFACE_TEX.get(s, ["", 1.0])
 			mi.material_override = _mat(Color.WHITE, t[0], t[1])
@@ -674,6 +678,8 @@ func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, ind
 		kerb = Color(0.45, 0.3, 0.17) if index % 2 == 0 else Color(0.38, 0.25, 0.14)
 		if s == "asphalt" and tint.a == 0.0:
 			base = MINE_ROAD
+		elif s == "dirt" and tint.a == 0.0:
+			base = Color(0.6, 0.4, 0.25)   # loose ochre gravel, darker than the packed road's orange
 	var bands := [[-half, half, base]]
 	if skip_kerb >= 0.0:
 		bands.append([-half - 1.1, -half, kerb])

@@ -209,6 +209,8 @@ static func _mountain(t: Track) -> void:
 	inside.resize(nx * nz)
 	var roof := PackedByteArray()   # raised over the tunnel: the tunnel shows through here
 	roof.resize(nx * nz)
+	var arched := PackedByteArray()  # roofed over by the mountain's arch (safe to draw)
+	arched.resize(nx * nz)
 	var near := PackedFloat32Array()  # 1 on the flat run-off beside the road
 	near.resize(nx * nz)
 	var half := Track.ROAD_WIDTH * 0.5
@@ -259,8 +261,9 @@ static func _mountain(t: Track) -> void:
 					arch = maxf(arch, r.y + tall * sqrt(maxf(shell_r * shell_r - dr * dr, 0.0)) + 3.0)
 			if cut < INF:
 				h = minf(h, cut)
-			elif arch > -INF and (dist > half + 12.0 or roof[k] == 1):
+			elif arch > -INF and dist > half + 12.0:
 				h = maxf(h, arch)
+				arched[k] = 1
 			heights[k] = h
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -280,6 +283,10 @@ static func _mountain(t: Track) -> void:
 					all_in = false
 				if roof[kk] == 1:
 					over = true
+					# Near the mouths, where the tunnel runs close to the main
+					# road, there's no arch: leave it open as before.
+					if arched[kk] == 0:
+						all_in = false
 			if not all_in:
 				continue
 			var into := cap if over else st
@@ -477,6 +484,65 @@ static func _collars(t: Track, i: int, d0: float, d1: float) -> void:
 	var m := rock_material()
 	SetPieces._commit(t, st, m)
 	# (Double-sided through the shader: rock.gdshader culls nothing.)
+	_portals(t, i, d0, d1)
+
+
+## A heavy timber portal in each mouth, like a real mine adit: two posts,
+## a header beam with braces in the corners, and over the way in, a plank
+## sign lettered like the start arch.
+static func _portals(t: Track, i: int, d0: float, d1: float) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for d in [d0 + 0.6, d1 - 0.6]:
+		var f := t.branch_frame(d, i)
+		var b := f.basis
+		var hw := Track.ROAD_WIDTH * 0.5 + 1.0
+		var post_h := 4.6
+		for s: float in [-1.0, 1.0]:
+			SetPieces._box(st, Transform3D(b, f.origin + b.x * s * hw + Vector3.UP * post_h * 0.5), Vector3(0.75, post_h, 0.75), WOOD.darkened(0.05))
+			# Brace from post to header.
+			var mid := f.origin + b.x * s * (hw - 0.9) + Vector3.UP * (post_h - 0.75)
+			SetPieces._box(st, Transform3D(b.rotated(b.z, s * 0.78), mid), Vector3(0.32, 2.2, 0.4), WOOD.darkened(0.15))
+		var top := f.origin + Vector3.UP * (post_h + 0.4)
+		SetPieces._box(st, Transform3D(b, top), Vector3(hw * 2.0 + 1.6, 0.8, 0.85), WOOD.darkened(0.1))
+		if d < (d0 + d1) * 0.5:
+			# The sign: three planks, nailed to two short hangers.
+			var sc := top + Vector3.UP * 1.45 + b.z * 0.15
+			for k in 3:
+				SetPieces._box(st, Transform3D(b, sc + Vector3.UP * (k - 1) * 0.42), Vector3(4.8 - 0.2 * float(k % 2), 0.4, 0.16), WOOD.lightened(0.06 * float(k % 2)))
+			for s: float in [-1.6, 1.6]:
+				SetPieces._box(st, Transform3D(b, top + b.x * s + Vector3.UP * 0.7), Vector3(0.18, 1.0, 0.18), WOOD.darkened(0.2))
+			var label := Label3D.new()
+			label.text = "MINE"
+			label.font = load("res://assets/fonts/black_ops_one.woff2")
+			label.font_size = 160
+			label.pixel_size = 0.0085
+			label.outline_size = 30
+			label.modulate = Color(1.0, 0.8, 0.2)
+			label.outline_modulate = Color(0.2, 0.12, 0.06)
+			label.shaded = false
+			label.double_sided = false
+			label.transform = Transform3D(b, sc + b.z * 0.1)
+			t.add_child(label)
+	SetPieces._commit(t, st, Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.MATTE, "wood", 1.5))
+	# The cutting walls leading in and out: layered rock slabs instead of
+	# bare planes.
+	var xs: Array[Transform3D] = []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 71
+	var b: Dictionary = t.branches[i]
+	for span in [[float(b["from"]) + 8.0, d0 - 2.0], [d1 + 2.0, float(b["to"]) - 8.0]]:
+		var dc: float = span[0]
+		while dc < span[1]:
+			var f := t.branch_frame(dc, i)
+			for side: float in [-1.0, 1.0]:
+				var p := f.origin + f.basis.x * side * (Track.ROAD_WIDTH * 0.5 + 4.2 + rng.randf_range(0.0, 1.2))
+				var x := (f.basis.x * Vector3(1, 0, 1)).normalized() * -side
+				var bb := Basis.looking_at(-x, Vector3.UP).rotated(Vector3.UP, rng.randf_range(-0.15, 0.15))
+				var sc := rng.randf_range(0.9, 1.2)
+				xs.append(Transform3D(bb.scaled(Vector3(sc, sc * rng.randf_range(1.2, 1.6), sc)), p - Vector3.UP * 0.6))
+			dc += rng.randf_range(6.0, 8.0)
+	t._scatter(TerrainDressing.CLIFF, xs)
 
 
 ## Torches on the walls, with real flickering light from some of them.

@@ -223,6 +223,6 @@ func _finish() -> void:
 	print("[bench] ", json)
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.__bench = " + json + ";", true)
-	_label.text = "bench %s %s: %.0f fps (frames %.0f ms typical, %.0f ms slow 5%%)\n%d draws, %dk tris, physics %.1f ms, %d resets, stuck %.1f s" % [
+	_label.text = "bench %s %s: %.0f fps (frames %.0f ms typical, %.0f ms slow 5%%)\n%d draws, %dk tris, script %.1f ms, physics %.1f ms, %d resets, stuck %.1f s" % [
 		out.track, out.quality, out.fps, out.frame_p50, out.frame_p95,
-		out.draws, out.tris_k, out.physics_ms, total_resets, worst_stuck]
+		out.draws, out.tris_k, out.script_ms, out.physics_ms, total_resets, worst_stuck]

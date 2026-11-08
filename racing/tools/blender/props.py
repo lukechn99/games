@@ -206,7 +206,7 @@ def coin():
     return finish(parts), (0, 0, 0.6), 2.2
 
 
-def _pine(tiers):
+def _pine(tiers, snowy=True):
     """A pine of stacked, slightly drooping tiers, each with a snow cap that
     hangs over its edge in a scalloped lip."""
     needles = c.material("Needles", (0.12, 0.38, 0.26), 0.85)
@@ -218,6 +218,8 @@ def _pine(tiers):
         tier = s.lathe("Needles_tier", [(h - 0.15, 0.25), (h, R), (h + 0.18, R * 0.9), (h + H * 0.6, R * 0.38), (h + H, 0.04)], segs=20,
                        tread=lambda k, j, R=R: 1.0 + (0.07 * math.sin(k * 2.6) if j == 1 else 0.0))
         parts.append((_stand_up(tier), needles if i % 2 == 0 else needles2))
+        if not snowy:
+            continue
         # The snow: the top of the tier, a little proud of it, scalloped
         # where it hangs over.
         cap = s.lathe("Snow_cap", [(h + H * 0.45, R * 0.6), (h + H * 0.5, R * 0.57), (h + H * 0.75, R * 0.3), (h + H + 0.07, 0.03)], segs=20,
@@ -232,6 +234,31 @@ def snowpine_tall():
 
 def snowpine_round():
     return _pine([(0.9, 2.5, 2.1), (2.3, 2.0, 1.9), (3.6, 1.4, 1.8)]), (0, 0, 2.8), 12.0
+
+
+def pine_tall():
+    return _pine([(1.0, 2.0, 2.0), (2.5, 1.6, 1.9), (3.9, 1.2, 1.7), (5.1, 0.8, 1.7)], snowy=False), (0, 0, 3.4), 13.0
+
+
+def tree_round():
+    """A lollipop tree: a straight trunk and one big soft crown."""
+    leaf = c.material("Leaf", (0.36, 0.72, 0.22), 0.8)
+    leaf2 = c.material("Leaf_light", (0.5, 0.82, 0.26), 0.8)
+    bark = c.material("Bark", (0.5, 0.32, 0.18), 0.85)
+    parts = [(s.tube("Bark_trunk", [(0, 0, 0), (0.05, 1.5, 0.0), (0.0, 2.8, 0)], 0.34, 6), bark)]
+    parts.append((blob("Leaf_crown", (0, 3.9, 0), 1.75, 0.95, 11), leaf))
+    parts.append((blob("Leaf_top", (0.35, 4.8, -0.2), 0.9, 0.9, 12), leaf2))
+    return finish(parts), (0, 0, 2.8), 11.0
+
+
+def bush():
+    """Three soft clumps."""
+    leaf = c.material("Leaf", (0.3, 0.64, 0.2), 0.8)
+    leaf2 = c.material("Leaf_light", (0.42, 0.74, 0.24), 0.8)
+    parts = [(blob("Leaf_a", (0, 0.45, 0), 0.62, 0.8, 21), leaf),
+             (blob("Leaf_b", (0.55, 0.36, 0.2), 0.48, 0.8, 22), leaf2),
+             (blob("Leaf_c", (-0.5, 0.34, -0.15), 0.45, 0.8, 23), leaf)]
+    return finish(parts), (0, 0, 0.5), 3.5
 
 
 def snowman():
@@ -266,7 +293,7 @@ def snowman():
 
 BUILDERS = {"tree_puffy": tree_puffy, "lamp_post": lamp_post, "guardrail": guardrail,
             "windmill": windmill, "lantern": lantern, "coin": coin,
-            "snowpine_tall": snowpine_tall, "snowpine_round": snowpine_round, "snowman": snowman}
+            "snowpine_tall": snowpine_tall, "pine_tall": pine_tall, "tree_round": tree_round, "bush": bush, "snowpine_round": snowpine_round, "snowman": snowman}
 
 if __name__ == "__main__":
     outdir = sys.argv[1]

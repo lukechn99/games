@@ -571,7 +571,7 @@ func _build_world() -> void:
 	# Part sky, part a neutral warm grey: all-sky light tinted grey roads
 	# and rock purple, where Mario Kart's read neutral.
 	env.ambient_light_color = Color(0.86, 0.84, 0.8)
-	env.ambient_light_sky_contribution = 0.5
+	env.ambient_light_sky_contribution = 0.3   # (more sky light tinted soft-shaded colours blue)
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY  # metal and water reflect the sky
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	# A soft glow around the brightest things: lamps, glints, boost flames.

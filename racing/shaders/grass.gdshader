@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode diffuse_toon, specular_disabled;
+render_mode diffuse_lambert_wrap, specular_disabled;
 // Meadow ground: one green would look like felt, so the colour drifts
 // between a deep, a fresh and a sun-dried green in broad patches, with a
 // finer mottle and the grass detail texture on top, all from world space so

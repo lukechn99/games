@@ -96,7 +96,9 @@ static func toon(c: Color, vertex_colors := false, outline := 0.0, finish := Fin
 	m.albedo_color = c
 	m.vertex_color_use_as_albedo = vertex_colors
 	m.vertex_color_is_srgb = true  # merged meshes store our colours as written
-	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	# Soft light that wraps round the shapes (as in Mario Kart), not hard
+	# cartoon steps.
+	m.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
 	if tex != "":
 		m.albedo_texture = load(TEX_DIR + tex + ".png")
 		m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC

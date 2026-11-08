@@ -1,7 +1,7 @@
 // Lake water (design doc 9.4): slow waves, deep and shallow blues, the sky
 // reflected more at low angles (fresnel), and sun glints that come and go.
 shader_type spatial;
-render_mode diffuse_toon, specular_schlick_ggx;
+render_mode diffuse_lambert_wrap, specular_schlick_ggx;
 
 uniform vec3 deep : source_color = vec3(0.08, 0.32, 0.6);
 uniform vec3 shallow : source_color = vec3(0.2, 0.52, 0.8);

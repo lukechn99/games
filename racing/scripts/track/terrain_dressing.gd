@@ -77,10 +77,10 @@ static func _bank_top(t: Track, rng: RandomNumberGenerator) -> void:
 			if rng.randf() < 0.5:
 				trees.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(0.8, 1.2)), p))
 			else:
-				bushes.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(3.0, 4.5)), p))
+				bushes.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(1.4, 2.1)), p))
 		d += rng.randf_range(9.0, 14.0)
 	t._scatter(Track.MODELS + "tree_puffy.glb", trees)
-	t._scatter(Track.KIT_NATURE + "plant_bushLarge.glb", bushes, 220.0)
+	t._scatter(Track.MODELS + "bush.glb", bushes, 220.0)
 
 
 static func _profile_y(prof: Array[Vector2], x: float) -> float:

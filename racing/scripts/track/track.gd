@@ -1307,11 +1307,12 @@ func in_water(pos: Vector3) -> bool:
 ## Trees and rocks near the road are solid: drive off line and you'll hit one.
 func _build_scenery() -> void:
 	var kinds := ["tree_default", "tree_oak", "tree_fat", "tree_pineRoundA", "tree_pineRoundB", "tree_pineTallA", "tree_simple", "tree_cone"]
-	var tree_dir := KIT_NATURE
+	# Our own smooth Blender trees (the kit's were faceted, and Mario Kart's
+	# are soft and round), about 6 m tall at scale 1.
+	kinds = ["tree_puffy", "pine_tall", "tree_round"]
+	var tree_dir := MODELS
 	if layout == "frost":
-		# Snow-laden pines (our Blender models, about 1 m tall at scale 1).
-		kinds = ["snowpine_tall", "snowpine_round"]
-		tree_dir = MODELS
+		kinds = ["snowpine_tall", "snowpine_round"]   # snow-laden
 	var trees := {}
 	for k in kinds:
 		trees[k] = [] as Array[Transform3D]
@@ -1329,8 +1330,8 @@ func _build_scenery() -> void:
 		if dist < ROAD_WIDTH * 0.5 + 7.0 or _blocked(p):
 			continue
 		var kind: String = kinds[_rng.randi() % kinds.size()]
-		var sc := _rng.randf_range(5.5, 8.5) if layout != "frost" else _rng.randf_range(0.9, 1.5)
-		var ks := sc * (6.0 if layout == "frost" else 1.0)   # in kit-tree units, for shade and trunks
+		var sc := _rng.randf_range(0.9, 1.5)
+		var ks := sc * 6.0   # in the old kit trees' units, for shade and trunks
 		(trees[kind] as Array).append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * sc), p))
 		shade.append([p, 0.3 * ks, 1.3 * ks])
 		if dist < trees_hit_radius:
@@ -1369,11 +1370,11 @@ func _build_scenery() -> void:
 		elif layout == "frost":
 			continue
 		elif i % 3 == 1:
-			bushes.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * _rng.randf_range(3.0, 5.0)), p))
+			bushes.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * _rng.randf_range(1.4, 2.2)), p))
 		else:
 			flowers.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * 4.0), p))
 	_scatter(KIT_NATURE + "rock_largeA.glb", rocks)
-	_scatter(KIT_NATURE + "plant_bushLarge.glb", bushes, 220.0)
+	_scatter(MODELS + "bush.glb", bushes, 220.0)
 	_scatter(KIT_NATURE + "flower_yellowA.glb", flowers, 140.0)
 	_puffy_trees(shade)
 	SetPieces.ground_shade(self, shade)

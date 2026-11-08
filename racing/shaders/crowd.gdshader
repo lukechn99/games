@@ -1,6 +1,6 @@
 // Fans in the bleachers: each one hops and cheers on its own beat.
 shader_type spatial;
-render_mode diffuse_toon, specular_disabled;
+render_mode diffuse_lambert_wrap, specular_disabled;
 
 void vertex() {
 	vec3 o = MODEL_MATRIX[3].xyz;

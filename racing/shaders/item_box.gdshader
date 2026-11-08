@@ -4,7 +4,7 @@
 // highlight. The colour is fixed (not reflected sky), so it never washes
 // out to pale blue in bright scenes.
 shader_type spatial;
-render_mode diffuse_toon, specular_schlick_ggx, cull_back, depth_draw_opaque;
+render_mode diffuse_lambert_wrap, specular_schlick_ggx, cull_back, depth_draw_opaque;
 
 uniform vec3 jelly : source_color = vec3(1.0, 0.32, 0.74);
 uniform vec3 edge : source_color = vec3(1.0, 0.62, 0.9);

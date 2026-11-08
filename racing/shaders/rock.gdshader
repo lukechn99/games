@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode diffuse_toon, specular_disabled, cull_disabled;
+render_mode diffuse_lambert_wrap, specular_disabled, cull_disabled;
 // Mining Mountain's rock. Cartoon cliffs read as layers: warm bands of
 // sandstone of different shades, a dark seam between them, wavering a
 // little so they don't look ruled. Ledges flat enough to hold soil turn

@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode diffuse_toon, specular_schlick_ggx;
+render_mode diffuse_lambert_wrap, specular_schlick_ggx;
 // The road surface (design doc 9.4). Vertex colours still carry the base
 // colour and the kerbs; on top of that: a detail texture, broad patches of
 // lighter and darker tarmac, darker worn lanes where tyres run, and painted

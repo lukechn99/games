@@ -1,6 +1,6 @@
 // A flag rippling in the wind. UV.x runs from the pole (0) to the tip (1).
 shader_type spatial;
-render_mode diffuse_toon, specular_disabled, cull_disabled;
+render_mode diffuse_lambert_wrap, specular_disabled, cull_disabled;
 
 uniform vec3 color : source_color = vec3(0.96, 0.22, 0.25);
 uniform float phase = 0.0;

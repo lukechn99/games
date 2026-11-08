@@ -164,8 +164,9 @@ static func kart(finish: int, c := Color.WHITE) -> ShaderMaterial:
 		Finish.PAINT:
 			m.set_shader_parameter("gloss", 0.6)
 		_:
-			m.set_shader_parameter("gloss", 0.08)
-			m.set_shader_parameter("rim_amt", 0.18)
+			# Fur, rubber, cloth: no gloss at all (fur looked shiny).
+			m.set_shader_parameter("gloss", 0.0)
+			m.set_shader_parameter("rim_amt", 0.12)
 	_cache[key] = m
 	return m
 

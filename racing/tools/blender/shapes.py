@@ -98,9 +98,11 @@ def box(name, center, size, bevel=0.02, seg=3):
     return o
 
 
-def tube(name, points, radius, res=4):
+def tube(name, points, radius, res=4, along=None):
     curve = bpy.data.curves.new(name, "CURVE")
     curve.dimensions = "3D"
+    if along:
+        curve.resolution_u = along   # rings per segment (default 12)
     curve.bevel_depth = radius
     curve.bevel_resolution = res
     curve.use_fill_caps = True

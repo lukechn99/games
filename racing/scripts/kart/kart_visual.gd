@@ -710,7 +710,9 @@ func _combine(parts: Array[MeshInstance3D], xforms: Array[Transform3D], which: A
 		for k in v.size():
 			verts.append(xf * v[k])
 			normals.append((nb * n[k]).normalized())
-			if ao.size() == v.size():
+			if ao.size() == v.size() and mi.has_meta("vcol"):
+				colors.append(ao[k].linear_to_srgb())   # painted (and shaded) in Blender
+			elif ao.size() == v.size():
 				var o := lerpf(AO_FLOOR, 1.0, smoothstep(0.0, 0.75, ao[k].r))   # only real creases darken
 				colors.append(Color(c.r * o, c.g * o, c.b * o, c.a))
 			else:
@@ -774,10 +776,71 @@ func _build_standing() -> void:
 	_build_driver(0.42, Vector3.ONE, 0.0, false)
 	var d := kart.driver
 	var body_c: Color = d["body"]
-	for side in [-1.0, 1.0]:
+	for side in ([] if DRIVER_MODELS.has(kart.driver_id) else [-1.0, 1.0]):
 		_mesh(_capsule(0.1, 0.5), body_c, _driver, Vector3(0.13 * side, -0.18, 0))
 		_mesh(_sphere(0.11), body_c.darkened(0.15), _driver, Vector3(0.13 * side, -0.42, -0.06), Vector3(1.0, 0.6, 1.4))
 	_merge_all()
+
+
+## Drivers sculpted in Blender (tools/blender/drivers.py): one smooth
+## surface for the body and one for the head, painted in their vertex
+## colours, plus small separate pieces (eyes, lids, brows, goggles) and the
+## parts that wobble (the fox's tail, the deer's antlers).
+const DRIVER_MODELS := {
+	"fox": "res://assets/models/driver_fox.glb",
+	"frog": "res://assets/models/driver_frog.glb",
+	"rhino": "res://assets/models/driver_rhino.glb",
+	"deer": "res://assets/models/driver_deer.glb",
+}
+const HEAD_PIVOT := Vector3(0, 0.72, 0)
+
+
+func _build_driver_model(path: String, seated: bool) -> void:
+	_torso = Node3D.new()
+	_driver.add_child(_torso)
+	_head = Node3D.new()
+	_head.position = HEAD_PIVOT
+	_torso.add_child(_head)
+	var to_head := Transform3D(Basis.IDENTITY, -HEAD_PIVOT)
+	var keep := _finish
+	for part in _model_parts(path):
+		var name: String = part[0]
+		var mesh: Mesh = part[1]
+		var xf: Transform3D = part[2]
+		_finish = Palette.Finish.MATTE
+		if name.begins_with("Body_"):
+			if name.begins_with("Body_seated") != seated:
+				continue
+			var mi := _mesh(mesh, Color.WHITE, _torso)
+			mi.transform = xf
+			mi.set_meta("vcol", true)
+		elif name.begins_with("Head"):
+			var mi := _mesh(mesh, Color.WHITE, _head)
+			mi.transform = to_head * xf
+			mi.set_meta("vcol", true)
+		elif name.begins_with("Tail") or name.begins_with("Antler"):
+			var parent := _torso if name.begins_with("Tail") else _head
+			var pivot := Node3D.new()
+			pivot.position = xf.origin if parent == _torso else (to_head * xf).origin
+			pivot.set_meta("base_rot", Vector3.ZERO)
+			parent.add_child(pivot)
+			var mi := _mesh(mesh, Color.WHITE, pivot)
+			mi.basis = xf.basis
+			mi.set_meta("vcol", true)
+			_wobbly.append(pivot)
+			_wobble_vel.append(Vector2.ZERO)
+			_wobble_pos.append(Vector2.ZERO)
+		else:
+			# Small pieces keep the colour they were given in Blender.
+			var mat := mesh.surface_get_material(0) as StandardMaterial3D
+			var col := mat.albedo_color if mat else Color(0.1, 0.1, 0.1)
+			if name.begins_with("Eye") or name.begins_with("Nose") or name.begins_with("Lens"):
+				_finish = Palette.Finish.PAINT
+			elif name.begins_with("Rim"):
+				_finish = Palette.Finish.METAL
+			var mi := _mesh(mesh, col, _head)
+			mi.transform = to_head * xf
+	_finish = keep
 
 
 func _build_driver(seat_y: float, size: Vector3, seat_z: float, seated := true) -> void:
@@ -789,6 +852,9 @@ func _build_driver(seat_y: float, size: Vector3, seat_z: float, seated := true) 
 	_driver.position = Vector3(0, seat_y, seat_z)
 	_driver.scale = Vector3.ONE * s
 	add_child(_driver)
+	if DRIVER_MODELS.has(kart.driver_id) and ResourceLoader.exists(DRIVER_MODELS[kart.driver_id]):
+		_build_driver_model(DRIVER_MODELS[kart.driver_id], seated)
+		return
 
 	# Cute, not realistic (design doc 5.4): a big round head on a small
 	# body, big glossy eyes with a sparkle, pink cheeks, a little snout and

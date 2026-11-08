@@ -49,7 +49,7 @@ for (const r of runs) {
   const q = `autodrive&bench=${secs}&quality=${r.quality}` + (r.track === 'meadow' ? '' : `&track=${r.track}`)
   await page.goto(`${url}/racing/index.html?${q}`)
   try {
-    await page.waitForFunction(() => window.__bench, null, { timeout: (secs * 6 + 120) * 1000, polling: 1000 })
+    await page.waitForFunction(() => window.__bench, null, { timeout: 420 * 1000, polling: 1000 })
     results[r.key] = { ...(await page.evaluate(() => window.__bench)), errors: errors.length, error_lines: errors.slice(0, 5), wall_s: Math.round((Date.now() - t0) / 1000) }
   } catch {
     results[r.key] = { failed: 'no result (timed out)', errors: errors.length, error_lines: errors.slice(0, 5) }
@@ -81,7 +81,8 @@ for (const r of runs) {
   if (x.errors) problems.push(`${r.key}: ${x.errors} console errors — ${x.error_lines[0]}`)
   if (x.resets > (o ? o.resets + 2 : 6)) problems.push(`${r.key}: ${x.resets} resets (${Object.entries(x.reset_reasons).map(([k, v]) => `${k} ${v}`).join('; ')})`)
   if (x.stuck_s > 6) problems.push(`${r.key}: a kart was stuck ${x.stuck_s} s`)
-  if (o && x.player_laps < o.player_laps) problems.push(`${r.key}: your kart did ${x.player_laps} laps (was ${o.player_laps})`)
+  if (x.partial) console.log(`${''.padEnd(12)}  (partial: ${x.seconds} s of racing reached; laps not compared)`)
+  if (o && !x.partial && !o.partial && x.player_laps < o.player_laps) problems.push(`${r.key}: your kart did ${x.player_laps} laps (was ${o.player_laps})`)
 }
 if (flag('--sources')) {
   for (const r of runs) {

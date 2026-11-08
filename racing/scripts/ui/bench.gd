@@ -13,6 +13,7 @@ const SPOTS := 4          # draw breakdowns taken during the run
 
 var race: Node            # main.gd
 var seconds := 30.0
+var wall_limit := 120.0   # real seconds after the green light; slow machines stop early ("partial")
 
 var _t := 0.0
 var _frames := 0
@@ -32,6 +33,7 @@ var _sources := {}        # source -> [draws, nodes]
 var _spots_done := 0
 var _done := false
 var _label: Label
+var _wall0 := 0
 
 
 func _ready() -> void:
@@ -53,6 +55,7 @@ func _process(delta: float) -> void:
 	if _done or not race.get("_racing"):
 		return
 	if _t == 0.0:
+		_wall0 = Time.get_ticks_msec()
 		for k: Kart in race.get("karts"):
 			_resets[k.display_name] = 0
 			_stuck[k.display_name] = 0.0
@@ -78,11 +81,13 @@ func _process(delta: float) -> void:
 			_stuck[n] = maxf(_stuck[n], _stuck_now[n])
 		else:
 			_stuck_now[n] = 0.0
-	if _spots_done < SPOTS and _t >= seconds * (_spots_done + 0.5) / SPOTS:
+	var wall := (Time.get_ticks_msec() - _wall0) / 1000.0
+	var span := minf(seconds, _t * wall_limit / maxf(wall, 0.001))   # what this run will reach
+	if _spots_done < SPOTS and _t >= span * (_spots_done + 0.5) / SPOTS:
 		_spots_done += 1
 		_breakdown()
 	_label.text = "bench %.0f / %.0f s" % [_t, seconds]
-	if _t >= seconds:
+	if _t >= seconds or wall >= wall_limit:
 		_finish()
 
 
@@ -195,6 +200,7 @@ func _finish() -> void:
 		"track": race.track.layout,
 		"quality": Controls.quality_name().to_lower(),
 		"seconds": snappedf(_t, 0.1),
+		"partial": _t < seconds - 0.5,
 		"frames": _frames,
 		"fps": snappedf(f / _t, 0.1),
 		"frame_p50": snappedf(sorted[sorted.size() / 2], 0.1),

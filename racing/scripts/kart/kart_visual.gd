@@ -742,15 +742,10 @@ func _collect(node: Node3D, xf: Transform3D, parts: Array[MeshInstance3D], xform
 		var child := c as Node3D
 		var cx := xf * child.transform
 		if child is MeshInstance3D and (child as MeshInstance3D).material_override is StandardMaterial3D:
-			var sc := cx.basis.get_scale()
-			if absf(sc.x - sc.y) > 0.01 or absf(sc.y - sc.z) > 0.01:
-				# Stretched shells shade wrongly once merged, so they stay
-				# separate (with the same toon look and outline).
-				var mi := child as MeshInstance3D
-				var m := mi.material_override as StandardMaterial3D
-				mi.material_override = Palette.kart(int(m.resource_name), m.albedo_color)
-				_collect(child, cx, parts, xforms, false)
-				continue
+			# Stretched parts merge too: _combine transforms normals by the
+			# inverse transpose, so they shade as they did on their own.
+			# (They used to stay separate, which left every Blender wheel as
+			# ~10 draw calls: half of all draws in a race. Design doc 14.2.)
 			parts.append(child)
 			xforms.append(cx)
 			_collect(child, cx, parts, xforms, false)

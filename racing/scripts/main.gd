@@ -488,7 +488,7 @@ func _showroom(q: String) -> void:
 		k.configure(ids[i % ids.size()], tires, driver)
 		(k.get_meta("visual") as KartVisual).rebuild()
 		k.freeze = true
-		k.global_transform = Transform3D(base.basis.rotated(Vector3.UP, 0.6), base.origin + base.basis.x * (float(i) - 1.5) * 3.2 + Vector3.UP * 0.32)
+		k.global_transform = Transform3D(base.basis.rotated(Vector3.UP, 0.6 + (PI if q.contains("flip") else 0.0)), base.origin + base.basis.x * (float(i) - 1.5) * 3.2 + Vector3.UP * 0.32)
 		k.input = {"steer": 0.0, "throttle": 0.0, "brake": 0.0, "drift": false}
 	camera.set_process(false)
 	camera.global_position = base.origin - base.basis.z * 6.5 + base.basis.x * 1.5 + Vector3.UP * 2.6

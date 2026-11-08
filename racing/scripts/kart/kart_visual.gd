@@ -195,6 +195,10 @@ func _cone(r: float, h: float) -> CylinderMesh:
 func rebuild() -> void:
 	for c in get_children():
 		if c != _shadow:
+			# Detach now, not at the end of the frame: otherwise the merge
+			# below picks up the old kart's meshes (its black outline shell
+			# got merged in as solid bodywork, darkening the whole kart).
+			remove_child(c)
 			c.queue_free()
 	_inks.clear()
 	_cast = null
@@ -401,7 +405,21 @@ func _fairing(center: Vector3, length: float, front: float, back: float, w: floa
 ## Builds the frame and bodywork for one chassis style. Returns where the
 ## driver sits and where the steering wheel goes.
 ## Chassis with bodywork modelled in Blender (tools/blender/), by chassis id.
-const MODELS := {"frame": "res://assets/models/kart_frame.glb"}
+const MODELS := {
+	"frame": "res://assets/models/kart_frame.glb",
+	"soapbox": "res://assets/models/kart_soapbox.glb",
+	"hauler": "res://assets/models/kart_hauler.glb",
+	"racer": "res://assets/models/kart_racer.glb",
+}
+## Where each model seats the driver ([height, z]), puts the steering wheel
+## and ends its exhausts, in the model's own space (ground at 0, wheel
+## centres at 0.3); printed by the Blender scripts when they export.
+const MODEL_FIT := {
+	"frame": {"seat": [0.25, 0.27], "wheel_at": Vector3(0, 0.62, -0.28), "exhausts": [Vector3(-0.21, 0.69, 1.19), Vector3(0.21, 0.69, 1.19)]},
+	"soapbox": {"seat": [0.2, 0.15], "wheel_at": Vector3(0, 0.56, -0.32), "exhausts": []},
+	"hauler": {"seat": [0.32, 0.22], "wheel_at": Vector3(0, 0.74, -0.3), "exhausts": [Vector3(-0.5, 1.16, 0.84), Vector3(0.5, 1.16, 0.84)]},
+	"racer": {"seat": [0.18, 0.12], "wheel_at": Vector3(0, 0.5, -0.4), "exhausts": [Vector3(-0.1, 0.41, 1.42), Vector3(0.1, 0.41, 1.42)]},
+}
 const WHEEL_MODEL := "res://assets/models/wheel.glb"
 static var _model_meshes := {}   # path -> [[name, Mesh], ...]
 
@@ -430,7 +448,7 @@ func _model_parts(path: String) -> Array:
 ## the suspension's rest height. Returns the seat like _build_frame.
 ## Metal parts are a warm gunmetal and not mirror-like: in the game, chrome
 ## reflected the sky and washed out to pale blue.
-func _build_model_frame(path: String, color: Color) -> Dictionary:
+func _build_model_frame(style: String, path: String, color: Color) -> Dictionary:
 	var fl := kart.wheel_mount(0)
 	var axle_y := fl.y - Kart.SUSPENSION_TRAVEL * 0.6
 	var shift := Transform3D(Basis.IDENTITY, Vector3(0, axle_y - 0.3, 0))
@@ -454,18 +472,21 @@ func _build_model_frame(path: String, color: Color) -> Dictionary:
 		elif name.begins_with("Plate"):
 			c = Color(0.97, 0.97, 0.97)
 			_finish = Palette.Finish.PAINT
+		elif name.begins_with("Wood"):
+			c = Color(0.62, 0.42, 0.25)
 		var mi := _mesh(part[1], c, self)
 		mi.transform = shift * part[2]
 	_finish = Palette.Finish.PAINT
 	var low := axle_y - 0.3
-	for sx: float in [-1.0, 1.0]:
-		_exhaust_tips.append(Vector3(sx * 0.21, low + 0.07 + 0.62, 1.19))
-	return {"y": low + 0.25, "z": 0.27, "wheel_at": Vector3(0, low + 0.62, -0.28)}
+	var fit: Dictionary = MODEL_FIT[style]
+	for tip: Vector3 in fit["exhausts"]:
+		_exhaust_tips.append(tip + Vector3.UP * low)
+	return {"y": low + float(fit["seat"][0]), "z": float(fit["seat"][1]), "wheel_at": (fit["wheel_at"] as Vector3) + Vector3.UP * low}
 
 
 func _build_frame(style: String, color: Color) -> Dictionary:
 	if MODELS.has(style) and ResourceLoader.exists(MODELS[style]):
-		return _build_model_frame(MODELS[style], color)
+		return _build_model_frame(style, MODELS[style], color)
 	var fl := kart.wheel_mount(0)
 	var rr := kart.wheel_mount(3)
 	var tx := absf(fl.x)          # half track

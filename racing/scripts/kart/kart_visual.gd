@@ -477,12 +477,40 @@ func _build_model_frame(style: String, path: String, color: Color) -> Dictionary
 			c = Color(0.62, 0.42, 0.25)
 		var mi := _mesh(part[1], c, self)
 		mi.transform = shift * part[2]
+		if name.begins_with("Paint_fender") or name.begins_with("Trim_arch"):
+			_fit_wheel_arch(mi)
 	_finish = Palette.Finish.PAINT
 	var low := axle_y - 0.3
 	var fit: Dictionary = MODEL_FIT[style]
 	for tip: Vector3 in fit["exhausts"]:
 		_exhaust_tips.append(tip + Vector3.UP * low)
 	return {"y": low + float(fit["seat"][0]), "z": float(fit["seat"][1]), "wheel_at": (fit["wheel_at"] as Vector3) + Vector3.UP * low}
+
+
+func _fit_wheel_arch(arch: MeshInstance3D) -> void:
+	# Fit the imported arch to this build's swept tyre envelope. Keep the
+	# lower attachment height and stretch the crown to clear full compression.
+	var box := arch.transform * arch.mesh.get_aabb()
+	var center := box.get_center()
+	var index := 0
+	var closest := INF
+	for i in 4:
+		var mount := kart.wheel_mount(i)
+		var distance := Vector2(center.x - mount.x, center.z - mount.z).length_squared()
+		if distance < closest:
+			closest = distance
+			index = i
+	var mount := kart.wheel_mount(index)
+	var angle := float(kart.chassis["max_steer"]) if index < 2 else 0.0
+	var half_width := float(kart.tires["width"]) * 1.35 * 0.5
+	var radius := kart.wheel_radius()
+	var lateral := half_width * cos(angle) + radius * sin(angle) + 0.04
+	var longitudinal := maxf(radius, radius * cos(angle) + half_width * sin(angle)) + 0.06
+	var crown := mount.y + radius + 0.12
+	var scale_fit := Vector3(maxf(1.0, lateral * 2.0 / box.size.x), maxf(1.0, (crown - box.position.y) / box.size.y), maxf(1.0, longitudinal * 2.0 / box.size.z))
+	var anchor := Vector3(center.x, box.position.y, center.z)
+	var target := Vector3(mount.x + signf(mount.x) * float(kart.tires["width"]) * 0.17, anchor.y, mount.z)
+	arch.transform = Transform3D(Basis.from_scale(scale_fit), target - anchor * scale_fit) * arch.transform
 
 
 func _build_frame(style: String, color: Color) -> Dictionary:

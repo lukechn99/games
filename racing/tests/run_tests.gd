@@ -26,6 +26,7 @@ func _run() -> void:
 	_test_benchmark_stats()
 	_test_coin_counter_size()
 	_test_tree_assets()
+	_test_wheel_arch_clearance()
 	await _test_rear_end_bump()
 	_test_wheel_bumps()
 	await _test_boulder_is_not_a_ramp()
@@ -340,6 +341,30 @@ func _test_tree_assets() -> void:
 			shared = mat
 		check(colors.size() == (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() and mat == shared and mat.shader != null, "%s preserves linear vertex colours with the shared tree material" % name)
 		instance.free()
+
+
+func _test_wheel_arch_clearance() -> void:
+	var ok := true
+	var count := 0
+	for style in ["frame", "hauler"]:
+		for tires in Parts.TIRES:
+			var k := Kart.new()
+			k.configure(style, tires, "fox")
+			var visual = load("res://scripts/kart/kart_visual.gd").new(k, false)
+			for part in visual._model_parts(visual.MODELS[style]):
+				if not (String(part[0]).begins_with("Paint_fender") or String(part[0]).begins_with("Trim_arch")):
+					continue
+				var arch := MeshInstance3D.new()
+				arch.mesh = part[1]
+				arch.transform = Transform3D(Basis.IDENTITY, Vector3.UP * (0.25 - Kart.SUSPENSION_TRAVEL * 0.6 - 0.3)) * part[2]
+				visual._fit_wheel_arch(arch)
+				var bounds := arch.transform * arch.mesh.get_aabb()
+				ok = ok and bounds.end.y >= k.wheel_mount(0).y + k.wheel_radius() + 0.1
+				count += 1
+				arch.free()
+			visual.free()
+			k.free()
+	check(ok and count == 24, "all frame and hauler tyre builds have arch crown clearance at full compression")
 
 
 func _test_rear_end_bump() -> void:

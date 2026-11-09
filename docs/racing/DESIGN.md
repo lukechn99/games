@@ -150,6 +150,7 @@ Tires set **grip, handling and drift**, and how much grip they keep **on each su
 ### 5.5 Every combination works and looks good (Decided)
 Any chassis with any wheels and any driver has to drive properly and look right. **Proposed** rules that guarantee it:
 - **Standard mounting points.** Every chassis model has named attachment points: four wheel mounts, a driver seat, a rear item rack, and a top mount reserved for future parts like a kite. Wheels and drivers snap to those points, so nothing floats or clips.
+- **Wheel arches fit the build.** Frame fenders and hauler arches expand to cover the selected tyre width, steering sweep and full suspension compression; suspension travel is unchanged. Use `?showroom&tires=balloon&compression=1` to inspect the compressed pose.
 - **Wheel sizes stay in a range.** Each chassis says how big its wheels can be; wheels scale to fit within it. Suspension and ride height adjust automatically, so the kart never sits on its belly or on stilts.
 - **One seat pose for every driver.** All drivers share the same seated proportions at the hips and hands, so any animal fits any seat and reaches the wheel (9.2).
 - **World collision comes from the chassis.** Kart-to-kart contacts include the visible wheels, their width/radius and front steering angle; wider tyres therefore meet other karts sooner. The road collider stays raised so it cannot catch on road seams.

@@ -896,3 +896,8 @@ Settled since the first list: the launch drivers (fox, frog, rhino, deer), showi
 
 Frost lake exit: banking and its centre-line lift ease back in over 60 m after
 the flat merge zone, preventing a step where the bank previously switched on.
+
+Frost icy road bends retain existing stronger banking and receive an eased
+8-degree minimum where meaningful curvature would otherwise leave them flatter.
+The first/last 12 m blend the change; inflections fade through level. The open
+lake ice stays flat.

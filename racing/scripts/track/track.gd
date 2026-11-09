@@ -200,6 +200,20 @@ func bank_at(offset: float) -> float:
 	var x := fposmod(offset, length) / 2.0
 	var i := int(x) % _bank.size()
 	var bank := lerpf(_bank[i], _bank[(i + 1) % _bank.size()], x - floorf(x))
+	if layout == "frost":
+		var d := fposmod(offset, length)
+		for zone in surface_zones:
+			if zone["surface"] != "ice":
+				continue
+			var start := float(zone["from"]) * length
+			var end := float(zone["to"]) * length
+			if d < start or d > end:
+				continue
+			var edge := smoothstep(start, start + 12.0, d) * (1.0 - smoothstep(end - 12.0, end, d))
+			# Fade through inflections instead of flipping a minimum bank's
+			# sign suddenly. Existing stronger banking is preserved.
+			var support := deg_to_rad(8.0) * smoothstep(0.0, 0.03, absf(bank))
+			bank = lerpf(bank, signf(bank) * maxf(absf(bank), support), edge)
 	if layout == "frost" and _flat_from < _flat_to:
 		var d := fposmod(offset, length)
 		# Bank and its associated centre-line lift must enter gradually after

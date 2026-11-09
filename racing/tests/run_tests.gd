@@ -750,6 +750,21 @@ func _test_frost() -> void:
 		merge_smooth = merge_smooth and absf(track.transform_at(merge_d + 0.5).origin.y - track.transform_at(merge_d).origin.y) < 0.1
 		merge_d += 0.5
 	check(merge_smooth, "lake merge restores road height gradually without a steep bank-lift step")
+	var icy_support := true
+	var icy_samples := 0
+	for zone in track.surface_zones:
+		if zone["surface"] != "ice":
+			continue
+		var d := float(zone["from"]) * track.length + 12.0
+		while d < float(zone["to"]) * track.length - 12.0:
+			var turn := track._flat_dir(d - 8.0).signed_angle_to(track._flat_dir(d + 8.0), Vector3.UP)
+			if absf(turn) > 0.1:
+				var frame := track.road_frame(d)
+				icy_support = icy_support and signf(frame.basis.x.y) == signf(turn) and absf(track.bank_at(d)) >= deg_to_rad(7.9)
+				icy_samples += 1
+			d += 2.0
+	check(icy_support and icy_samples > 0, "icy bends bank their outside edge upward with gentle minimum support")
+
 	# The junction must cover the full drivable width of BOTH paths. Test
 	# the polygon and actual colliders, which use the same rendered mesh.
 	var coverage_ok := true

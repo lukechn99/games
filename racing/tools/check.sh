@@ -15,7 +15,15 @@ step() {   # name, command...
   local name=$1; shift
   local t0=$SECONDS
   if "$@" >"$log" 2>&1; then
-    echo "ok    $name  ($(summary "$name"), $((SECONDS - t0)) s)"
+    # Godot may exit zero after a script error before reaching the tests.
+    # Match CI: require the final summary and reject script errors too.
+    if [[ $name == game ]] && { ! grep -qE '^[0-9]+ passed, 0 failed' "$log" || grep -q 'SCRIPT ERROR' "$log"; }; then
+      fail=1
+      echo "FAIL  $name  (incomplete or errored test run, $((SECONDS - t0)) s)"
+      details "$name" | head -40 | sed 's/^/      /'
+    else
+      echo "ok    $name  ($(summary "$name"), $((SECONDS - t0)) s)"
+    fi
   else
     fail=1
     echo "FAIL  $name  ($((SECONDS - t0)) s)"

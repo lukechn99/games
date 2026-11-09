@@ -570,6 +570,24 @@ func _test_frost() -> void:
 	track.layout = "frost"
 	_world.add_child(track)
 	await physics_frame
+	# The junction must cover the full drivable width of BOTH paths. Test
+	# the polygon and actual colliders, which use the same rendered mesh.
+	var coverage_ok := true
+	var collision_ok := true
+	for zone in RoadJunction.ranges(track):
+		var data := RoadJunction.model(track, zone)
+		coverage_ok = coverage_ok and not (data["indices"] as PackedInt32Array).is_empty()
+		for key in ["main", "branch"]:
+			var rows: Array[Transform3D] = data[key]
+			for row in rows:
+				for x in [-6.0, -3.0, 0.0, 3.0, 6.0]:
+					var p: Vector3 = row.origin + row.basis.x * x
+					coverage_ok = coverage_ok and Geometry2D.is_point_in_polygon(Vector2(p.x, p.z), data["polygon"])
+					var ray := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 3.0, p - Vector3.UP * 3.0)
+					var hit := _world.get_world_3d().direct_space_state.intersect_ray(ray)
+					collision_ok = collision_ok and not hit.is_empty() and (hit["collider"] as Node).get_meta("surface", "") == "asphalt" and absf((hit["position"] as Vector3).y - p.y) < 0.5
+	check(coverage_ok, "Frost junction polygons cover both roads across their full driving width")
+	check(collision_ok, "Frost junction meshes provide continuous collision under both roads")
 	# Dropped through a hole in the ice: lands on the sunken road under the
 	# lake, isn't reset, and can drive on out the far end.
 	var span := FrostTrack.lake_span(track)

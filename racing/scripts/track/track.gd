@@ -434,6 +434,9 @@ func _build_ground() -> void:
 ## each wheel is on. Kerbs on the edges are painted into the same mesh.
 func _build_road() -> void:
 	var groups := {}
+	var junctions: Array[Vector2] = []
+	if layout == "frost":
+		junctions = RoadJunction.ranges(self)
 	var step := 2.0
 	var d := 0.0
 	while d < length:
@@ -447,18 +450,36 @@ func _build_road() -> void:
 		var b := road_frame(minf(d + step, length))
 		var bi := branch_at(d)
 		var shift := absf(branch_offset(d, bi)) if bi >= 0 else 0.0
-		if shift > 0.3 and shift < BRANCH_SPLIT:
+		var junction := RoadJunction.contains(junctions, d)
+		# A shallow 2.5 cm collar keeps separate concave collision meshes
+		# connected even when a ray lands exactly on their shared cap edge.
+		# Lower the collar by 1 mm so overlapping paint surfaces cannot flicker.
+		var start_collar := 0.0
+		var end_collar := 0.0
+		if not junction:
+			for zone in junctions:
+				if absf(d - zone.y) < 0.01:
+					start_collar = 0.025
+				if absf(d + step - zone.x) < 0.01:
+					end_collar = 0.025
+			a.origin += a.basis.z * start_collar - Vector3.UP * (0.001 if start_collar > 0.0 else 0.0)
+			b.origin -= b.basis.z * end_collar + Vector3.UP * (0.001 if end_collar > 0.0 else 0.0)
+		if junction:
+			pass   # union mesh below replaces both overlapping road strips
+		elif shift > 0.3 and shift < BRANCH_SPLIT:
 			# Where the routes part, one wide piece of road covers both, so
 			# there are no overlapping layers and no seams (design doc 9.4).
 			_merged_strip(st, d, minf(d + step, length), int(d / step), bi)
 		else:
 			# (Across Frosty Pass's frozen lake the ice is the road.)
-			if not (layout == "frost" and FrostTrack.main_on_ice(a.origin) and FrostTrack.main_on_ice(b.origin)):
+			if not (layout == "frost" and FrostTrack.road_segment_on_ice(a, b)):
 				_quad_strip(st, a, b, s, int(d / step), d)
 			if shift >= BRANCH_SPLIT and _branch_has_road(bi, d):
 				var bend: float = branches[bi]["to"]
 				var ba := _branch_strip_frame(d, bi)
 				var bb := _branch_strip_frame(minf(d + step, bend), bi)
+				ba.origin += ba.basis.z * start_collar - Vector3.UP * (0.001 if start_collar > 0.0 else 0.0)
+				bb.origin -= bb.basis.z * end_collar + Vector3.UP * (0.001 if end_collar > 0.0 else 0.0)
 				var bs: String = "boost" if _in_moss(d) else branches[bi].get("surface", "asphalt")
 				# The moss glows green rather than boost-pad orange.
 				var moss := Color(0.35, 1.0, 0.45) if bs == "boost" else Color(0, 0, 0, 0)
@@ -468,8 +489,11 @@ func _build_road() -> void:
 		var no_bank := 0.0
 		if shift > 0.3 and shift < BRANCH_SPLIT:
 			no_bank = signf(branch_offset(d, bi))
-		_embankment(_group(groups, "grass"), _group(groups, "rock"), a, b, int(d / step), d, no_bank)
+		if not junction:
+			_embankment(_group(groups, "grass"), _group(groups, "rock"), a, b, int(d / step), d, no_bank)
 		d += step
+	if not junctions.is_empty():
+		RoadJunction.build(self, junctions, groups)
 	_commit_groups(groups)
 
 
@@ -566,6 +590,8 @@ func _flat(v: Vector3) -> Vector3:
 ## lines up with the merged piece (see _merged_strip).
 func _branch_strip_frame(d: float, i: int) -> Transform3D:
 	var f := branch_frame(d, i)
+	if layout == "frost":
+		return f   # polygon-union junctions meet the real path's cross-sections
 	var t := clampf((absf(branch_offset(d, i)) - BRANCH_SPLIT) / 10.0, 0.0, 1.0)
 	var x := _flat(road_frame(d).basis.x).slerp(f.basis.x, t).normalized()
 	f.basis = Basis(x, Vector3.UP, x.cross(Vector3.UP))
@@ -612,6 +638,8 @@ func _commit_groups(groups: Dictionary) -> void:
 			mi.material_override = rm
 		elif s == "asphalt":
 			mi.material_override = _road_mat()
+			if String(key).ends_with("#junction"):
+				(mi.material_override as ShaderMaterial).set_shader_parameter("paint", false)
 		elif s == "dirt":
 			mi.material_override = _road_mat("dirt")
 		elif s == "ice":
@@ -767,6 +795,14 @@ func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, ind
 		var p1 := a.origin + a.basis.x * x1 + lift
 		var p2 := b.origin + b.basis.x * x1 + lift
 		var p3 := b.origin + b.basis.x * x0 + lift
+		if layout == "frost":
+			# Match polygon clipping's junction endpoints exactly. Otherwise
+			# rounding can leave a microscopic ray-collision seam at the caps.
+			var grid := Vector3(0.0001, 0.0, 0.0001)
+			p0 = p0.snapped(grid)
+			p1 = p1.snapped(grid)
+			p2 = p2.snapped(grid)
+			p3 = p3.snapped(grid)
 		if band[0] != -half:
 			# A kerb: raised, ramped up from the road (x0 is the road side
 			# for the right-hand kerb, x1 for the left).

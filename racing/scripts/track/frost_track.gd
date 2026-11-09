@@ -29,7 +29,8 @@ const POINTS := [
 ## boulders to dodge between them), which climbs back out through an
 ## opening at the far shore. The safe way round is a detour: the old road
 ## round the bottom of the pass, longer, but solid.
-const DETOUR := [Vector2(-62, -200), Vector2(-130, -195), Vector2(-180, -130), Vector2(-190, -40), Vector2(-160, 25), Vector2(-110, 55)]
+# Join on the straighter approaches, away from the lake's tight shore bends.
+const DETOUR := [Vector2(-20, -225), Vector2(-110, -230), Vector2(-175, -170), Vector2(-195, -80), Vector2(-185, -5), Vector2(-130, 70), Vector2(-60, 90)]
 const LAKE_CENTER := Vector3(-92, 0, -75)
 const LAKE_RX := 40.0
 const LAKE_RZ := 105.0
@@ -84,7 +85,7 @@ static func plan(t: Track) -> void:
 
 ## The shortcut as its own path: the polyline smoothed, walked at an even
 ## pace from one end to the other while the main road runs from `from` to
-## `to`, and eased onto the main road over the last 25 m at each end.
+## `to`, and eased onto the main road over the last 45 m at each end.
 static func _add_chord(t: Track, line2: Array, kind: String) -> void:
 	var c := Curve3D.new()
 	for i in line2.size():
@@ -92,6 +93,9 @@ static func _add_chord(t: Track, line2: Array, kind: String) -> void:
 		var prev: Vector2 = line2[maxi(i - 1, 0)]
 		var next: Vector2 = line2[mini(i + 1, line2.size() - 1)]
 		var hnd := Vector3(next.x - prev.x, 0, next.y - prev.y) / 6.0
+		if i == 0 or i == line2.size() - 1:
+			var off := t.offset_of(Vector3(p.x, 0, p.y))
+			hnd = t._flat_dir(off) * prev.distance_to(next) / 3.0
 		c.add_point(Vector3(p.x, 0, p.y), -hnd, hnd)
 	c.bake_interval = 0.5
 	var first: Vector2 = line2[0]
@@ -106,7 +110,7 @@ static func _add_chord(t: Track, line2: Array, kind: String) -> void:
 		var q := c.sample_baked(u * clen, true)
 		var m := t.transform_at(d).origin
 		q.y = m.y
-		var e := smoothstep(0.0, 1.0, clampf(minf(d - from, to - d) / 25.0, 0.0, 1.0))
+		var e := smoothstep(0.0, 1.0, clampf(minf(d - from, to - d) / 45.0, 0.0, 1.0))
 		pts.append(m.lerp(q, e))
 		d += 1.0
 	t.add_branch(from, to, PackedFloat32Array(), kind, pts)
@@ -142,6 +146,19 @@ static func has_road(_t: Track, _i: int, _d: float) -> bool:
 ## No road surface on the main line over the lake: it's ice (track.gd asks).
 static func main_on_ice(p: Vector3) -> bool:
 	return in_lake(p, 1.02)
+
+
+## At the entry, do not cut asphalt away just because its centre has
+## reached the lake: the outer wheel lanes may still be on the shore.
+## The exit has its own rising underwater road and must stay open above it.
+static func road_segment_on_ice(a: Transform3D, b: Transform3D) -> bool:
+	if a.origin.z >= LAKE_CENTER.z:
+		return main_on_ice(a.origin) and main_on_ice(b.origin)
+	for f in [a, b]:
+		for side in [-1.0, 1.0]:
+			if not main_on_ice(f.origin + f.basis.x * side * (Track.ROAD_WIDTH * 0.5 + 1.1)):
+				return false
+	return true
 
 
 ## Where the racing line is over the lake: [first offset, last offset].

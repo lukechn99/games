@@ -1,0 +1,189 @@
+# Mobile browser follow-up
+
+Review of main at `fbf2580` (2026-11-08). These are recommendations, not new
+design decisions; DESIGN.md remains the spec. Prioritize reliable phone play
+before more tracks or visual effects.
+
+## Approved road and inspection changes
+
+- Added an interactive top/oblique map inspection mode and readiness-based
+  screenshot gallery tool; see DESIGN.md 14.3. Inspection disables haze and
+  distance culling so missing terrain cannot be hidden by gameplay settings.
+- Rebuilt Frost's two detour junctions from polygon unions of the actual road
+  footprints, with shared visual/collision geometry, perimeter kerbs and paint,
+  path-following centre dashes and stitched collision seams. The lake approach
+  retains asphalt until the full road width reaches the ice. The exit ramp is
+  kept open. The new junction meshes total about 4,900 triangles.
+- Added full-width polygon and asphalt-collider coverage checks. Hardened the
+  quiet test runner to reject a Godot script error or missing final summary
+  even when Godot exits zero, matching the existing CI safeguard.
+- Fixed fresh-checkout bench exports to create the output directory and copy
+  the JavaScript bridges, and to track bridge changes for export freshness.
+- Baseline browser runs on unmodified `fbf2580`, before the local road changes:
+  Low average draw calls 299/376/282 (Meadow/Mine/Frost), zero resets and console
+  errors. Only Frost reached the complete 30-second sample. These are software
+  rendering workload observations, not phone FPS measurements; do not interpret
+  them as measurements of the rebuilt junctions.
+
+Visual review approved by the user on 2026-11-09. Validation: 63 Godot tests,
+66 site tests, TypeScript/lint checks and error-free Frost browser captures.
+
+## Current implementation batch
+
+1. Release held touch inputs and tilt smoothing on cancellation, focus loss,
+   page hiding, UI hiding, layout changes and control-scheme changes. Add
+   regression checks for multi-finger input and interruption recovery.
+2. Correct benchmark timing and lap terminology; record build/scenario metadata,
+   high-DPR viewport settings and progress. Reject incompatible/partial baseline
+   comparisons and baseline updates, retaining raw results for diagnosis.
+3. Verify the batch with Godot tests and a rendered browser benchmark. Real-phone
+   thermal, Safari and sensor testing remains a separate device-validation task.
+
+Further visual/asset optimizations follow these measurements; any new visual
+changes will receive fresh captures before publishing.
+
+## Next work, in order
+
+1. **Make benchmark results comparable.** Record commit, Godot/export version,
+   browser/device, viewport, DPR, actual 3D render size, quality, kart count,
+   control mode and seed. Keep rendering-cost tests separate from race-completion
+   tests. Compare matching route/progress windows; do not compare arbitrary
+   partial runs against full runs. Repeat runs and retain raw results.
+   - Rename `script_ms`: `Performance.TIME_PROCESS` is process time, not a
+     measurement of GDScript execution alone. Use the profiler or explicit
+     timers for individual script systems.
+   - Record wall-clock frame intervals alongside Godot delta; report p50/p95/p99,
+     frames over 33/50/100 ms, startup/load time and longest hitch. Slow-run
+     simulation delta can be clamped and conceal actual wall-clock slowness.
+   - `player_laps` currently means the kart's lap counter: crossing the starting
+     line advances 0 to 1. A result of 1 does not prove a completed lap. Report
+     completed laps, checkpoint progress and distance separately.
+   - Add a phone-friendly Copy/Download JSON action; invalidate or annotate
+     measurements when the page is backgrounded.
+   - The current runner uses 960 × 540 at DPR 1 (0.52 MP), below even Low's
+     pixel budget. Add a high-DPR phone scenario to exercise resolution scaling;
+     the current Low/High comparison does not cover that key phone cost.
+   - Acceptance: same exported build and scenario can be compared across runs
+     without mistaking a quality, route or sampling change for an improvement.
+
+2. **Run a real-phone baseline.** iOS Safari and Android Chrome, including an
+   older/mid-range device; all tracks at Low, then Medium where sustainable.
+   Test 1/4/8 karts, host versus guest, video call off/on, first load versus warm
+   load, and a 10-minute session for thermal effects. Software-rendered cloud
+   results describe rendering workload, not phone FPS. Agree device-specific
+   gates against the design's 60 FPS goal; use 16.7 ms as the frame budget.
+
+3. **Make controls survive browser interruptions.** Clear fingers, steering and
+   held pedals on focus loss, page hiding, cancellation, control-scheme change
+   and menu transitions. Current `touch_controls.gd` only clears fingers on
+   release; verify what Godot delivers when mobile browser gestures interrupt it.
+   Respect safe-area insets in both the page and Godot UI; measure button sizes
+   in CSS/display pixels rather than assuming canvas pixels are physical size.
+   Test gas + steering + brake/drift + item together, both landscape directions,
+   sensor denial/no events, browser bars, rotation, lock/unlock and rejoining.
+   - Acceptance: no stuck throttle/steering, inaccessible buttons or repeated
+     item activation after an interruption; deny tilt and still finish a race.
+
+4. **Reduce the measured draw sources.** Use `--sources` at fixed track locations
+   before choosing an optimization. Keep spatially chunked MultiMeshes, shared
+   materials and opaque surfaces. Test fewer material surfaces per moving kart
+   group, cheaper distant karts and distance-based secondary animation. Only
+   investigate a skeletal merge if the remaining kart cost justifies it.
+   Track maximum/p95 workloads as well as averages. Inspect transparent item
+   boxes, water, particles and layered shade for overdraw on phones.
+   - Acceptance: lower draws or measured GPU/frame time on the target phone,
+     with matching route coverage and no loss of road/hazard readability.
+   The baseline Frost run attributed roughly 120 estimated draws to the two
+   snow-pine scatter types versus 21 to merged kart meshes. Test consolidating
+   tree material surfaces with vertex color and an explicit leaf wind mask,
+   preserving still trunks and the intended lighting.
+
+5. **Make Low resilient.** Measure whether its remaining cost is pixels, draw
+   submission, shaders or simulation. Current automatic quality stepping stops
+   at Low. Consider a bounded resolution controller only if pixel cost is the
+   bottleneck, keeping the HUD sharp and using hysteresis. `_fit_resolution()`
+   clamps scale to 0.5, so 0.6 MP is not a strict cap on large backing buffers.
+   Verify the actual backing size/DPR before changing this.
+
+6. **Add a multiplayer racing browser scenario.** Existing room-rule tests are
+   valuable but do not validate a rendered network race. Exercise two clients,
+   host-driven bots, countdown, item delivery, race finish, Grand Prix next race,
+   reconnect, host interruption and relay fallback. Measure stale updates,
+   jitter, bandwidth and send-buffer growth with calls enabled.
+
+7. **Enforce the asset contract.** Add a machine-readable manifest per asset:
+   generator/version, pivots, units, bounds, moving groups, attachment points,
+   material/surface count, post-export triangles, vertices and file size. Check
+   exported GLBs and Godot imports, then review contact sheets of all 64
+   chassis × tire × driver combinations. Images alone do not prove no clipping;
+   add geometry/attachment checks for meaningful fit constraints.
+
+8. **Recheck loading and docs.** Measure compressed transfer size and time to
+   playable on the actual Pages deployment. `all_resources` exports can include
+   unused assets; prune only after confirming dynamic load dependencies. Keep
+   4.4.1 engine/templates pinned while optimizing. This local export's main files total about 17.8 MB with gzip (WASM 9.39 MB,
+   PCK 8.31 MB, JS 0.08 MB), above the 15 MB target; this is a local estimate,
+   not an observed production transfer. Update stale design notes:
+   stretched parts now merge, Medium's code budget is 1.2 MP, Low is 0.6 MP,
+   and old prototype download numbers need fresh measurement.
+
+## Working Godot practices
+
+- Keep fixed-step simulation, render interpolation and the interpolated chase
+  camera. Add content through part/track data rather than branching core logic.
+- Profile release Web exports on the actual deployment and phones. Native
+  physics tests, software WebGL tests and human feel reviews answer different
+  questions; retain all three.
+- Cache/share immutable meshes and materials. Profile moving procedural mesh
+  merging to import/build time or caching by build combination to reduce startup
+  work, while preserving independent wheel/head/tail pivots.
+  `_merge()` also builds a duplicate combined mesh for cast shadows on Low;
+  measure avoiding or lazily building that data when shadows are disabled,
+  ensuring a later quality switch can still enable them correctly.
+- Keep simple physics collision separate from visual geometry. Chunk scenery
+  for culling; a whole-track MultiMesh loses useful per-instance culling.
+- Preserve inverse-transpose normal transforms for stretched meshes. If future
+  materials need UVs/tangents, extend `_combine()` deliberately: it currently
+  preserves position/normal/color/index only. Handle mirrored winding explicitly
+  if negative scales are introduced.
+- Make every optimization one hypothesis, one change, one comparable run and
+  a visual/control check. Keep the previous baseline until the improvement is
+  demonstrated; never bless a partial run simply to clear a regression report.
+
+## Working Blender practices
+
+- Pin Blender and Python dependencies (`bpy`, NumPy, scikit-image, Pillow as
+  applicable); document one reproducible generation command per asset family.
+- Model in meters with documented forward/up axes, real pivot locations and
+  stable names for moving parts and mounts. Validate the exported orientation
+  in Godot, not only in a Blender beauty render.
+- Keep high-detail source generation separate from the game export. Spend
+  geometry on silhouettes visible from the race camera; preserve eyes, ears,
+  tires and contact points before small hidden fittings.
+- Measure after modifiers and triangulation. `common.export()` currently uses
+  approximate decimation and skips small meshes, so its target is not a hard
+  budget gate. Fail validation on an over-budget final GLB instead of assuming
+  decimation achieved the target. Retain vertex colors/AO and inspect normals.
+  A direct audit of the checked-in GLB primitives found 2,860 triangles in
+  `wheel.glb` against its 2,400 target, and 7,236 in `kart_hauler.glb` against
+  7,000. Driver-file totals include seated and standing variants, so validate
+  the selected race assembly separately from the whole file.
+- Budget material surfaces and moving groups alongside triangles. Joining
+  objects alone does not collapse material draw calls. Keep rubber, paint,
+  metal and fur distinct only where that distinction is visible.
+- Bake AO consistently and preserve color-space conventions. Vertex AO suits
+  the current style; use texture/normal detail only when visible at phone scale.
+  Avoid transparent layers for details that can be opaque geometry or paint.
+- Review assets inside Godot Compatibility at Low, from race distance, under
+  tunnel and daylight lighting. Cycles previews cannot validate WebGL shading,
+  material translation, transparency, or runtime cost.
+
+## General development cadence
+
+Finish one vertical slice on real phones: join → build → drive → use an item →
+finish → race again. Watch a new player without coaching and record wrong turns,
+missed buttons, unwanted drifts, recoveries and time to first race. Use that
+evidence to tune controls, feedback and track readability before adding content.
+Audio feedback for countdown, grip/drift, item hits and finish is a useful next
+polish slice once performance is stable; unlock audio from a real tap and test
+its balance with the call. Music style remains an open design decision.

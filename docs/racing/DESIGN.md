@@ -645,6 +645,33 @@ Every change is checked with two commands whose output is a few lines, so checki
 - The bench keeps the quality fixed. Normally the game drops a level when the frame rate is low, which would make High measure as Medium.
 - First baseline finding: wheels were about half of all draw calls (each wheel is several separate meshes, on every kart).
 
+### 14.3 Visual map review (built)
+
+The exported game accepts `?map` (add `&track=mine` or `&track=frost`) for a
+north-up orthographic inspection of the whole course, without the race HUD or
+moving karts. Haze and distance culling are disabled for inspection. Drag or use arrow keys to pan,
+scroll or press +/- to zoom, **O** switches top/oblique views, and **L** toggles
+orange main-route and cyan detour guides. **1** fits the course; on Frosty Pass,
+**2** and **3** frame the lake entry and exit (`?map=entry` / `?map=exit`). Look
+at surfaces with guides off first: guides can hide bad paint or road seams.
+Use the oblique view as well as the plan to find missing vertical terrain.
+
+`node racing/tools/bench/maps.mjs [output-directory] [meadow|mine|frost]`
+exports if necessary and captures whole-course and oblique views, plus Frost's
+lake junctions, with individual PNGs, a contact sheet and an HTML gallery.
+It waits for the scene to be ready and exercises the inspection controls.
+Set `GODOT` if the executable is not at the bench helper's default location.
+These diagnostic views are visual checks, not performance benchmarks.
+
+Frost's detour now joins on straighter approaches, matches main-road tangents
+at the anchors and eases into them over 45 m. At each fork, the two road
+footprints are joined with a polygon union, then triangulated into the same
+mesh for drawing and collision. Kerbs and paint follow the union boundary;
+centre dashes follow the actual driving paths. This replaces the old widening
+strip, whose non-collinear road rows left triangular gaps. Tests probe the
+full driving width of both routes in the polygon and actual colliders,
+alongside the existing tests of bots, ice holes and the underwater exit.
+
 ## 15. Accessibility
 - Colour-blind-safe kart colours, plus a number on each kart.
 - Assists: automatic gas, steering help and auto-drift.

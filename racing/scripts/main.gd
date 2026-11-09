@@ -78,8 +78,10 @@ func _ready() -> void:
 	camera.follow(player_kart)
 	hud.minimap.setup(track, karts, player_kart)
 	start_race()
-	var q := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else ""
-	if q.contains("showroom"):
+	var q := q0
+	if q.contains("map"):
+		_map_review(q)
+	elif q.contains("showroom"):
 		_showroom(q)
 	elif q.contains("cam="):
 		_camera_view(q)
@@ -493,6 +495,26 @@ func _open_lobby() -> void:
 	hud.visible = false
 	camera.set_process(false)
 	_tour = 0.0
+
+
+## ?map[=entry|exit]: orthographic inspection without race UI or moving karts.
+func _map_review(q: String) -> void:
+	set_process(false)
+	_env.fog_enabled = false   # inspection should reveal surfaces, not haze
+	hud.visible = false
+	player.set_physics_process(false)
+	for child in get_children():
+		if child is BotDriver:
+			child.set_physics_process(false)
+	for k in karts:
+		k.freeze = true
+	camera.set_process(false)
+	camera.set_physics_process(false)
+	var review := MapReview.new()
+	review.track = track
+	review.camera = camera
+	add_child(review)
+	review.setup(q)
 
 
 ## ?cam=OFFSET[,SIDE,HEIGHT,LOOK]: a still camera at that point of the lap,

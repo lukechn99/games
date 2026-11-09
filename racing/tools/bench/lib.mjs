@@ -2,7 +2,7 @@
 // browser that renders WebGL in software, and a check that the web export
 // in public/racing is newer than the game's sources (re-exporting if not).
 import { createServer } from 'node:http'
-import { readFile, stat, readdir } from 'node:fs/promises'
+import { readFile, stat, readdir, mkdir, copyFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join, extname, dirname } from 'node:path'
@@ -56,13 +56,15 @@ async function newest(dir, exts) {
 /** Re-exports the game to public/racing when a source is newer than it. */
 export async function ensureExport({ force = false, log = console.log } = {}) {
   const pck = join(PUBLIC, 'racing/index.pck')
-  const src = await newest(GAME, ['.gd', '.gdshader', '.tscn', '.tres', '.glb', '.png', '.jpg', '.woff2', '.godot', '.cfg'])
+  const src = await newest(GAME, ['.gd', '.gdshader', '.tscn', '.tres', '.glb', '.png', '.jpg', '.woff2', '.godot', '.cfg', '.js'])
   const built = existsSync(pck) ? (await stat(pck)).mtimeMs : 0
   if (!force && built > src) return false
   log('exporting the game (sources changed)…')
   const t0 = Date.now()
+  await mkdir(dirname(pck), { recursive: true })
   execFileSync(GODOT, ['--headless', '--path', GAME, '--import'], { stdio: 'ignore' })
   execFileSync(GODOT, ['--headless', '--path', GAME, '--export-release', 'Web', join(PUBLIC, 'racing/index.html')], { stdio: 'ignore' })
+  for (const file of ['tilt.js', 'net.js']) await copyFile(join(GAME, 'web', file), join(PUBLIC, 'racing', file))
   log(`  exported in ${((Date.now() - t0) / 1000).toFixed(0)} s`)
   return true
 }

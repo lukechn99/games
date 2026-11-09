@@ -17,7 +17,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size = Vector2(82, 28)
 	_preview = SubViewport.new()
-	_preview.size = Vector2i(64, 64)
+	_preview.size = Vector2i(48, 48)
 	_preview.own_world_3d = true
 	_preview.transparent_bg = true
 	_preview.render_target_update_mode = SubViewport.UPDATE_DISABLED
@@ -46,8 +46,10 @@ func _ready() -> void:
 	camera.look_at(Vector3.ZERO)
 	var icon := TextureRect.new()
 	icon.texture = _preview.get_texture()
-	icon.position = Vector2(50, 0)
-	icon.size = Vector2(28, 28)
+	# With the camera's framing, a 20 px box makes the coin silhouette match
+	# the 20 px font's numeral height rather than tower above it.
+	icon.position = Vector2(50, 4)
+	icon.size = Vector2(20, 20)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(icon)

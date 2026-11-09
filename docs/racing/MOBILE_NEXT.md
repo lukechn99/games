@@ -156,9 +156,9 @@ runs; reduced pixel count alone does not prove a frame-time improvement.
    - Acceptance: lower draws or measured GPU/frame time on the target phone,
      with matching route coverage and no loss of road/hazard readability.
    The baseline Frost run attributed roughly 120 estimated draws to the two
-   snow-pine scatter types versus 21 to merged kart meshes. Test consolidating
-   tree material surfaces with vertex color and an explicit leaf wind mask,
-   preserving still trunks and the intended lighting.
+   snow-pine scatter types versus 21 to merged kart meshes. Tree material consolidation and triangle reduction are now implemented; see
+   the evidence below. Any future wind animation needs an explicit leaf mask
+   so trunks remain still.
 
 5. **Make Low resilient.** Measure whether its remaining cost is pixels, draw
    submission, shaders or simulation. Current automatic quality stepping stops
@@ -249,3 +249,34 @@ evidence to tune controls, feedback and track readability before adding content.
 Audio feedback for countdown, grip/drift, item hits and finish is a useful next
 polish slice once performance is stable; unlock audio from a real tap and test
 its balance with the call. Music style remains an open design decision.
+
+## Tree asset optimization (2026-11-09)
+
+The five tree GLBs now have one opaque surface each, with bark, leaf/needle and
+snow colours stored in linear COLOR_0. The shared shader corrects Compatibility's additional vertex-colour conversion; a side-by-side render checks the result. They share one runtime material and retain
+spatial MultiMesh chunks. This preserves the existing static tree rendering;
+adding wind is a separate change. Triangle budgets are checked after decimation
+and again on Godot's imported meshes.
+
+| Tree | Previous triangles | Current triangles | Surfaces before → after |
+|---|---:|---:|---:|
+| Puffy | 1,799 | 892 | 3 → 1 |
+| Pine | 988 | 742 | 3 → 1 |
+| Round | 1,500 | 742 | 3 → 1 |
+| Snow pine tall | 1,500 | 742 | 4 → 1 |
+| Snow pine round | 1,268 | 642 | 4 → 1 |
+
+Total: 7,055 → 3,760 triangles (47% fewer); GLBs 214,936 → 135,576 bytes.
+Generate with Blender 4.3.2, using its Python runtime to invoke
+`props.py OUTDIR tree_puffy pine_tall tree_round snowpine_tall snowpine_round --no-preview`.
+Omit `--no-preview` for Blender beauty sheets; always inspect the Godot export.
+
+A matching 12-second Frost Low / four-kart autodrive run measured 326 → 224
+average draws (31% fewer). The estimated snow-pine draw sources
+fell from 137 to 34. Both runs completed with zero errors/resets and passed the
+scenario/route compatibility checks. Engine-reported scene primitives rounded
+to 75k in both runs (import LODs and other scene content remain relevant).
+The final correctness suite overlapped the final draw-workload check, so timing
+metrics from that check are not used for comparison. These results establish
+fewer draw submissions, not a demonstrated frame-time or real-phone FPS gain.
+Historical baselines were not updated.

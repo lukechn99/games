@@ -212,6 +212,13 @@ static func restyle(mesh: Mesh) -> Mesh:
 	for i in out.get_surface_count():
 		var src := mesh.surface_get_material(i)
 		var name := src.resource_name if src else ""
+		if name == "TreeVertex":
+			if not _cache.has("tree_vertex"):
+				var tree := ShaderMaterial.new()
+				tree.shader = load("res://shaders/tree.gdshader")
+				_cache["tree_vertex"] = tree
+			out.surface_set_material(i, _cache["tree_vertex"])
+			continue
 		var c: Color = KIT.get(name, (src as BaseMaterial3D).albedo_color if src is BaseMaterial3D else Color.WHITE)
 		if name.begins_with("leafs"):
 			out.surface_set_material(i, leaves(c))

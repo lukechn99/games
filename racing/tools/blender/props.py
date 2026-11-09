@@ -10,7 +10,7 @@
 Each goes to assets/models/<name>.glb. Colours are strong and matte or
 satin, never mirror-like, so they don't wash out under a bright sky.
 
-    python3 racing/tools/blender/props.py OUTDIR [name ...]
+    python3 racing/tools/blender/props.py OUTDIR [name ...] [--no-preview]
 """
 import os
 import sys
@@ -295,9 +295,40 @@ BUILDERS = {"tree_puffy": tree_puffy, "lamp_post": lamp_post, "guardrail": guard
             "windmill": windmill, "lantern": lantern, "coin": coin,
             "snowpine_tall": snowpine_tall, "pine_tall": pine_tall, "tree_round": tree_round, "bush": bush, "snowpine_round": snowpine_round, "snowman": snowman}
 
+TREE_BUDGETS = {"tree_puffy": 900, "pine_tall": 750, "tree_round": 750,
+                "snowpine_tall": 750, "snowpine_round": 650}
+
+
+def pack_tree(obj, budget):
+    """One opaque surface: bake the existing material colours into vertices.
+
+    Decimate while material regions are still distinct, then paint corners so
+    bark, needles and snow keep their own colours without extra draw calls.
+    """
+    total = c.tris([obj])
+    if total > budget:
+        mod = obj.modifiers.new("tree_budget", "DECIMATE")
+        mod.ratio = (budget - 8) / total
+        c.apply_all(obj)
+    assert c.tris([obj]) <= budget, f"tree exceeds triangle budget: {obj.name}"
+    mesh = obj.data
+    tint = mesh.color_attributes.new("Tint", "BYTE_COLOR", "CORNER")
+    mesh.color_attributes.active_color = tint
+    mesh.color_attributes.render_color_index = mesh.color_attributes.find("Tint")
+    for poly in mesh.polygons:
+        mat = mesh.materials[poly.material_index]
+        color = mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value
+        for loop in poly.loop_indices:
+            tint.data[loop].color = color
+    mesh.materials.clear()
+    mesh.materials.append(c.material("TreeVertex", (1, 1, 1), 1.0))
+    for poly in mesh.polygons:
+        poly.material_index = 0
+    print("tree packed", obj.name, total, "->", c.tris([obj]), "triangles, one material")
+
 if __name__ == "__main__":
     outdir = sys.argv[1]
-    names = sys.argv[2:] or list(BUILDERS)
+    names = [n for n in sys.argv[2:] if n != "--no-preview"] or list(BUILDERS)
     for name in names:
         c.reset()
         objs, target, dist = BUILDERS[name]()
@@ -313,9 +344,14 @@ if __name__ == "__main__":
         rest[0].name = name
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         objs = [rest[0]] + keep
-        c.export(os.path.abspath(os.path.join(MODELS, name + ".glb")), objs, max_tris={"tree_puffy": 1800}.get(name, 1500))
+        if name in TREE_BUDGETS:
+            pack_tree(rest[0], TREE_BUDGETS[name])
+        c.export(os.path.abspath(os.path.join(MODELS, name + ".glb")), objs,
+                 max_tris=None if name in TREE_BUDGETS else 1500,
+                 vertex_colors=name in TREE_BUDGETS)
         if name == "coin":
             for o in objs:
                 o.location.z += 0.6
-        c.sheet(os.path.join(outdir, name + ".png"), [(12, 30), (25, 150)], target=target, dist=dist, size=(480, 420), samples=32)
+        if "--no-preview" not in sys.argv:
+            c.sheet(os.path.join(outdir, name + ".png"), [(12, 30), (25, 150)], target=target, dist=dist, size=(480, 420), samples=32)
         print("done", name)

@@ -25,6 +25,7 @@ func _run() -> void:
 	_test_touch_interruptions()
 	_test_benchmark_stats()
 	_test_coin_counter_size()
+	_test_tree_assets()
 	await _test_rear_end_bump()
 	_test_wheel_bumps()
 	await _test_boulder_is_not_a_ramp()
@@ -319,6 +320,26 @@ func _test_coin_counter_size() -> void:
 		if child is TextureRect:
 			check(child.size.y <= ThemeDB.fallback_font.get_height(20), "HUD coin respects the text height despite its larger render texture")
 	counter.free()
+
+
+func _test_tree_assets() -> void:
+	var budgets := {"tree_puffy": 900, "pine_tall": 750, "tree_round": 750, "snowpine_tall": 750, "snowpine_round": 650}
+	var shared: Material
+	for name in budgets:
+		var scene: PackedScene = load("res://assets/models/%s.glb" % name)
+		var instance := scene.instantiate()
+		var meshes := instance.find_children("*", "MeshInstance3D", true, false)
+		var mesh: Mesh = meshes[0].mesh
+		var arrays := mesh.surface_get_arrays(0)
+		var triangles := (arrays[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3
+		check(mesh.get_surface_count() == 1 and triangles > 0 and triangles <= budgets[name], "%s import stays within one surface and its triangle budget" % name)
+		var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+		var styled := Palette.restyle(mesh)
+		var mat: ShaderMaterial = styled.surface_get_material(0)
+		if shared == null:
+			shared = mat
+		check(colors.size() == (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() and mat == shared and mat.shader != null, "%s preserves linear vertex colours with the shared tree material" % name)
+		instance.free()
 
 
 func _test_rear_end_bump() -> void:

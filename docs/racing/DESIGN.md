@@ -329,7 +329,7 @@ Every track has three layers:
 **Decided (2026-11-07): soft, glossy shading and no outlines, as in Mario Kart.** Mario Kart has no black ink outlines: light, rim light and reflections shape everything. So:
 - **Karts and drivers** use their own shader (`shaders/kart.gdshader`): soft but definite sunlight, a clear highlight, a lit rim on the edges, and a cheap reflection of the sky (a sky-to-ground gradient, strongest at grazing angles) that makes paint look glossy. Fur and rubber have no gloss. Its fill light is neutral: with the renderer's blue sky light, soft-shaded red went pink and yellow went tan.
 - **Blender models bake ambient occlusion** into their vertex colours when they export (`tools/blender/common.py`), so creases, wheel wells and undersides are darker for free at run time.
-- **Scenery** uses soft wrap-around light instead of hard cartoon steps, and less of the sky's blue in its fill light. The trees and bushes are our smooth Blender ones (puffy tree, pine, round tree, cluster bush; snow pines on Frosty Pass), replacing the faceted kit models.
+- **Scenery** uses soft wrap-around light instead of hard cartoon steps, and less of the sky's blue in its fill light. Tree GLBs use one shared opaque material and vertex-painted colours, with 650–900-triangle budget caps; spatial MultiMesh chunks retain culling. The trees and bushes are our smooth Blender ones (puffy tree, pine, round tree, cluster bush; snow pines on Frosty Pass), replacing the faceted kit models.
 
 **To keep phones fast:**
 - **Look:** chunky, rounded, toy-like shapes; bright saturated colours, in Godot's Compatibility renderer.

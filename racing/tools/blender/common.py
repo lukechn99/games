@@ -113,10 +113,11 @@ def bake_ao(objs, distance=0.16, samples=64, ground=True):
         bpy.data.objects.remove(plane, do_unlink=True)
 
 
-def export(path, objects=None, max_tris=None, ao=False):
+def export(path, objects=None, max_tris=None, ao=False, vertex_colors=False):
     """Write a .glb. With `max_tris`, thin the meshes down to about that many
     triangles first (phones draw many copies of these; design doc 14). With
-    `ao`, bake ambient occlusion into the vertex colours (bake_ao)."""
+    `ao`, bake ambient occlusion into the vertex colours (bake_ao). Set
+    `vertex_colors` to retain an already painted active colour attribute."""
     objs = list(objects or bpy.context.scene.objects)
     if max_tris:
         total = tris(objs)
@@ -134,7 +135,7 @@ def export(path, objects=None, max_tris=None, ao=False):
     for o in objs:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True, export_yup=True,
-                              export_vertex_color="ACTIVE" if ao else "MATERIAL")
+                              export_vertex_color="ACTIVE" if ao or vertex_colors else "MATERIAL")
 
 
 def preview(path, target=(0, 0, 0.5), dist=4.0, elev=22.0, azim=35.0, size=(640, 480), samples=48, bg=(0.55, 0.75, 0.95)):

@@ -893,3 +893,6 @@ Settled since the first list: the launch drivers (fox, frog, rhino, deer), showi
 | 2026-11-07 | Grand Prix: all three tracks in a row, Mario Kart points, Next race between them | The user's request |
 | 2026-11-07 | Scenery in the new style: soft lighting and smooth Blender trees | The user's priority |
 | 2026-11-07 | A music section in the design doc, to decide together | The user's request |
+
+Frost lake exit: banking and its centre-line lift ease back in over 60 m after
+the flat merge zone, preventing a step where the bank previously switched on.

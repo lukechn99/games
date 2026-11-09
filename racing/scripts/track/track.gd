@@ -197,11 +197,17 @@ func _flat_dir(offset: float) -> Vector3:
 func bank_at(offset: float) -> float:
 	if _bank.is_empty():
 		return 0.0
-	if layout == "frost" and _flat_from < _flat_to and fposmod(offset, length) > _flat_from and fposmod(offset, length) < _flat_to:
-		return 0.0   # the frozen lake and its detour: flat, so the roads meet level
 	var x := fposmod(offset, length) / 2.0
 	var i := int(x) % _bank.size()
-	return lerpf(_bank[i], _bank[(i + 1) % _bank.size()], x - floorf(x))
+	var bank := lerpf(_bank[i], _bank[(i + 1) % _bank.size()], x - floorf(x))
+	if layout == "frost" and _flat_from < _flat_to:
+		var d := fposmod(offset, length)
+		# Bank and its associated centre-line lift must enter gradually after
+		# the lake merge, rather than jumping at the flat-zone boundary.
+		var weight := 1.0 - smoothstep(_flat_from - 40.0, _flat_from, d) if d < _flat_from else smoothstep(_flat_to, _flat_to + 60.0, d)
+		bank *= weight
+	return bank
+
 
 
 ## Position and facing on the racing line at `offset` metres. The facing is

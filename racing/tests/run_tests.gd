@@ -744,6 +744,12 @@ func _test_frost() -> void:
 	track.layout = "frost"
 	_world.add_child(track)
 	await physics_frame
+	var merge_smooth := true
+	var merge_d := track._flat_to - 2.0
+	while merge_d < track._flat_to + 62.0:
+		merge_smooth = merge_smooth and absf(track.transform_at(merge_d + 0.5).origin.y - track.transform_at(merge_d).origin.y) < 0.1
+		merge_d += 0.5
+	check(merge_smooth, "lake merge restores road height gradually without a steep bank-lift step")
 	# The junction must cover the full drivable width of BOTH paths. Test
 	# the polygon and actual colliders, which use the same rendered mesh.
 	var coverage_ok := true

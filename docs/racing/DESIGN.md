@@ -721,6 +721,9 @@ descent poses for screenshots; the capture tool advances them through
 `window.__introHold`. Avoid these review modes during performance measurements.
 
 Native `tests/intro_handoff.gd` exercises the actual scene on all three tracks.
+The aerial camera uses a 3 m near plane to preserve depth precision between
+the road and the ground beneath it. The fly-in eases this back to the chase
+camera's 0.1 m near plane, so close kart details remain visible.
 Terrain clearance must taper to zero **after** its smoothing filter, and the chase
 spring must inherit the cinematic's final pose. Filtering a fading clearance
 request leaves a residual offset that otherwise vanishes in one frame.

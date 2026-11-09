@@ -11,6 +11,8 @@ const DISTANCE := 3.5
 const HEIGHT := 1.55
 const LOOK_AHEAD := 6.0
 const BASE_FOV := 70.0
+const BASE_NEAR := 0.1
+const AERIAL_NEAR := 3.0   # preserve depth precision between road and ground
 ## For reviewing the look (?autodrive&view=side): sit off to one side.
 static var review_offset := Vector2.ZERO
 const SPEED_FOV := 10.0
@@ -30,7 +32,7 @@ func _ready() -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_noise.frequency = 1.6
 	fov = BASE_FOV
-	near = 0.1
+	near = BASE_NEAR
 	far = 900.0
 
 

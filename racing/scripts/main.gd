@@ -384,6 +384,7 @@ func _finish_player() -> void:
 
 ## Behind the lobby: a slow aerial circle round the whole track.
 func _fly_over(delta: float) -> void:
+	camera.near = ChaseCamera.AERIAL_NEAR
 	_tour += delta
 	var center := track.map_centre()
 	var r := track.map_radius() * 1.05 + 40.0
@@ -478,6 +479,7 @@ func _intro(delta: float) -> void:
 	camera.global_position = pos
 	camera.look_at(look, Vector3.UP)
 	camera.fov = lerpf(55.0, ChaseCamera.BASE_FOV, smoothstep(0.5, 1.0, t))
+	camera.near = lerpf(ChaseCamera.AERIAL_NEAR, ChaseCamera.BASE_NEAR, smoothstep(0.65, 1.0, t))
 	if _trace_intro:
 		_intro_samples.append({"t": t, "position": [pos.x, pos.y, pos.z], "rest_distance": pos.distance_to(rest0), "lift": pos.y - height})
 		if OS.has_feature("web"):

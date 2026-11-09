@@ -12,6 +12,7 @@ func _run() -> void:
 		OS.set_environment("KW_QUERY", "autodrive&intro&introtrace&track=" + layout)
 		var race = load("res://scripts/main.gd").new()
 		root.add_child(race)
+		var aerial_near: float = race.camera.near
 		for i in 900:
 			await process_frame
 			if not race.intro_report.is_empty():
@@ -27,7 +28,7 @@ func _run() -> void:
 				if sample.t < 0.9999:
 					penultimate = sample
 			var final: Dictionary = samples[-1]
-			var ok: bool = report.handoff_jump_m < 0.001 and final.rest_distance < 0.001 and penultimate.rest_distance < 0.1
+			var ok: bool = report.handoff_jump_m < 0.001 and final.rest_distance < 0.001 and penultimate.rest_distance < 0.1 and aerial_near >= 3.0 and is_equal_approx(race.camera.near, 0.1)
 			print("%s %s intro: handoff %.4f m, penultimate %.4f m, final %.4f m" % ["PASS" if ok else "FAIL", layout, report.handoff_jump_m, penultimate.rest_distance, final.rest_distance])
 			if not ok:
 				failures += 1

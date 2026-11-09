@@ -494,6 +494,18 @@ func _test_items() -> void:
 	var items := Items.new()
 	_world.add_child(items)
 	items.setup(track, all, all)
+	# Collection and respawn reuse the original node and shared mesh.
+	var coin: Dictionary = items._coins[0]
+	var coin_node: MeshInstance3D = coin["node"]
+	var coin_id := coin_node.get_instance_id()
+	a.global_position = coin["pos"]
+	b.global_position = Vector3(1000, 1000, 1000)
+	items._update_coins(0.0)
+	check(not coin_node.visible and a.coins == 1, "collecting a coin hides its existing node")
+	a.global_position += Vector3.RIGHT * 10.0
+	items._update_coins(Items.COIN_RESPAWN + 0.1)
+	check(coin_node.visible and coin_node.get_instance_id() == coin_id, "coin respawn reuses the same node")
+	check(coin_node.mesh == Items.coin_mesh(), "road and HUD share the cached coin mesh")
 	# Park kart A in the first row of crates.
 	var d: float = lerpf(Track.BRANCH[0], Track.BRANCH[1], Items.CRATE_ROWS[0])
 	var f := track.branch_frame(d)

@@ -191,7 +191,7 @@ All builds should finish within about 5% of each other on a lap when driven well
 - **Honey puddle:** works as in the table above: slow and sluggish steering for 2 seconds, lasting 15 seconds or 3 karts.
 - **Tumbleweed:** rolls backwards down the road from your kart, wandering and hopping. A hit shoves you sideways and slows you, but never spins you round or flips you.
 - **Snowball:** as in the table. Computer drivers bowl it at a kart up to 45 m ahead.
-- **Coins:** rows of spinning coins on the road, each +1% top speed up to 10; a crash loses all held coins. **Decided:** they run in diagonal lines across the road, alternating direction, so collecting a whole line takes steering.
+- **Coins:** rows of spinning coins on the road, each +1% top speed up to 10; a crash loses all held coins. The HUD shows the count beside a slowly spinning preview of the same cached coin mesh. Collected road coins are hidden and shown again on their respawn timer; their nodes are reused. **Decided:** they run in diagonal lines across the road, alternating direction, so collecting a whole line takes steering.
 - **Item boxes:** a squishy pink jelly cube with a fat yellow question mark inside, its hook curling well down (drawn as a stroke, not taken from a font).
 - **Computer drivers** use an item when someone is close behind them, or after 8 seconds.
 - **Online:** using an item is sent to everyone so every game shows it, and each game only applies hits to the karts it drives.

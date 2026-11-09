@@ -419,21 +419,26 @@ var _coins: Array[Dictionary] = []   # {node, pos, away}
 static var _coin_mesh: Mesh
 
 
-func _spawn_coins() -> void:
-	if track.coin_spots.is_empty():
-		return
+static func coin_mesh() -> Mesh:
 	if _coin_mesh == null:
 		var scene: PackedScene = load("res://assets/models/coin.glb")
 		if scene == null:
-			return
+			return null
 		var inst := scene.instantiate()
 		var mi := inst.find_children("*", "MeshInstance3D", true, false)
 		if not mi.is_empty():
 			_coin_mesh = Palette.restyle((mi[0] as MeshInstance3D).mesh)
 		inst.free()
+	return _coin_mesh
+
+
+func _spawn_coins() -> void:
+	if track.coin_spots.is_empty():
+		return
+	var mesh := coin_mesh()
 	for p in track.coin_spots:
 		var n := MeshInstance3D.new()
-		n.mesh = _coin_mesh
+		n.mesh = mesh
 		n.position = p
 		n.scale = Vector3.ONE * 1.3
 		n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

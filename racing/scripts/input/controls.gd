@@ -8,7 +8,11 @@ enum Scheme { AUTO, TILT, TOUCH_BUTTONS }
 const TILT_DEAD_ZONE := 3.0   # degrees around level that count as straight
 const TILT_FULL_LOCK := 25.0  # degrees for full steering (no need to tip the phone far)
 
-var scheme := Scheme.AUTO
+var scheme := Scheme.AUTO:
+	set(value):
+		if scheme != value:
+			scheme = value
+			release_inputs()
 var auto_gas := false         # optional assist; phones have a gas button
 var tilt_full_lock := TILT_FULL_LOCK
 var tilt_trim := 0.0          # degrees, for people who hold their phone slightly tilted
@@ -24,14 +28,22 @@ var quality := Quality.LOW
 var shadows := false
 
 signal quality_changed
+signal inputs_released
 
 ## Touch buttons write here (see touch_controls.gd).
 var touch := {"steer": 0.0, "brake": false, "gas": false, "item": false}
 
 var _tilt_smoothed := 0.0
+var suspended := false
+var _web_interrupt: JavaScriptObject
 
 
 func _ready() -> void:
+	if OS.has_feature("web"):
+		_web_interrupt = JavaScriptBridge.create_callback(_browser_interrupt)
+		var mobile := JavaScriptBridge.get_interface("racingMobile")
+		if mobile:
+			mobile.subscribe(_web_interrupt)
 	_add_action("steer_left", [KEY_A, KEY_LEFT], [], [JOY_AXIS_LEFT_X, -1.0])
 	_add_action("steer_right", [KEY_D, KEY_RIGHT], [], [JOY_AXIS_LEFT_X, 1.0])
 	_add_action("gas", [KEY_W, KEY_UP], [], [JOY_AXIS_TRIGGER_RIGHT, 1.0])
@@ -94,6 +106,8 @@ func uses_auto_gas() -> bool:
 
 ## The current controls for the player's kart.
 func read(delta: float) -> Dictionary:
+	if suspended:
+		return {"steer": 0.0, "throttle": 0.0, "brake": 0.0, "drift": false, "item": false}
 	var steer := Input.get_axis("steer_left", "steer_right") + float(touch["steer"])
 	if scheme == Scheme.TILT:
 		var tilt := tilt_steer(delta)
@@ -114,6 +128,28 @@ func read(delta: float) -> Dictionary:
 		"drift": Input.is_action_pressed("drift"),
 		"item": Input.is_action_just_pressed("item") or touch["item"],
 	}
+
+
+func release_inputs() -> void:
+	for key in ["gas", "brake", "item"]:
+		touch[key] = false
+	touch["steer"] = 0.0
+	_tilt_smoothed = 0.0
+	inputs_released.emit()
+
+
+func _browser_interrupt(args: Array) -> void:
+	suspended = bool(args[0])
+	release_inputs()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
+		suspended = true
+		release_inputs()
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_APPLICATION_RESUMED:
+		suspended = false
+		release_inputs()
 
 
 # --- Tilt -----------------------------------------------------------------

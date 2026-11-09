@@ -23,10 +23,13 @@ var _u := 90.0
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	resized.connect(_layout)
+	visibility_changed.connect(_visibility_changed)
+	Controls.inputs_released.connect(_release_fingers)
 	_layout()
 
 
 func _layout() -> void:
+	Controls.release_inputs()
 	var s := size
 	_u = clampf(minf(s.x, s.y) * 0.2, 64.0, 140.0)   # button size, at least 64 px
 	var pad := _u * 0.28
@@ -59,10 +62,13 @@ func _in_stick_zone(p: Vector2) -> bool:
 
 
 func _input(event: InputEvent) -> void:
-	if not visible:
+	if not is_visible_in_tree() or Controls.suspended:
 		return
 	if event is InputEventScreenTouch:
 		var t := event as InputEventScreenTouch
+		if t.canceled:
+			Controls.release_inputs()
+			return
 		if t.pressed:
 			var b := _button_at(t.position)
 			if b != "":
@@ -81,6 +87,7 @@ func _input(event: InputEvent) -> void:
 				_stick_knob = _stick_home
 			_fingers.erase(t.index)
 		_sync()
+
 	elif event is InputEventScreenDrag:
 		var d := event as InputEventScreenDrag
 		if d.index == _stick_finger:
@@ -91,6 +98,23 @@ func _input(event: InputEvent) -> void:
 				off = off.normalized() * _stick_radius
 			_stick_knob = _stick_base + off
 			_sync()
+
+
+func _release_fingers() -> void:
+	_fingers.clear()
+	_stick_finger = -1
+	_stick_base = _stick_home
+	_stick_knob = _stick_home
+	queue_redraw()
+
+
+func _visibility_changed() -> void:
+	if not is_visible_in_tree():
+		Controls.release_inputs()
+
+
+func _exit_tree() -> void:
+	Controls.release_inputs()
 
 
 func _button_at(p: Vector2) -> String:

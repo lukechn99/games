@@ -64,7 +64,7 @@ export async function ensureExport({ force = false, log = console.log } = {}) {
   await mkdir(dirname(pck), { recursive: true })
   execFileSync(GODOT, ['--headless', '--path', GAME, '--import'], { stdio: 'ignore' })
   execFileSync(GODOT, ['--headless', '--path', GAME, '--export-release', 'Web', join(PUBLIC, 'racing/index.html')], { stdio: 'ignore' })
-  for (const file of ['tilt.js', 'net.js']) await copyFile(join(GAME, 'web', file), join(PUBLIC, 'racing', file))
+  for (const file of ['mobile.js', 'tilt.js', 'net.js']) await copyFile(join(GAME, 'web', file), join(PUBLIC, 'racing', file))
   log(`  exported in ${((Date.now() - t0) / 1000).toFixed(0)} s`)
   return true
 }

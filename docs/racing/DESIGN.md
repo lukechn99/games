@@ -641,9 +641,46 @@ Every change is checked with two commands whose output is a few lines, so checki
 - **`racing/tools/check.sh`**: all correctness checks (game tests, site tests, types, lint). One line per step when it passes, only the failures when it doesn't.
 - **`node racing/tools/bench/bench.mjs`**: races each track at Low and High with a computer driving (`?autodrive&bench`), re-exporting the game first if its sources changed. It reports, per run: draw calls, triangles, objects, physics time, kart resets, the longest a kart was stuck, laps and console errors, compared with `tools/bench/baseline.json`, and names only what got worse. `--sources` lists where the draw calls come from; `--update` saves a new baseline (commit it with the change that earned it).
 - **`node racing/tools/bench/sheet.mjs`**: several views as one small contact-sheet image, for visual checks.
-- Draw calls, triangles and resets are trustworthy from the build machine. Frame rate isn't: it draws in software. Real frame rates come from opening `?autodrive&bench` on a real device, which shows the result on screen.
+- Draw calls, triangles and resets describe the sampled workload. Timings on the build machine reflect software rendering and host load; they are not phone performance. Open `?autodrive&bench` on a real device to measure that device.
 - The bench keeps the quality fixed. Normally the game drops a level when the frame rate is low, which would make High measure as Medium.
 - First baseline finding: wheels were about half of all draw calls (each wheel is several separate meshes, on every kart).
+
+#### Comparable measurements (schema 2)
+
+`--profile phone` uses 844 × 390 CSS pixels at DPR 3 with touch enabled;
+`--profile desktop` retains 960 × 540 at DPR 1. This exercises phone-sized
+backing buffers in Chromium; it does not emulate mobile GPU speed or Safari.
+Use `--repeat 3` to retain independent runs. Each execution writes both
+`out/latest.json` and a timestamped raw JSON file.
+
+Results separate simulation delta from monotonic wall-clock frame intervals:
+wall FPS, p50/p95/p99, maximum hitch and counts above 33/50/100 ms. Raw intervals
+are retained. `process_ms` is Godot's `TIME_PROCESS`, not GDScript-only CPU time.
+The optional `?perf` overlay also uses wall time and labels process time correctly.
+`player_completed_laps` excludes the initial start-line crossing. Start, finish
+and four fixed simulation-time samples record position and checkpoint progress.
+
+The runner records checkout commit/dirty status, hashes of the exported game
+and bridges, browser version, host/renderer, viewport and DPR. The game records
+engine version, canvas size, 3D scale, estimated 3D dimensions, kart count,
+autodrive mode and fixed gameplay seeds. Estimated 3D dimensions are not a GPU
+framebuffer query. Startup-to-green time includes loading and the countdown.
+
+Comparisons require a complete, valid schema-2 run, matching scenario/device
+settings and matching sampled route coverage (same checkpoint/lap, positions
+within 20 m and sample times within 0.5 s). Different builds may be compared;
+legacy baseline entries remain historical and are skipped. Page interruptions,
+resizing or quality changes invalidate a sample. `--update` refuses incomplete,
+invalid or errored runs and requires one run per scenario; review repeated raw
+runs before choosing a baseline. Never save a slow partial run to make a gate pass.
+
+Touch controls now release held fingers, pedals, item and smoothed steering on
+cancellation, focus loss, page hiding, UI hiding, layout or scheme changes, and
+race/lobby transitions. The browser bridge works independently of motion-sensor
+availability, and suspended input suppresses automatic throttle too. A fresh touch
+is required after returning. `node racing/tools/bench/interruptions.mjs` checks the rendered browser-to-Godot
+interruption path and rejects a briefly interrupted benchmark. Safe-area placement and physical-phone interruption
+tests remain follow-up work in MOBILE_NEXT.md.
 
 ### 14.3 Visual map review (built)
 

@@ -25,6 +25,7 @@
   var side = 0
 
   function onMotion(e) {
+    if (window.racingMobile && window.racingMobile.suspended) return
     var g = e.accelerationIncludingGravity
     if (!g || g.x == null) return
     var x = g.x, y = g.y, z = g.z

@@ -34,6 +34,15 @@ var _spots_done := 0
 var _done := false
 var _label: Label
 var _wall0 := 0
+var _last_frame_us := 0
+var _wall_frames: Array[float] = []
+var _interruptions_start := 0
+var _progress := []
+var _start_progress := {}
+var _viewport_start := Vector2i.ZERO
+var _resized := false
+var _quality_start := ""
+var _startup_ms := 0.0
 
 
 func _ready() -> void:
@@ -56,11 +65,23 @@ func _process(delta: float) -> void:
 		return
 	if _t == 0.0:
 		_wall0 = Time.get_ticks_msec()
+		_last_frame_us = Time.get_ticks_usec()
+		_interruptions_start = _interruptions()
+		_start_progress = _player_progress()
+		_viewport_start = get_viewport().size
+		_quality_start = Controls.quality_name().to_lower()
+		if OS.has_feature("web"):
+			_startup_ms = float(JavaScriptBridge.eval("window.__benchStartedAt = performance.now()", true))
 		for k: Kart in race.get("karts"):
 			_resets[k.display_name] = 0
 			_stuck[k.display_name] = 0.0
 			_stuck_now[k.display_name] = 0.0
 			k.respawned.connect(_on_respawn.bind(k))
+	var now_us := Time.get_ticks_usec()
+	if _frames > 0:
+		_wall_frames.append((now_us - _last_frame_us) / 1000.0)
+	_last_frame_us = now_us
+	_resized = _resized or get_viewport().size != _viewport_start
 	_t += delta
 	_frames += 1
 	var p := Performance
@@ -82,9 +103,9 @@ func _process(delta: float) -> void:
 		else:
 			_stuck_now[n] = 0.0
 	var wall := (Time.get_ticks_msec() - _wall0) / 1000.0
-	var span := minf(seconds, _t * wall_limit / maxf(wall, 0.001))   # what this run will reach
-	if _spots_done < SPOTS and _t >= span * (_spots_done + 0.5) / SPOTS:
+	if _spots_done < SPOTS and _t >= seconds * (_spots_done + 0.5) / SPOTS:
 		_spots_done += 1
+		_progress.append(_player_progress())
 		_breakdown()
 	_label.text = "bench %.0f / %.0f s" % [_t, seconds]
 	if _t >= seconds or wall >= wall_limit:
@@ -187,7 +208,7 @@ func _finish() -> void:
 	var laps := {}
 	var total_resets := 0
 	for k: Kart in race.get("karts"):
-		laps[k.display_name] = k.lap
+		laps[k.display_name] = maxi(0, k.lap - 1)
 		total_resets += int(_resets[k.display_name])
 	var worst_stuck := 0.0
 	for n in _stuck:
@@ -196,26 +217,51 @@ func _finish() -> void:
 	for key in _sources:
 		src.append([key, int(round(_sources[key][0] / float(maxi(1, _spots_done)))), int(round(_sources[key][1] / float(maxi(1, _spots_done))))])
 	src.sort_custom(func(a, b): return a[1] > b[1])
+	var wall_stats := frame_stats(_wall_frames)
+	var vp := get_viewport()
+	var browser_info: Variant = {}
+	if OS.has_feature("web"):
+		browser_info = JSON.parse_string(str(JavaScriptBridge.eval("JSON.stringify({user_agent:navigator.userAgent,dpr:devicePixelRatio,css_size:[innerWidth,innerHeight],canvas_size:[document.querySelector('canvas').width,document.querySelector('canvas').height]})", true)))
 	var out := {
+		"schema": 2,
+		"startup_to_green_ms": _startup_ms,
+		"requested_seconds": seconds,
+		"valid": _interruptions() == _interruptions_start and not _resized and _quality_start == Controls.quality_name().to_lower(),
+		"interruptions": _interruptions() - _interruptions_start,
+		"resized": _resized,
+		"godot_version": Engine.get_version_info()["string"],
+		"browser": browser_info,
+		"viewport_size": [vp.size.x, vp.size.y],
+		"scale_3d": vp.scaling_3d_scale,
+		"render_size_estimate": [int(vp.size.x * vp.scaling_3d_scale), int(vp.size.y * vp.scaling_3d_scale)],
+		"kart_count": race.get("karts").size(),
+		"control_mode": "autodrive",
+		"seeds": {"player_bot": 99, "rival_bots": [3, 4, 5], "items": 99, "track": 42},
+		"start_progress": _start_progress,
+		"end_progress": _player_progress(),
+		"progress_samples": _progress,
+		"wall_frames_ms": _wall_frames,
+		"wall_frame_stats": wall_stats,
+		"wall_race_s": (Time.get_ticks_msec() - _wall0) / 1000.0,
 		"track": race.track.layout,
 		"quality": Controls.quality_name().to_lower(),
 		"seconds": snappedf(_t, 0.1),
 		"partial": _t < seconds - 0.5,
 		"frames": _frames,
-		"fps": snappedf(f / _t, 0.1),
-		"frame_p50": snappedf(sorted[sorted.size() / 2], 0.1),
-		"frame_p95": snappedf(sorted[int(sorted.size() * 0.95)], 0.1),
+		"simulation_fps": snappedf(f / _t, 0.1),
+		"simulation_frame_p50": snappedf(sorted[sorted.size() / 2], 0.1),
+		"simulation_frame_p95": snappedf(sorted[int(sorted.size() * 0.95)], 0.1),
 		"draws": int(_draws / f),
 		"draws_max": _draws_max,
 		"objects": int(_objects / f),
 		"tris_k": int(_prims / f / 1000.0),
 		"tris_k_max": int(_prims_max / 1000.0),
 		"physics_ms": snappedf(_phys / f, 0.01),
-		"script_ms": snappedf(_proc / f, 0.01),
+		"process_ms": snappedf(_proc / f, 0.01),
 		"resets": total_resets,
 		"reset_reasons": _reasons,
 		"stuck_s": snappedf(worst_stuck, 0.1),
-		"player_laps": race.get("player_kart").lap,
+		"player_completed_laps": maxi(0, int(race.get("player_kart").lap) - 1),
 		"laps": laps,
 		"sources": src.slice(0, 25),
 	}
@@ -223,6 +269,39 @@ func _finish() -> void:
 	print("[bench] ", json)
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.__bench = " + json + ";", true)
-	_label.text = "bench %s %s: %.0f fps (frames %.0f ms typical, %.0f ms slow 5%%)\n%d draws, %dk tris, script %.1f ms, physics %.1f ms, %d resets, stuck %.1f s" % [
-		out.track, out.quality, out.fps, out.frame_p50, out.frame_p95,
-		out.draws, out.tris_k, out.script_ms, out.physics_ms, total_resets, worst_stuck]
+	_label.text = "bench %s %s: %.1f wall fps (p95 %.0f ms, p99 %.0f ms)\n%d draws, %dk tris, process %.1f ms, physics %.1f ms, %d completed laps\n%s" % [
+		out.track, out.quality, wall_stats.fps, wall_stats.p95, wall_stats.p99,
+		out.draws, out.tris_k, out.process_ms, out.physics_ms, out.player_completed_laps,
+		"INVALID: interrupted, resized or quality changed" if not out.valid else "PARTIAL run" if out.partial else "Complete sample"]
+
+
+func _interruptions() -> int:
+	if not OS.has_feature("web"):
+		return 0
+	return int(JavaScriptBridge.eval("(window.racingMobile && window.racingMobile.interruptions) || 0", true))
+
+
+func _player_progress() -> Dictionary:
+	var k: Kart = race.get("player_kart")
+	return {"seconds": snappedf(_t, 0.01), "lap_counter": k.lap,
+		"next_checkpoint": k.next_checkpoint, "offset_m": snappedf(race.track.offset_of(k.global_position), 0.1),
+		"position": [snappedf(k.global_position.x, 0.1), snappedf(k.global_position.y, 0.1), snappedf(k.global_position.z, 0.1)]}
+
+
+static func frame_stats(values: Array[float]) -> Dictionary:
+	var sorted := values.duplicate()
+	sorted.sort()
+	var out := {"fps": 0.0, "p50": 0.0, "p95": 0.0, "p99": 0.0, "max": 0.0, "over_33ms": 0, "over_50ms": 0, "over_100ms": 0}
+	if sorted.is_empty():
+		return out
+	var total := 0.0
+	for ms in values:
+		total += ms
+		for threshold in [33, 50, 100]:
+			if ms > threshold:
+				out["over_%dms" % threshold] += 1
+	out.fps = snappedf(1000.0 * values.size() / maxf(total, 0.001), 0.1)
+	for percentile in [50, 95, 99]:
+		out["p%d" % percentile] = snappedf(sorted[maxi(0, int(ceil(sorted.size() * percentile / 100.0)) - 1)], 0.1)
+	out.max = snappedf(sorted[-1], 0.1)
+	return out

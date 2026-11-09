@@ -108,6 +108,9 @@ func _build_garage(root: Control) -> void:
 	_garage.custom_minimum_size = Vector2(620, 0)
 	_garage.position = Vector2(-310, -250)
 	_garage.visible = false
+	_garage.visibility_changed.connect(func():
+		Controls.release_inputs()
+		touch.set_process_input(not _garage.visible))
 	root.add_child(_garage)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.1, 0.11, 0.16, 0.92)

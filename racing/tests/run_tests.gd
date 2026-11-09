@@ -22,6 +22,8 @@ func _run() -> void:
 	await _test_flip_recovery()
 	await _test_slalom_stays_upright()
 	_test_tilt_mapping()
+	_test_touch_interruptions()
+	_test_benchmark_stats()
 	await _test_rear_end_bump()
 	await _test_boulder_is_not_a_ramp()
 	await _test_bots_lap_the_track()
@@ -231,6 +233,79 @@ func _test_tilt_mapping() -> void:
 	c.steer_from_degrees(0.0, big)
 	var halfway := -(Controls.TILT_DEAD_ZONE + (Controls.TILT_FULL_LOCK - Controls.TILT_DEAD_ZONE) * 0.5)
 	check(c.steer_from_degrees(halfway, big) < -0.45 and c.steer_from_degrees(halfway, big) > -0.55, "halfway to full lock is half steering", "%.2f" % c.steer_from_degrees(halfway, big))
+
+
+func _test_touch_interruptions() -> void:
+	print("touch interruptions")
+	var c: Node = root.get_node("/root/Controls")
+	var ui = load("res://scripts/ui/touch_controls.gd").new()
+	root.add_child(ui)
+	ui.size = Vector2(1280, 720)
+	c.scheme = Controls.Scheme.TOUCH_BUTTONS
+	ui._layout()
+	var gas := InputEventScreenTouch.new()
+	gas.index = 1
+	gas.pressed = true
+	gas.position = (ui.buttons["gas"] as Rect2).get_center()
+	var brake := InputEventScreenTouch.new()
+	brake.index = 2
+	brake.pressed = true
+	brake.position = (ui.buttons["brake"] as Rect2).get_center()
+	ui._input(gas)
+	ui._input(brake)
+	check(c.touch.gas and c.touch.brake, "two fingers can hold independent pedals")
+	brake.pressed = false
+	ui._input(brake)
+	check(c.touch.gas and not c.touch.brake, "releasing one pedal preserves the other")
+	var cancel := InputEventScreenTouch.new()
+	cancel.index = 1
+	cancel.canceled = true
+	ui._input(cancel)
+	check(not c.touch.gas and ui._fingers.is_empty(), "cancellation clears held fingers")
+	var stick := InputEventScreenTouch.new()
+	stick.index = 3
+	stick.position = Vector2(200, 600)
+	stick.pressed = true
+	ui._input(stick)
+	var drag := InputEventScreenDrag.new()
+	drag.index = 3
+	drag.position = Vector2(280, 600)
+	ui._input(drag)
+	check(c.touch.steer > 0.5, "dragging the steering finger turns the kart")
+	c.release_inputs()
+	ui._input(drag)
+	check(c.touch.steer == 0.0, "a stale drag cannot restore steering after interruption")
+	for interruption in ["focus", "hide", "scheme", "layout"]:
+		ui.show()
+		c.suspended = false
+		ui._input(gas)
+		c.touch.steer = 0.8
+		c.touch.item = true
+		c.steer_from_degrees(30, 1)
+		match interruption:
+			"focus": c._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+			"hide": ui.hide()
+			"scheme": c.scheme = Controls.Scheme.TILT
+			"layout": ui._layout()
+		check(not c.touch.gas and not c.touch.item and c.touch.steer == 0.0 and c._tilt_smoothed == 0.0 and ui._fingers.is_empty(), "%s clears held input and tilt history" % interruption)
+	c.auto_gas = true
+	c._browser_interrupt([true])
+	check(c.read(0.016).throttle == 0.0, "background suspension also blocks automatic throttle")
+	c._browser_interrupt([false])
+	c.auto_gas = false
+	ui.show()
+	ui._input(gas)
+	check(c.touch.gas, "a fresh touch works after resuming")
+	ui.free()
+	c.scheme = Controls.Scheme.AUTO
+
+
+func _test_benchmark_stats() -> void:
+	var bench = load("res://scripts/ui/bench.gd")
+	var intervals: Array[float] = [10.0, 20.0, 40.0, 60.0, 200.0]
+	var result: Dictionary = bench.frame_stats(intervals)
+	check(result.p50 == 40.0 and result.p95 == 200.0 and result.p99 == 200.0 and result.max == 200.0, "wall-clock percentiles retain long hitches")
+	check(result.over_33ms == 3 and result.over_50ms == 2 and result.over_100ms == 1 and is_equal_approx(result.fps, 15.2), "wall-clock FPS and hitch counts use elapsed intervals")
 
 
 func _test_rear_end_bump() -> void:

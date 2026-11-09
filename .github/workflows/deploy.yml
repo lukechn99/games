@@ -29,6 +29,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      - run: node --test racing/tools/bench/compare.test.mjs racing/web/mobile.test.mjs
 
       # Kart racer (Godot): run its physics tests, then export it into
       # public/racing so the site build below publishes it at /racing/.
@@ -63,7 +64,7 @@ jobs:
           mkdir -p public/racing
           ~/godot/godot --headless --path racing --export-release "Web" "$PWD/public/racing/index.html"
           test -f public/racing/index.wasm
-          cp racing/web/tilt.js racing/web/net.js public/racing/
+          cp racing/web/mobile.js racing/web/tilt.js racing/web/net.js public/racing/
       - run: npm run build
         env:
           # Project sites live at https://<user>.github.io/<repo>/

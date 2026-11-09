@@ -28,41 +28,81 @@ before more tracks or visual effects.
 Visual review approved by the user on 2026-11-09. Validation: 63 Godot tests,
 66 site tests, TypeScript/lint checks and error-free Frost browser captures.
 
-## Current implementation batch
+## Implemented follow-up batch (2026-11-09)
 
-1. Release held touch inputs and tilt smoothing on cancellation, focus loss,
-   page hiding, UI hiding, layout changes and control-scheme changes. Add
-   regression checks for multi-finger input and interruption recovery.
-2. Correct benchmark timing and lap terminology; record build/scenario metadata,
-   high-DPR viewport settings and progress. Reject incompatible/partial baseline
-   comparisons and baseline updates, retaining raw results for diagnosis.
-3. Verify the batch with Godot tests and a rendered browser benchmark. Real-phone
-   thermal, Safari and sensor testing remains a separate device-validation task.
+- Release held touch inputs and tilt smoothing on cancellation, focus loss,
+  page hiding, UI hiding, layout changes and control-scheme changes. Reset on
+  race/lobby transitions and block touch input while the garage is open.
+  Browser suspension also suppresses automatic throttle. Lifecycle handling
+  runs even when motion sensors are unavailable.
+- Benchmark schema 2 separates wall time from simulation delta, labels process
+  time correctly, counts completed laps, and records progress and build/scenario
+  metadata. The optional perf overlay uses wall time too.
+- Add high-DPR `--profile phone`, independent `--repeat N` runs and timestamped
+  raw results. Reject incompatible/partial baseline comparisons and updates;
+  keep old baseline entries as historical evidence.
+- Add native multi-finger/interruption/measurement tests and browser bridge /
+  comparison-policy tests. Include the JavaScript checks in local checks and CI.
+
+Remaining from this batch's broader goals: physical-phone interruption/thermal/
+Safari validation, safe-area layout, phone-friendly JSON export and actual GPU
+render-target inspection. Those require additional work; they are not implied by
+passing headless tests or Chromium phone-profile runs.
 
 Further visual/asset optimizations follow these measurements; any new visual
 changes will receive fresh captures before publishing.
 
+## Follow-up verification evidence
+
+The rebuilt Frost track was measured for 12 simulation seconds per run, Low,
+four karts and autodrive, with Chromium 156 / SwiftShader and Godot 4.4.1.
+These runs verify the new measurement path; they are **not phone FPS** and are
+not comparable to the old 30-second baseline or to each other across profiles.
+
+| Profile | Canvas | 3D scale / estimated pixels | Average draws | Errors / resets |
+|---|---|---|---:|---:|
+| Desktop, DPR 1 | 960 × 540 | 1.0 / 518,400 | 321 | 0 / 0 |
+| Phone, DPR 3, run 1 | 2532 × 1170 | 0.5 / 740,610 | 392 | 0 / 0 |
+| Phone, DPR 3, run 2 | 2532 × 1170 | 0.5 / 740,610 | 392 | 0 / 0 |
+
+Validation passed: 76 Godot tests, 66 site tests, four browser-tool tests,
+TypeScript and lint. A rendered interruption check injected blur, focus and
+touch cancellation: the run recorded all three events, marked itself invalid,
+and completed without script or browser errors.
+
+All three samples were complete and valid. Desktop simulation delta implied
+7.5 FPS while monotonic elapsed time measured 1.9 FPS, demonstrating why the
+old number was misleading on a slow renderer. Phone-profile wall FPS was
+1.3 / 1.2; the p95 frame intervals were 916 / 1015 ms on this software host.
+No historical baseline was overwritten.
+
+**Next graphics experiment:** Low's 0.5 scale floor exceeds its 600,000-pixel
+budget by 23% in the phone profile. A scale around 0.450 should meet the target,
+reducing pixels by about 19% from this profile's current output. Confirm the
+actual render target and visual readability, then compare repeated matching
+runs; reduced pixel count alone does not prove a frame-time improvement.
+
 ## Next work, in order
 
-1. **Make benchmark results comparable.** Record commit, Godot/export version,
+1. **Make benchmark results comparable (foundation implemented).** Record commit, Godot/export version,
    browser/device, viewport, DPR, actual 3D render size, quality, kart count,
    control mode and seed. Keep rendering-cost tests separate from race-completion
    tests. Compare matching route/progress windows; do not compare arbitrary
    partial runs against full runs. Repeat runs and retain raw results.
-   - Rename `script_ms`: `Performance.TIME_PROCESS` is process time, not a
+   - Implemented: rename `script_ms` to `process_ms`: `Performance.TIME_PROCESS` is process time, not a
      measurement of GDScript execution alone. Use the profiler or explicit
      timers for individual script systems.
    - Record wall-clock frame intervals alongside Godot delta; report p50/p95/p99,
      frames over 33/50/100 ms, startup/load time and longest hitch. Slow-run
      simulation delta can be clamped and conceal actual wall-clock slowness.
-   - `player_laps` currently means the kart's lap counter: crossing the starting
+   - Legacy `player_laps` means the kart's lap counter: crossing the starting
      line advances 0 to 1. A result of 1 does not prove a completed lap. Report
      completed laps, checkpoint progress and distance separately.
    - Add a phone-friendly Copy/Download JSON action; invalidate or annotate
      measurements when the page is backgrounded.
-   - The current runner uses 960 × 540 at DPR 1 (0.52 MP), below even Low's
-     pixel budget. Add a high-DPR phone scenario to exercise resolution scaling;
-     the current Low/High comparison does not cover that key phone cost.
+   - The desktop runner uses 960 × 540 at DPR 1 (0.52 MP). Schema 2 adds a
+     high-DPR phone profile to exercise resolution scaling; establish separate
+     repeated baselines for each profile.
    - Acceptance: same exported build and scenario can be compared across runs
      without mistaking a quality, route or sampling change for an improvement.
 
@@ -73,10 +113,10 @@ changes will receive fresh captures before publishing.
    results describe rendering workload, not phone FPS. Agree device-specific
    gates against the design's 60 FPS goal; use 16.7 ms as the frame budget.
 
-3. **Make controls survive browser interruptions.** Clear fingers, steering and
+3. **Make controls survive browser interruptions (reset implemented).** Clear fingers, steering and
    held pedals on focus loss, page hiding, cancellation, control-scheme change
-   and menu transitions. Current `touch_controls.gd` only clears fingers on
-   release; verify what Godot delivers when mobile browser gestures interrupt it.
+   and menu transitions. The interruption reset is implemented; now verify actual iOS/Android event
+   delivery when browser gestures interrupt it.
    Respect safe-area insets in both the page and Godot UI; measure button sizes
    in CSS/display pixels rather than assuming canvas pixels are physical size.
    Test gas + steering + brake/drift + item together, both landscape directions,

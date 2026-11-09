@@ -51,6 +51,7 @@ if [[ $what == all || $what == game ]]; then
   step game "$GODOT" --headless --path racing --fixed-fps 60 -s tests/run_tests.gd
 fi
 if [[ $what == all || $what == site ]]; then
+	step browser-tools node --test racing/tools/bench/compare.test.mjs racing/web/mobile.test.mjs
   step vitest npx vitest run --reporter=dot
   step types npx tsc --noEmit
   step lint npx eslint --quiet .

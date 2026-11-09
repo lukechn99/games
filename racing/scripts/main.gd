@@ -100,7 +100,7 @@ func _ready() -> void:
 			var bench := Bench.new()
 			bench.race = self
 			if q.contains("bench="):
-				bench.seconds = float(q.split("bench=")[1].split("&")[0])
+				bench.seconds = clampf(float(q.split("bench=")[1].split("&")[0]), 1.0, 300.0)
 			_benching = true
 			add_child(bench)
 		if q.contains("intro"):
@@ -145,6 +145,7 @@ func _start_online() -> void:
 
 
 func _open_lobby_online() -> void:
+	Controls.release_inputs()
 	lobby = Lobby.new()
 	lobby.online = true
 	add_child(lobby)
@@ -474,6 +475,7 @@ func _intro(delta: float) -> void:
 
 ## Races begin with everyone picking a kart and tapping Ready (design doc 4).
 func _open_lobby() -> void:
+	Controls.release_inputs()
 	if lobby == null:
 		lobby = Lobby.new()
 		add_child(lobby)
@@ -668,7 +670,7 @@ func _apply_quality() -> void:
 ## Phones have very sharp screens (3 pixels per point is common), so
 ## drawing the 3D view at full sharpness costs 5 to 9 times the pixels of a
 ## laptop for little visible gain. Draw the 3D view at a pixel budget instead
-## (High about 2 million pixels, Medium 1.4, Low 0.9) and let it scale up;
+## (High about 2 million pixels, Medium 1.2, Low 0.6) and let it scale up;
 ## menus and text stay full sharpness. This is usually the biggest single
 ## speed-up on phones (design doc 14).
 func _fit_resolution() -> void:
@@ -748,6 +750,7 @@ func _spawn_kart(chassis: String, tires: String, driver: String, slot: int) -> K
 
 
 func start_race() -> void:
+	Controls.release_inputs()
 	_finish_order.clear()
 	_done = false
 	results.hide_results()

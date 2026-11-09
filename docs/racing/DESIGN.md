@@ -334,12 +334,57 @@ Every track has three layers:
 
 **To keep phones fast:**
 - **Look:** chunky, rounded, toy-like shapes; bright saturated colours, in Godot's Compatibility renderer.
-- **Materials:** one shared colour-palette texture for everything, with no detailed texture maps. That makes downloads small and drawing fast.
+- **Materials:** share materials and vertex-painted palette colours; retain small shared tiling detail textures where useful (9.4). Palette changes must preserve tree batching and avoid adding material surfaces.
 - **Lighting:** baked into the track, with soft "blob" shadows under karts instead of real-time shadows.
 - **Kart assembly:** at race start, each kart's chassis, wheels and driver are merged into as few meshes as possible. Eight karts cost about 16 draw calls, not 80.
 - **Level of detail:** karts further away switch to simpler versions; distant scenery is plain silhouettes.
 - **Budget per kart:** body up to 7,000 triangles, each wheel 2,400, the driver about 6,500 (models are thinned to their budget when exported), at most around 150 draw calls on screen.
 - **Quality settings (Decided):** everyone starts on **Low**, remembered per device once raised in the garage (Low, Medium, High); Low draws the 3D view at 0.6 MP, without kart-shaped shadows, with small scenery at 45% range. It still steps down by itself if the frame rate drops.
+
+### 9.1a Colour direction and starting palette (Decided 2026-11-09)
+
+**Approved direction; implementation pending visual review.** Use the user's
+Mario Kart reference screenshots (railway, green circuit, highway, village and
+canyon) for colour separation, lighting and readability. Keep our animal racers
+and track identities. The goal is vivid karts and landmarks against quieter road
+surfaces, rather than increasing saturation across the entire scene.
+
+Hex values below are **sRGB authoring colours**. This is the approved starting
+palette; confirm the rendered result in Godot Compatibility before treating it
+as final. Blender material inputs must use the appropriate linear conversion;
+glTF vertex colours remain linear, with the existing Compatibility correction.
+
+| Role | Colour | sRGB hex |
+|---|---|---|
+| Kart red | Vermilion | `#F04432` |
+| Kart blue | Cobalt | `#246BDB` |
+| Coins and highlights | Golden yellow | `#FFC928` |
+| Grass | Fresh green | `#65B936` |
+| Foliage shadows | Deep green | `#216744` |
+| Asphalt | Warm charcoal | `#45474B` |
+| Road markings | Warm ivory | `#FFF1CE` |
+| Sky | Clear blue | `#48B9EF` |
+
+**Lighting and contrast:** reduce the blue haze washing out nearby assets, use
+warmer sunlight, and give foliage clearer light/shadow separation. Preserve
+atmospheric depth in the distance and readable detail in shadows. Check that
+highlights retain colour and that coins, hazards, road edges and other racers
+remain distinguishable on a phone. Colour and lighting should work together;
+this does not require new bloom, transparency or post-processing effects.
+
+**Track identities:**
+- **Meadow Loop:** fresh greens, blue sky, cream and red accents.
+- **Mining Mountain:** terracotta, amber and dark timber, with turquoise accents.
+- **Frosty Pass:** clean whites, deeper blue ice and shadows, with warm orange landmarks.
+
+**Rollout:** prototype Meadow first, covering foliage, roadside props, lighting
+and kart paint. Capture matched before/after views at the same camera positions,
+quality and exposure: race camera, kart picker and an overview. Review the actual
+Web export at Low, including phone-scale readability, before applying the
+palette broadly or extending it to Mine and Frost. Keep shared materials,
+vertex-painted tree batching, imported LODs and spatial MultiMesh culling;
+measure any shader or material-cost changes. Publish palette implementation as
+its own change after the visual review.
 
 ### 9.2 Driver animation (Decided: believable, not rigid)
 Drivers have to look alive: body parts move believably and react to what the kart is doing. **Proposed** approach, layering simple animations with movement worked out live from the kart's physics:
@@ -893,6 +938,7 @@ Settled since the first list: the launch drivers (fox, frog, rhino, deer), showi
 | 2026-11-07 | Grand Prix: all three tracks in a row, Mario Kart points, Next race between them | The user's request |
 | 2026-11-07 | Scenery in the new style: soft lighting and smooth Blender trees | The user's priority |
 | 2026-11-07 | A music section in the design doc, to decide together | The user's request |
+| 2026-11-09 | Approve the stronger colour-separation direction and eight-colour starting palette in 9.1a; prototype Meadow first and review matched Web captures before broader rollout | The user's supplied Mario Kart screenshots and approval of the proposed palette |
 
 Frost lake exit: banking and its centre-line lift ease back in over 60 m after
 the flat merge zone, preventing a step where the bank previously switched on.

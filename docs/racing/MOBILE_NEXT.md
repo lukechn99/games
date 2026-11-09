@@ -280,3 +280,14 @@ The final correctness suite overlapped the final draw-workload check, so timing
 metrics from that check are not used for comparison. These results establish
 fewer draw submissions, not a demonstrated frame-time or real-phone FPS gain.
 Historical baselines were not updated.
+
+## Approved colour prototype: Meadow first
+
+See DESIGN.md 9.1a for the approved eight-colour sRGB starting palette, lighting
+direction and per-track identities. This is documented planning; runtime colours
+have not changed yet. Next art pass: prototype Meadow foliage, roadside props,
+lighting and kart paint; reduce nearby blue haze and improve light/shadow
+separation. Review matched Low-quality Web captures (race, picker, overview)
+before broad rollout. Preserve the one-surface tree materials, vertex colours,
+LODs and spatial culling; measure material/shader changes. Mine and Frost follow
+only after the Meadow visual review.

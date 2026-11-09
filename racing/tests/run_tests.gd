@@ -25,6 +25,7 @@ func _run() -> void:
 	_test_touch_interruptions()
 	_test_benchmark_stats()
 	await _test_rear_end_bump()
+	_test_wheel_bumps()
 	await _test_boulder_is_not_a_ramp()
 	await _test_bots_lap_the_track()
 	await _test_fall_off_respawns()
@@ -331,6 +332,30 @@ func _test_rear_end_bump() -> void:
 	check(max_yaw < 1.5, "...without spinning either kart round", "max yaw %.2f rad/s" % max_yaw)
 	var ahead := -front.global_transform.basis.z
 	check(absf(rad_to_deg(ahead.signed_angle_to(Vector3.FORWARD, Vector3.UP))) < 25.0, "...and the front kart still faces forward")
+
+
+func _test_wheel_bumps() -> void:
+	_pad()
+	var a := _kart("frame", "balloon")
+	var b := _kart("frame", "balloon")
+	var bumps := KartBumps.new()
+	var half := bumps.half_extents(a)
+	b.global_position = a.global_position + Vector3.RIGHT * (half.x * 2.0 - 0.02)
+	b.linear_velocity = Vector3.LEFT * 6.0
+	a.coins = 10
+	b.coins = 10
+	check(b.global_position.x - a.global_position.x > float(a.chassis["size"].x), "wheel contact begins while chassis boxes are still apart")
+	bumps._pair(a, b)
+	check(a.linear_velocity.x < 0.0 and b.linear_velocity.x > -6.0, "tyre-edge contact trades speed")
+	check(a.coins == 0 and b.coins == 0, "a solid kart-to-kart crash loses all coins")
+	check(b.global_position.x - a.global_position.x >= half.x * 2.0 - 0.001, "wheel footprints separate after a bump")
+	a.steer_angle = float(a.chassis["max_steer"])
+	check(bumps.half_extents(a).x > half.x, "front-wheel steering expands the contact footprint")
+	b.global_position = a.global_position + Vector3(0, 2, 0)
+	var before := a.linear_velocity
+	bumps._pair(a, b)
+	check(a.linear_velocity == before, "vertically separated karts do not bump")
+	bumps.free()
 
 
 func _test_bots_lap_the_track() -> void:

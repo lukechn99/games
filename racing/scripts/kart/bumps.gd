@@ -2,7 +2,7 @@ class_name KartBumps
 extends Node
 ## Kart-to-kart bumps (design doc 7.2). Karts don't collide with each other
 ## as rigid boxes: that let a rear-end hit kick a kart into a 180° spin.
-## Instead, each kart is two circles (front and back), and overlapping
+## Instead, each kart has an oriented footprint including its wheels; overlapping
 ## karts are pushed apart and trade some speed, weighted by mass. Bumps
 ## shove; they never spin anyone round. This also matches how online play
 ## will work: each phone pushes only its own kart.
@@ -24,32 +24,53 @@ func _physics_process(_delta: float) -> void:
 			_pair(karts[i], karts[j])
 
 
-func _circles(k: Kart) -> Array[Vector3]:
+func half_extents(k: Kart) -> Vector2:
 	var size: Vector3 = k.chassis["size"]
-	var back := k.global_transform.basis.z
-	back.y = 0.0
-	back = back.normalized() * size.z * 0.27
-	var c := k.global_position + k.global_transform.basis.y * 0.3
-	return [c - back, c + back]
+	var half := Vector2(size.x, size.z) * 0.5
+	var tire_half := float(k.tires["width"]) * 1.35 * 0.5
+	var outset := float(k.tires["width"]) * 0.17
+	for i in 4:
+		var angle := k.steer_angle if i < 2 else 0.0
+		var c := absf(cos(angle))
+		var s := absf(sin(angle))
+		var center := k.wheel_mount(i)
+		# The wheel's outer spacer rotates with the steering pivot too.
+		center += Basis(Vector3.UP, -angle) * Vector3(signf(center.x) * outset, 0, 0)
+		half.x = maxf(half.x, absf(center.x) + tire_half * c + k.wheel_radius() * s)
+		half.y = maxf(half.y, absf(center.z) + tire_half * s + k.wheel_radius() * c)
+	return half
+
+
+func _axes(k: Kart) -> Array[Vector2]:
+	var back := Vector2(k.global_basis.z.x, k.global_basis.z.z).normalized()
+	return [Vector2(back.y, -back.x), back]
 
 
 func _pair(a: Kart, b: Kart) -> void:
-	var ra := float(a.chassis["size"].x) * 0.5
-	var rb := float(b.chassis["size"].x) * 0.5
-	if a.global_position.distance_squared_to(b.global_position) > 16.0:
+	if absf(a.global_position.y - b.global_position.y) > 1.2:
 		return
-	var deepest := 0.0
+	var ha := half_extents(a)
+	var hb := half_extents(b)
+	var delta := Vector2(b.global_position.x - a.global_position.x, b.global_position.z - a.global_position.z)
+	if delta.length_squared() > pow(ha.length() + hb.length(), 2):
+		return
+	var aa := _axes(a)
+	var ab := _axes(b)
+	var deepest := INF
 	var normal := Vector3.ZERO
-	for pa in _circles(a):
-		for pb in _circles(b):
-			var d := pb - pa
-			if absf(d.y) > 1.2:
-				continue
-			d.y = 0.0
-			var pen := ra + rb - d.length()
-			if pen > deepest:
-				deepest = pen
-				normal = d.normalized() if d.length() > 0.001 else Vector3.RIGHT
+	# Separating axes keep the rectangular wheel envelope aligned with each
+	# kart, even when they meet at an angle. Choose the least separation.
+	for axis: Vector2 in [aa[0], aa[1], ab[0], ab[1]]:
+		var ra := ha.x * absf(axis.dot(aa[0])) + ha.y * absf(axis.dot(aa[1]))
+		var rb := hb.x * absf(axis.dot(ab[0])) + hb.y * absf(axis.dot(ab[1]))
+		var projection := delta.dot(axis)
+		var penetration := ra + rb - absf(projection)
+		if penetration <= 0.0:
+			return
+		if penetration < deepest:
+			deepest = penetration
+			var direction := 1.0 if projection >= 0.0 else -1.0
+			normal = Vector3(axis.x, 0, axis.y) * direction
 	if deepest <= 0.0:
 		return
 	if a.remote and b.remote:

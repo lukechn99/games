@@ -152,7 +152,7 @@ Any chassis with any wheels and any driver has to drive properly and look right.
 - **Standard mounting points.** Every chassis model has named attachment points: four wheel mounts, a driver seat, a rear item rack, and a top mount reserved for future parts like a kite. Wheels and drivers snap to those points, so nothing floats or clips.
 - **Wheel sizes stay in a range.** Each chassis says how big its wheels can be; wheels scale to fit within it. Suspension and ride height adjust automatically, so the kart never sits on its belly or on stilts.
 - **One seat pose for every driver.** All drivers share the same seated proportions at the hips and hands, so any animal fits any seat and reaches the wheel (9.2).
-- **The hit box comes from the chassis only,** so changing wheels never changes how you collide.
+- **World collision comes from the chassis.** Kart-to-kart contacts include the visible wheels, their width/radius and front steering angle; wider tyres therefore meet other karts sooner. The road collider stays raised so it cannot catch on road seams.
 - **An automatic check of every combination.** A test builds every chassis × wheels × driver combination and renders a contact sheet of screenshots for review. It fails if a wheel or driver clips through the body.
 
 ### 5.6 Keeping it fair (Proposed)
@@ -224,7 +224,7 @@ A **custom arcade kart on a `RigidBody3D`**, not Godot's `VehicleBody3D`. It's e
 
 ### 7.2 Collisions and crashes (Proposed)
 - **Walls:** glancing hits slide along; head-on hits stop you and bounce you back a little. Speed lost depends on the angle.
-- **Kart to kart:** your phone treats the other karts as solid shapes moving where the network says they are. A bump pushes your own kart according to the two weights, and their phone does the same for theirs. The push is capped so a lag spike can't launch anyone.
+- **Kart to kart:** an oriented footprint covers the chassis and outer tyre edges, including the swept front wheels. Your phone treats the other karts as solid shapes moving where the network says they are. A bump pushes your own kart according to the two weights, and their phone does the same for theirs. The push is capped so a lag spike can't launch anyone.
 - **Item hits:** the phone of the kart that gets hit decides whether it was hit (13.4), then plays the spin-out or wobble.
 - **Obstacles:** solid ones (rocks, logs) act like walls; moving ones (rolling barrels, swinging gates) follow a timed pattern, so every phone sees them in the same place.
 

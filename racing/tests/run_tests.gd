@@ -183,11 +183,13 @@ func _test_wall_crash_signal() -> void:
 	_world.add_child(wall)
 	var k := _kart()
 	var hits: Array[float] = []
+	k.coins = 10
 	k.crashed.connect(func(s): hits.append(s))
 	await _drive(k, 0.4, 0.0, 0.0)
 	await _drive(k, 5.0, 0.0, 1.0)
 	var biggest: float = hits.max() if not hits.is_empty() else 0.0
 	check(biggest > 0.4, "driving into a wall flags a big crash (for screen shake)", "strength %.2f" % biggest)
+	check(k.coins == 0, "a wall crash loses every coin")
 	var k2 := _kart("frame", "slicks", "fox", Vector3(10, 0.6, 0))
 	var soft: Array[float] = []
 	k2.crashed.connect(func(s): soft.append(s))
@@ -508,18 +510,22 @@ func _test_items() -> void:
 	a.input["item"] = false
 	check(a.held_item == "", "using an item spends it")
 	var stuck := [false]
+	b.coins = 10
 	for i in 120:
 		b.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
 		await physics_frame
 		if b.sticky_time > 0.0:
 			stuck[0] = true
 	check(stuck[0], "a kart driving through honey gets stuck")
+	check(b.coins == 0, "a honey hit loses every coin")
 	# Tumbleweed: knocks sideways without spinning round or flipping.
 	var c := _kart("frame", "slicks", "fox", Vector3(500, 0.6, 500))
 	_pad_under(c.global_position)
 	await _ticks(30)
 	var yaw0 := c.global_rotation.y
+	c.coins = 10
 	c.knock(c.global_position + c.global_transform.basis.x * 1.0)
+	check(c.coins == 0, "a knock loses every coin immediately")
 	var worst := 0.0
 	var up := 1.0
 	for i in 90:

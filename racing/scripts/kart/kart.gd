@@ -73,6 +73,13 @@ var _drift_exit := 0.0     # seconds left blending grip back in after a drift
 const DRIFT_EXIT := 0.35
 
 
+func _init() -> void:
+	# All crash sources (walls, other karts and items) share this signal.
+	crashed.connect(func(_strength):
+		if not remote:
+			coins = 0)
+
+
 func _ready() -> void:
 	add_to_group("karts")
 	continuous_cd = true
@@ -181,7 +188,6 @@ func knock(from: Vector3) -> void:
 	var side := global_transform.basis.x
 	var push := side * signf(side.dot(global_position - from) + 0.01)
 	linear_velocity = linear_velocity * 0.6 + push * 6.0 + Vector3.UP * 2.0
-	coins = maxi(0, coins - 3)   # a hit costs you coins, as in Mario Kart
 	angular_velocity += global_transform.basis.y * 1.2 * signf(push.dot(side))
 	crashed.emit(0.6)
 

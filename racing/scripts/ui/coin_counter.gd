@@ -45,12 +45,12 @@ func _ready() -> void:
 	_preview.add_child(camera)
 	camera.look_at(Vector3.ZERO)
 	var icon := TextureRect.new()
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.texture = _preview.get_texture()
 	# With the camera's framing, a 20 px box makes the coin silhouette match
 	# the 20 px font's numeral height rather than tower above it.
 	icon.position = Vector2(50, 4)
 	icon.size = Vector2(20, 20)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(icon)
 

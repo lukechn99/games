@@ -24,6 +24,7 @@ func _run() -> void:
 	_test_tilt_mapping()
 	_test_touch_interruptions()
 	_test_benchmark_stats()
+	_test_coin_counter_size()
 	await _test_rear_end_bump()
 	_test_wheel_bumps()
 	await _test_boulder_is_not_a_ramp()
@@ -309,6 +310,15 @@ func _test_benchmark_stats() -> void:
 	var result: Dictionary = bench.frame_stats(intervals)
 	check(result.p50 == 40.0 and result.p95 == 200.0 and result.p99 == 200.0 and result.max == 200.0, "wall-clock percentiles retain long hitches")
 	check(result.over_33ms == 3 and result.over_50ms == 2 and result.over_100ms == 1 and is_equal_approx(result.fps, 15.2), "wall-clock FPS and hitch counts use elapsed intervals")
+
+
+func _test_coin_counter_size() -> void:
+	var counter = load("res://scripts/ui/coin_counter.gd").new()
+	root.add_child(counter)
+	for child in counter.get_children():
+		if child is TextureRect:
+			check(child.size.y <= ThemeDB.fallback_font.get_height(20), "HUD coin respects the text height despite its larger render texture")
+	counter.free()
 
 
 func _test_rear_end_bump() -> void:

@@ -30,6 +30,8 @@ var _fps_frames := 0
 
 
 func _ready() -> void:
+	var preview_query := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else OS.get_environment("KW_QUERY")
+	Palette.preview_pop = not preview_query.contains("palette=classic") and (preview_query.contains("palette=pop") or not (preview_query.contains("track=mine") or preview_query.contains("track=frost")))
 	_build_world()
 	track = Track.new()
 	# (Outside a browser, tools can pass the same flags in KW_QUERY.)
@@ -646,6 +648,11 @@ func _build_world() -> void:
 	env.glow_bloom = 0.0
 	env.glow_hdr_threshold = 0.95
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	if Palette.preview_pop:
+		mat.sky_top_color = Color("48b9ef")
+		env.ambient_light_sky_contribution = 0.12
+		env.fog_light_color = Color("dce9eb")
+		env.fog_density = 0.00055
 	_env = env
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.74, 0.87, 1.0)  # the horizon colour, so distance fades into sky

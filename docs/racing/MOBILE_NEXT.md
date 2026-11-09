@@ -291,3 +291,8 @@ separation. Review matched Low-quality Web captures (race, picker, overview)
 before broad rollout. Preserve the one-surface tree materials, vertex colours,
 LODs and spatial culling; measure material/shader changes. Mine and Frost follow
 only after the Meadow visual review.
+
+Meadow palette prototype approved for rollout: clearer sky, reduced nearby blue
+haze, warmer kart paints, greener foliage, charcoal asphalt and ivory markings.
+Meadow now defaults to this palette; `palette=classic` retains the comparison
+view. Mine and Frost theme rollout and chooser recaptures follow separately.

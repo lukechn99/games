@@ -49,6 +49,7 @@ const KIT_TEX := {
 }
 const TEX_DIR := "res://assets/textures/"
 
+static var preview_pop := false
 static var _cache := {}
 static var relief_shaders: Array[ShaderMaterial] = []   # shader materials with a 'relief' strength
 static var _detailed: Array[StandardMaterial3D] = []   # materials with normal maps
@@ -216,6 +217,7 @@ static func restyle(mesh: Mesh) -> Mesh:
 			if not _cache.has("tree_vertex"):
 				var tree := ShaderMaterial.new()
 				tree.shader = load("res://shaders/tree.gdshader")
+				tree.set_shader_parameter("preview_pop", preview_pop)
 				_cache["tree_vertex"] = tree
 			out.surface_set_material(i, _cache["tree_vertex"])
 			continue

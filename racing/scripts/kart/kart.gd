@@ -109,7 +109,9 @@ func configure(new_chassis: String, new_tires: String, new_driver: String) -> vo
 	chassis_id = new_chassis
 	tires_id = new_tires
 	driver_id = new_driver
-	chassis = Parts.CHASSIS[new_chassis]
+	chassis = Parts.CHASSIS[new_chassis].duplicate()
+	if Palette.preview_pop:
+		chassis["color"] = {"frame": Color("f04432"), "soapbox": Color("246bdb"), "hauler": Color("ffc928")}.get(new_chassis, chassis["color"])
 	tires = Parts.TIRES[new_tires]
 	driver = Parts.DRIVERS[new_driver]
 	mass = float(chassis["mass"]) + float(Parts.WEIGHT_MASS[driver["weight"]])

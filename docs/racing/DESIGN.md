@@ -343,7 +343,7 @@ Every track has three layers:
 
 ### 9.1a Colour direction and starting palette (Decided 2026-11-09)
 
-**Approved direction; implementation pending visual review.** Use the user's
+**Approved direction; implemented after matched Meadow visual review.** Use the user's
 Mario Kart reference screenshots (railway, green circuit, highway, village and
 canyon) for colour separation, lighting and readability. Keep our animal racers
 and track identities. The goal is vivid karts and landmarks against quieter road
@@ -371,6 +371,13 @@ atmospheric depth in the distance and readable detail in shadows. Check that
 highlights retain colour and that coins, hazards, road edges and other racers
 remain distinguishable on a phone. Colour and lighting should work together;
 this does not require new bloom, transparency or post-processing effects.
+
+**Track theme implementation:** Mine rock bands use terracotta `#BC7150`,
+`#95553E` and `#723E32`, with dark seams `#392B29`, amber gravel `#C99758`,
+turquoise accents `#279E9B` and timber tones `#9D5F37` / `#54392A`.
+Frost uses snow shadows `#8FAFD2`, clean snow `#F6FBFF`, blue ice `#6BBFF2`,
+lake ice `#99D9F3` and orange accents `#FF873C`. The shared kart colours remain
+consistent between tracks. `palette=classic` retains the comparison palette.
 
 **Track identities:**
 - **Meadow Loop:** fresh greens, blue sky, cream and red accents.
@@ -947,3 +954,8 @@ Frost icy road bends retain existing stronger banking and receive an eased
 8-degree minimum where meaningful curvature would otherwise leave them flatter.
 The first/last 12 m blend the change; inflections fade through level. The open
 lake ice stays flat.
+
+Track chooser images are generated from the current Low-quality Web export with
+`node racing/tools/bench/thumbnails.mjs`. It waits for shader warm-up and checks
+browser errors before saving `public/tracks/{meadow,mine,frost}.jpg`; `gp.jpg`
+combines those same three captures. Regenerate after visible track/art changes.

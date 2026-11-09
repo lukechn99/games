@@ -281,18 +281,22 @@ metrics from that check are not used for comparison. These results establish
 fewer draw submissions, not a demonstrated frame-time or real-phone FPS gain.
 Historical baselines were not updated.
 
-## Approved colour prototype: Meadow first
+## Approved colour rollout: Meadow first
 
 See DESIGN.md 9.1a for the approved eight-colour sRGB starting palette, lighting
-direction and per-track identities. This is documented planning; runtime colours
-have not changed yet. Next art pass: prototype Meadow foliage, roadside props,
-lighting and kart paint; reduce nearby blue haze and improve light/shadow
-separation. Review matched Low-quality Web captures (race, picker, overview)
-before broad rollout. Preserve the one-surface tree materials, vertex colours,
-LODs and spatial culling; measure material/shader changes. Mine and Frost follow
-only after the Meadow visual review.
+direction and per-track identities. The Meadow prototype has been approved and enabled; the same art direction
+now extends to the Mine and Frost themes. The Meadow prototype covered foliage, roadside props,
+lighting and kart paint, reducing nearby blue haze and improving light/shadow
+separation. Matched Low-quality Web captures were reviewed before rollout. Preserve the one-surface tree materials, vertex colours,
+LODs and spatial culling; measure material/shader changes. Mine and Frost extend that approved direction with their own themes.
 
 Meadow palette prototype approved for rollout: clearer sky, reduced nearby blue
 haze, warmer kart paints, greener foliage, charcoal asphalt and ivory markings.
-Meadow now defaults to this palette; `palette=classic` retains the comparison
-view. Mine and Frost theme rollout and chooser recaptures follow separately.
+All tracks now default to this palette direction; `palette=classic` retains
+the comparison view. Chooser shots are recaptured from the updated Web export.
+
+Mine and Frost now use track-specific rock/snow/ice, foliage, sky/fog and accent
+colours while sharing the approved kart paints. The chooser capture tool
+(`racing/tools/bench/thumbnails.mjs`) regenerates all four cards from the actual
+Web export and checks for browser errors. Shared tree surfaces/LODs/culling are
+preserved. Classic palette comparisons remain available through `palette=classic`.

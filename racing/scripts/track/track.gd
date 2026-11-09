@@ -285,6 +285,8 @@ func _road_mat(kind := "asphalt") -> ShaderMaterial:
 		# Glassy, frosted: the ice texture, its edge lines, and some sheen.
 		m.set_shader_parameter("detail", load(Palette.TEX_DIR + "ice.png"))
 		m.set_shader_parameter("paint", true)
+		if Palette.preview_pop:
+			m.set_shader_parameter("paint_color", Color("fff1ce"))
 		m.set_shader_parameter("wear", 0.0)
 		m.set_shader_parameter("surf", load(Palette.TEX_DIR + "surf_asphalt.png"))
 		m.set_shader_parameter("surf_n", load(Palette.TEX_DIR + "surf_asphalt_n.png"))
@@ -323,6 +325,10 @@ func _grass_mat(banks: bool) -> ShaderMaterial:
 		m.set_shader_parameter("dry", Color(0.98, 0.97, 0.95))
 		m.set_shader_parameter("detail", load(Palette.TEX_DIR + "ice.png"))
 		m.set_shader_parameter("tile_m", 11.0)
+		if Palette.preview_pop:
+			m.set_shader_parameter("deep", Color("8fafd2"))
+			m.set_shader_parameter("fresh", Color("f6fbff"))
+			m.set_shader_parameter("dry", Color("d4e6f4"))
 	_grass_mats.append(m)
 	if _road_dist:
 		_apply_road_distance(m)
@@ -795,6 +801,8 @@ func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, ind
 	var base: Color = Parts.surface(s)["color"] if tint.a == 0.0 else tint
 	if Palette.preview_pop and s == "asphalt" and tint.a == 0.0:
 		base = Color("45474b")
+	if Palette.preview_pop and s == "ice" and tint.a == 0.0:
+		base = Color("6bbff2")
 	var lift := Vector3.UP * (0.04 + lift_extra)
 	# Road, then a kerb on each side (red and white blocks every 2 m). On the
 	# mine the road is packed earth and stone, edged with timber.

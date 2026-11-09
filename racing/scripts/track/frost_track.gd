@@ -282,7 +282,7 @@ static func _frozen_lake(t: Track) -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = ice_mesh
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.72, 0.88, 0.98)
+	m.albedo_color = Color("99d9f3") if Palette.preview_pop else Color(0.72, 0.88, 0.98)
 	m.albedo_texture = load(Palette.TEX_DIR + "ice.png")
 	m.uv1_triplanar = true
 	m.uv1_world_triplanar = true

@@ -386,6 +386,12 @@ static func rock_material() -> ShaderMaterial:
 	# Snow only on the very top, and a soft blue-white so it isn't glare.
 	m.set_shader_parameter("snow_line", 100.0)
 	m.set_shader_parameter("snow", Color(0.86, 0.9, 0.97))
+	if Palette.preview_pop and Palette.theme == "mine":
+		m.set_shader_parameter("tone_a", Color("bc7150"))
+		m.set_shader_parameter("tone_b", Color("95553e"))
+		m.set_shader_parameter("tone_c", Color("723e32"))
+		m.set_shader_parameter("seam", Color("392b29"))
+		m.set_shader_parameter("gravel", Color("c99758"))
 	return m
 
 

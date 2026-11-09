@@ -31,7 +31,8 @@ var _fps_frames := 0
 
 func _ready() -> void:
 	var preview_query := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else OS.get_environment("KW_QUERY")
-	Palette.preview_pop = not preview_query.contains("palette=classic") and (preview_query.contains("palette=pop") or not (preview_query.contains("track=mine") or preview_query.contains("track=frost")))
+	Palette.theme = "mine" if preview_query.contains("track=mine") else "frost" if preview_query.contains("track=frost") else "meadow"
+	Palette.preview_pop = not preview_query.contains("palette=classic")
 	_build_world()
 	track = Track.new()
 	# (Outside a browser, tools can pass the same flags in KW_QUERY.)
@@ -653,6 +654,13 @@ func _build_world() -> void:
 		env.ambient_light_sky_contribution = 0.12
 		env.fog_light_color = Color("dce9eb")
 		env.fog_density = 0.00055
+		if Palette.theme == "mine":
+			mat.sky_top_color = Color("49bfd5")
+			env.fog_light_color = Color("eddbc1")
+		elif Palette.theme == "frost":
+			mat.sky_top_color = Color("57b9f1")
+			env.fog_light_color = Color("dfeefa")
+			env.fog_density = 0.00065
 	_env = env
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.74, 0.87, 1.0)  # the horizon colour, so distance fades into sky
@@ -669,6 +677,8 @@ func _build_world() -> void:
 	sun.rotation_degrees = Vector3(-52, -35, 0)
 	sun.light_energy = 1.0
 	sun.light_color = Color(1.0, 0.94, 0.82)   # a touch warm, against the cool sky light
+	if Palette.preview_pop and Palette.theme == "frost":
+		sun.light_color = Color("f5faff")
 	sun.light_specular = 1.0
 	# Real shadows only near the camera, so they stay cheap (design doc 9.4).
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL

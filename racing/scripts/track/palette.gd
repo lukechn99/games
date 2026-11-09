@@ -50,6 +50,7 @@ const KIT_TEX := {
 const TEX_DIR := "res://assets/textures/"
 
 static var preview_pop := false
+static var theme := "meadow"
 static var _cache := {}
 static var relief_shaders: Array[ShaderMaterial] = []   # shader materials with a 'relief' strength
 static var _detailed: Array[StandardMaterial3D] = []   # materials with normal maps
@@ -218,10 +219,15 @@ static func restyle(mesh: Mesh) -> Mesh:
 				var tree := ShaderMaterial.new()
 				tree.shader = load("res://shaders/tree.gdshader")
 				tree.set_shader_parameter("preview_pop", preview_pop)
+				tree.set_shader_parameter("preview_green", Color("57924a") if theme == "mine" else Color("174f50") if theme == "frost" else Color("65b936"))
 				_cache["tree_vertex"] = tree
 			out.surface_set_material(i, _cache["tree_vertex"])
 			continue
 		var c: Color = KIT.get(name, (src as BaseMaterial3D).albedo_color if src is BaseMaterial3D else Color.WHITE)
+		if preview_pop and theme == "mine":
+			c = {"wood": Color("9d5f37"), "woodDark": Color("54392a"), "woodInner": Color("d5a46a"), "red": Color("279e9b"), "colorRed": Color("279e9b"), "colorYellow": Color("efb435")}.get(name, c)
+		elif preview_pop and theme == "frost" and name in ["red", "colorRed"]:
+			c = Color("ff873c")
 		if name.begins_with("leafs"):
 			out.surface_set_material(i, leaves(c))
 			continue

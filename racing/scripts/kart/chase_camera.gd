@@ -45,6 +45,12 @@ func follow(kart: Kart) -> void:
 	global_position = _pos
 
 
+## A cinematic already placed this camera. Keep that pose as the spring's
+## starting point instead of teleporting when normal following resumes.
+func resume_from_current_view() -> void:
+	_pos = global_position
+
+
 func add_trauma(amount: float) -> void:
 	trauma = clampf(trauma + amount * Controls.shake_level, 0.0, 1.0)
 	_fov_punch = maxf(_fov_punch, amount * 6.0 * Controls.shake_level)

@@ -56,7 +56,7 @@ for (const r of runs) if (!['meadow', 'mine', 'frost'].includes(r.track) || !['l
 const exported = await ensureExport({ force: flag('--export') })
 const git = (...args) => execFileSync('git', args, { cwd: REPO, encoding: 'utf8' }).trim()
 const artifacts = {}
-for (const file of ['index.pck', 'index.wasm', 'index.js', 'mobile.js', 'tilt.js', 'net.js']) {
+for (const file of ['index.pck', 'index.wasm', 'index.js', 'mobile.js', 'landscape.js', 'tilt.js', 'net.js']) {
   artifacts[file] = createHash('sha256').update(await readFile(join(REPO, 'public/racing', file))).digest('hex')
 }
 const build = { checkout_commit: git('rev-parse', 'HEAD'), checkout_dirty: !!git('status', '--porcelain'), exported_this_run: exported, artifacts }

@@ -709,6 +709,27 @@ strip, whose non-collinear road rows left triangular gaps. Tests probe the
 full driving width of both routes in the polygon and actual colliders,
 alongside the existing tests of bots, ice holes and the underwater exit.
 
+### 14.4 Transition checks
+
+`node racing/tools/bench/transitions.mjs [output-directory]` verifies the
+landscape prompt at phone sizes and captures the animated Frost intro. It checks
+that physical rotation hides the prompt before a delayed iframe layout resize,
+that visible bounds contain the prompt, and that the camera handoff has no jump.
+`?autodrive&intro&introtrace` retains the actual camera samples in
+`window.__introReport`. `?autodrive&introreview` additionally holds the late
+descent poses for screenshots; the capture tool advances them through
+`window.__introHold`. Avoid these review modes during performance measurements.
+
+Native `tests/intro_handoff.gd` exercises the actual scene on all three tracks.
+Terrain clearance must taper to zero **after** its smoothing filter, and the chase
+spring must inherit the cinematic's final pose. Filtering a fading clearance
+request leaves a residual offset that otherwise vanishes in one frame.
+
+Phone orientation UI lives in `web/landscape.js`, independently of sensor access.
+Screen orientation controls prompt visibility; the visible viewport controls its
+size. CSS keeps the canvas fitted during rotation, while Godot owns the backing
+buffer and polls its dimensions. Avoid replaying resize events on fixed timers.
+
 ## 15. Accessibility
 - Colour-blind-safe kart colours, plus a number on each kart.
 - Assists: automatic gas, steering help and auto-drift.

@@ -17,7 +17,7 @@ step() {   # name, command...
   if "$@" >"$log" 2>&1; then
     # Godot may exit zero after a script error before reaching the tests.
     # Match CI: require the final summary and reject script errors too.
-    if [[ $name == game ]] && { ! grep -qE '^[0-9]+ passed, 0 failed' "$log" || grep -q 'SCRIPT ERROR' "$log"; }; then
+    if ! valid_run "$name"; then
       fail=1
       echo "FAIL  $name  (incomplete or errored test run, $((SECONDS - t0)) s)"
       details "$name" | head -40 | sed 's/^/      /'
@@ -31,8 +31,17 @@ step() {   # name, command...
   fi
 }
 
+valid_run() {
+  case $1 in
+    game) grep -qE '^[0-9]+ passed, 0 failed' "$log" && ! grep -q 'SCRIPT ERROR' "$log" ;;
+    intro) grep -q '^intro checks: 0 failures' "$log" && ! grep -q 'SCRIPT ERROR' "$log" ;;
+    *) return 0 ;;
+  esac
+}
+
 summary() {
   case $1 in
+    intro) grep -oE "intro checks: [0-9]+ failures" "$log" | tail -1 ;;
     game) grep -oE '[0-9]+ passed, [0-9]+ failed' "$log" | tail -1 ;;
     vitest) grep -E 'Tests +[0-9]+' "$log" | sed 's/\x1b\[[0-9;]*m//g; s/^ *//' | tail -1 ;;
     *) echo clean ;;
@@ -41,7 +50,7 @@ summary() {
 
 details() {
   case $1 in
-    game) grep -E 'FAIL|SCRIPT ERROR|Parse Error|passed, ' -A1 "$log" ;;
+    game|intro) grep -E 'FAIL|SCRIPT ERROR|Parse Error|passed, |intro checks' -A1 "$log" ;;
     vitest) sed 's/\x1b\[[0-9;]*m//g' "$log" | grep -E 'FAIL|✗|×|Error|expected|Tests ' ;;
     *) cat "$log" ;;
   esac
@@ -49,9 +58,10 @@ details() {
 
 if [[ $what == all || $what == game ]]; then
   step game "$GODOT" --headless --path racing --fixed-fps 60 -s tests/run_tests.gd
+  step intro "$GODOT" --headless --path racing --fixed-fps 60 -s tests/intro_handoff.gd
 fi
 if [[ $what == all || $what == site ]]; then
-	step browser-tools node --test racing/tools/bench/compare.test.mjs racing/web/mobile.test.mjs
+	step browser-tools node --test racing/tools/bench/compare.test.mjs racing/web/mobile.test.mjs racing/web/landscape.test.mjs
   step vitest npx vitest run --reporter=dot
   step types npx tsc --noEmit
   step lint npx eslint --quiet .

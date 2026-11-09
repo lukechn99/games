@@ -82,6 +82,28 @@ reducing pixels by about 19% from this profile's current output. Confirm the
 actual render target and visual readability, then compare repeated matching
 runs; reduced pixel count alone does not prove a frame-time improvement.
 
+## Camera and rotation follow-up (implemented)
+
+- The intro camera retained about 1.9 m of filtered terrain-clearance lift at
+  its endpoint on all three tracks, then `follow()` removed it instantly. Fade
+  clearance after smoothing so it reaches zero smoothly; hand the current pose
+  to the chase spring without teleporting. Native scene checks cover each track.
+- Keep the landscape prompt separate from motion-sensor setup. Hide it on the
+  physical orientation event, even while an iframe still has portrait dimensions;
+  size it from the visible viewport. Canvas CSS follows the viewport immediately
+  while Godot updates its backing buffer on the next engine frame. Remove the
+  old 50/200/500/1000 ms synthetic resize sequence.
+- Validation: 76 game tests, three native intro scenes, eight browser-tool tests,
+  66 site tests, types/lint and rendered browser checks pass. Camera handoff is
+  0.0000 m on all three native tracks and in the Frost web capture. The prompt
+  fits 390 × 844 and 320 × 480 viewports and hides synchronously in the test
+  that rotates the physical screen before the iframe layout catches up.
+- `node racing/tools/bench/transitions.mjs [output-directory]` checks the prompt
+  through mismatched screen/viewport orientations and captures a real Frost
+  descent. `?autodrive&intro&introtrace` exposes the sampled camera path and
+  final handoff distance in `window.__introReport`. Real-phone rotation latency
+  still needs confirmation; browser tests cannot reproduce OS animation timing.
+
 ## Next work, in order
 
 1. **Make benchmark results comparable (foundation implemented).** Record commit, Godot/export version,

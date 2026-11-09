@@ -84,58 +84,10 @@
     function (e) {
       var t = e.changedTouches[0]
       if (t && hit(t.clientX, t.clientY)) ask()
-      keepLandscape()
     },
     true,
   )
 
-  // Landscape only on phones (design doc 10.3). Tilting the phone hard to
-  // steer used to flip the game into portrait. Where the browser allows it
-  // (Android), go full screen and lock to landscape on the first tap; it has
-  // to happen inside a tap. iPhones don't allow locking, so there a "turn
-  // your phone sideways" card covers the game while it's held upright.
-  var triedLock = false
-  function keepLandscape() {
-    if (triedLock || !matchMedia('(pointer: coarse)').matches) return
-    triedLock = true
-    var el = document.documentElement
-    var full = el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : null
-    var lock = function () {
-      if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {})
-    }
-    if (full && full.then) full.then(lock).catch(lock)
-    else lock()
-  }
-  var css = document.createElement('style')
-  css.textContent =
-    '#racing-rotate{display:none;position:fixed;inset:0;z-index:99;background:#171c2e;color:#fff;' +
-    'font:600 20px system-ui,sans-serif;align-items:center;justify-content:center;text-align:center;padding:24px}' +
-    '@media (orientation: portrait) and (pointer: coarse){#racing-rotate{display:flex}}'
-  document.head.appendChild(css)
-  function addCard() {
-    if (document.getElementById('racing-rotate')) return
-    var card = document.createElement('div')
-    card.id = 'racing-rotate'
-    card.innerHTML = '<div><div style="font-size:48px;margin-bottom:12px">↻</div>Turn your phone sideways to race</div>'
-    document.body.appendChild(card)
-  }
-  // Rotating a phone fires "resize" before the new size has settled, so the
-  // game (and its loading screen) could stay the old shape for a while.
-  // Nudge it again as the rotation finishes.
-  function nudge() {
-    ;[50, 200, 500, 1000].forEach(function (ms) {
-      setTimeout(function () {
-        window.dispatchEvent(new Event('resize'))
-      }, ms)
-    })
-  }
-  window.addEventListener('orientationchange', nudge)
-  if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', nudge)
-  if (window.visualViewport) window.visualViewport.addEventListener('resize', function () {
-    window.dispatchEvent(new Event('resize'))
-  })
-  if (document.body) addCard()
-  else document.addEventListener('DOMContentLoaded', addCard)
   document.addEventListener(
     'click',
     function (e) {

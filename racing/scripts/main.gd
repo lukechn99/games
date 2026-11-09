@@ -34,6 +34,8 @@ func _ready() -> void:
 	track = Track.new()
 	# (Outside a browser, tools can pass the same flags in KW_QUERY.)
 	var q0 := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else OS.get_environment("KW_QUERY")
+	_capture_intro = q0.contains("introreview")
+	_trace_intro = q0.contains("introtrace") or _capture_intro
 	if q0.contains("track=mine"):
 		track.layout = "mine"
 	elif q0.contains("track=frost"):
@@ -406,6 +408,11 @@ var _intro_pin := -1.0     # ?introt=T: hold the fly-in at T (0..1), for checkin
 var _intro_from := Vector3.ZERO   # [radius, height, angle] round the map's middle
 var _intro_lift := 0.0     # extra height to clear hills, eased in and out
 var _tour_pos := Vector3.ZERO     # where the aerial tour last put the camera
+var _trace_intro := false
+var _intro_samples: Array = []
+var intro_report := {}
+var _capture_intro := false
+var _intro_capture_index := 0
 
 
 func _begin_intro(seconds := INTRO) -> void:
@@ -420,6 +427,9 @@ func _begin_intro(seconds := INTRO) -> void:
 	var off := _tour_pos - track.map_centre()
 	_intro_from = Vector3(Vector2(off.x, off.z).length(), _tour_pos.y, atan2(off.z, off.x))
 	_intro_lift = 0.0
+	_intro_samples.clear()
+	intro_report.clear()
+	_intro_capture_index = 0
 	camera.set_process(false)
 	hud.visible = false
 	# Standalone: the countdown starts after the fly-in. (Online it's set by
@@ -458,19 +468,36 @@ func _intro(delta: float) -> void:
 	var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(pos + Vector3.UP * 300.0, pos + Vector3.DOWN * 300.0))
 	if not hit.is_empty():
 		need = maxf(0.0, (hit["position"] as Vector3).y + 25.0 - pos.y)
-	need *= 1.0 - smoothstep(0.8, 1.0, t)
 	_intro_lift = need if _intro_pin >= 0.0 else lerpf(_intro_lift, need, 1.0 - exp(-delta * 3.0))
-	pos.y += _intro_lift
+	# Fade AFTER smoothing: filtering an already-faded target leaves residual
+	# height at t=1, which used to disappear in a single frame at follow().
+	pos.y += _intro_lift * (1.0 - smoothstep(0.8, 1.0, t))
 	# Aim: from the middle of the map (where the tour looked) round to the
 	# race camera's view of the road ahead.
 	var look := (mid + Vector3(0, -10, 0)).lerp(rest[1], smoothstep(0.1, 1.0, t))
 	camera.global_position = pos
 	camera.look_at(look, Vector3.UP)
 	camera.fov = lerpf(55.0, ChaseCamera.BASE_FOV, smoothstep(0.5, 1.0, t))
+	if _trace_intro:
+		_intro_samples.append({"t": t, "position": [pos.x, pos.y, pos.z], "rest_distance": pos.distance_to(rest0), "lift": pos.y - height})
+		if OS.has_feature("web"):
+			JavaScriptBridge.eval("window.__introProgress = %f" % t, true)
+			# Hold the actual animated pose for screenshots; a slow browser can
+			# otherwise advance beyond the requested frame before capture runs.
+			var stops := [0.85, 0.92, 0.96, 1.0]
+			if _capture_intro and _intro_capture_index < stops.size() and t >= stops[_intro_capture_index]:
+				JavaScriptBridge.eval("window.__introFrame = {index:%d,t:%f}; window.__introHold = true" % [_intro_capture_index, t], true)
+				_intro_capture_index += 1
 	if _intro_left <= 0.0:
-		camera.follow(camera.target)
+		var before_handoff := camera.global_transform
+		camera.resume_from_current_view()
 		camera.set_process(true)
 		hud.visible = true
+		if _trace_intro:
+			intro_report = {"track": track.layout, "handoff_jump_m": before_handoff.origin.distance_to(camera.global_position), "samples": _intro_samples}
+			print("[intro] %s handoff %.6f m" % [track.layout, intro_report.handoff_jump_m])
+			if OS.has_feature("web"):
+				JavaScriptBridge.eval("window.__introReport = " + JSON.stringify(intro_report), true)
 
 
 ## Races begin with everyone picking a kart and tapping Ready (design doc 4).
@@ -790,6 +817,8 @@ func _set_bots_enabled(on: bool) -> void:
 
 
 func _process(delta: float) -> void:
+	if _capture_intro and OS.has_feature("web") and bool(JavaScriptBridge.eval("window.__introHold === true", true)):
+		return
 	if _in_lobby:
 		_fly_over(delta)
 		return

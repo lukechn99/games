@@ -851,6 +851,7 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - A flipped kart recovers, and every chassis stays upright through a flat-out slalom.
 - Tilt maps to steering correctly.
 - Bots of every level lap the test track at racing pace.
+- Offline moving hazards advance on physics time, so fixed-step runs reproduce their positions regardless of loading time or CPU speed. Online snowballs retain the shared host clock. Frost tests verify the offline clock advances exactly six physics ticks, alongside full bot laps.
 - A rear-end bump shoves a kart without spinning it, and a full pack laps the hilly, banked track with no spins.
 - Hitting a boulder at speed doesn't launch the kart, and a kart under the road is put back on it.
 - Bots use both routes where the road splits.

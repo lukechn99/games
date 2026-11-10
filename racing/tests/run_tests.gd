@@ -744,6 +744,13 @@ func _test_frost() -> void:
 	track.layout = "frost"
 	_world.add_child(track)
 	await physics_frame
+	var rollers: FrostTrack.Rollers
+	for child in track.get_children():
+		if child is FrostTrack.Rollers:
+			rollers = child
+	var clock_before := rollers._clock()
+	await _ticks(6)
+	check(is_equal_approx(rollers._clock() - clock_before, 0.1), "offline snowballs advance on physics time, independent of runner speed")
 	var merge_smooth := true
 	var merge_d := track._flat_to - 2.0
 	while merge_d < track._flat_to + 62.0:

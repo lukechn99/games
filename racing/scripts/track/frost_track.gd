@@ -620,7 +620,8 @@ class Holes extends Node:
 
 
 ## Giant snowballs rolling down across the road on the descent, one after
-## another. They run on the race clock (the host's, online), so every phone
+## another. Offline they advance with physics, not machine/loading time.
+## Online they use the host clock, so every phone
 ## sees them in the same place. One knocks you sideways.
 class Rollers extends Node3D:
 	const RADIUS := 2.1
@@ -629,6 +630,7 @@ class Rollers extends Node3D:
 	const PERIOD := 7.5
 	var track: Track
 	var _balls: Array[Dictionary] = []
+	var _elapsed := 0.0
 	var _karts: Array = []
 	var _find := 0.0
 
@@ -660,13 +662,14 @@ class Rollers extends Node3D:
 		var net := get_node_or_null("/root/Net")
 		if net and net.active:
 			return net.host_now()
-		return Time.get_ticks_msec() / 1000.0
+		return _elapsed
 
 	func _physics_process(delta: float) -> void:
 		_find -= delta
 		if _find <= 0.0:
 			_find = 2.0
 			_karts = get_tree().root.find_children("*", "Kart", true, false)
+		_elapsed += delta
 		var now := _clock()
 		for b in _balls:
 			var t := fposmod(now + float(b["phase"]), PERIOD)

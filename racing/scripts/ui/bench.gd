@@ -11,7 +11,10 @@ extends Node
 
 const SPOTS := 4          # draw breakdowns taken during the run
 
+signal completed(result: Dictionary)
+
 var race: Node            # main.gd
+var publish_result := true  # QualityBench combines samples into one report.
 var seconds := 30.0
 var wall_limit := 120.0   # real seconds after the green light; slow machines stop early ("partial")
 
@@ -48,6 +51,7 @@ var _startup_ms := 0.0
 func _ready() -> void:
 	set_process(true)
 	_label = Label.new()
+	_label.visible = publish_result
 	_label.add_theme_font_size_override("font_size", 13)
 	_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_label.add_theme_constant_override("outline_size", 4)
@@ -266,13 +270,15 @@ func _finish() -> void:
 		"sources": src.slice(0, 25),
 	}
 	var json := JSON.stringify(out)
-	print("[bench] ", json)
-	if OS.has_feature("web"):
+	if publish_result:
+		print("[bench] ", json)
+	if publish_result and OS.has_feature("web"):
 		JavaScriptBridge.eval("window.__bench = " + json + ";", true)
 	_label.text = "bench %s %s: %.1f wall fps (p95 %.0f ms, p99 %.0f ms)\n%d draws, %dk tris, process %.1f ms, physics %.1f ms, %d completed laps\n%s" % [
 		out.track, out.quality, wall_stats.fps, wall_stats.p95, wall_stats.p99,
 		out.draws, out.tris_k, out.process_ms, out.physics_ms, out.player_completed_laps,
 		"INVALID: interrupted, resized or quality changed" if not out.valid else "PARTIAL run" if out.partial else "Complete sample"]
+	completed.emit(out)
 
 
 func _interruptions() -> int:

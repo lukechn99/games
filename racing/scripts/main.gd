@@ -102,7 +102,7 @@ func _ready() -> void:
 			_intro_pin = float(q.split("introt=")[1].split("&")[0])
 		if q.contains("bench"):
 			# Measure the race (tools/bench): ?bench or ?bench=SECONDS.
-			var bench := Bench.new()
+			var bench: Node = QualityBench.new() if q.contains("benchqualities") else Bench.new()
 			bench.race = self
 			if q.contains("bench="):
 				bench.seconds = clampf(float(q.split("bench=")[1].split("&")[0]), 1.0, 300.0)

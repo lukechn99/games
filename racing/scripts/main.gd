@@ -280,10 +280,13 @@ func _report_finish(k: Kart) -> void:
 	if _reported.has(id):
 		return
 	_reported[id] = true
-	if k == _by_id.get(Net.me):
-		Net.act({"type": "finish", "time": k.race_time})
-	else:
-		Net.act({"type": "finish", "time": k.race_time, "who": id})
+	var action := {"type": "finish", "time": k.race_time}
+	var splits := lap_times(k)
+	if splits.size() == track.laps:
+		action["laps"] = splits
+	if k != _by_id.get(Net.me):
+		action["who"] = id
+	Net.act(action)
 
 
 func _show_results(_st: Dictionary) -> void:
@@ -341,6 +344,7 @@ func _refresh_results() -> void:
 	# A Grand Prix: the standings so far, once the room has added up the race.
 	var cup_rows := []
 	var cup_title := ""
+	var cup_summary := {}
 	var again_label := "Race again"
 	var cup: Variant = _state.get("cup") if Net.active else null
 	if cup is Dictionary:
@@ -353,17 +357,18 @@ func _refresh_results() -> void:
 		if _done:
 			var pts: Dictionary = cup["points"]
 			var got: Dictionary = cup.get("last", {})
-			var ids := pts.keys()
-			ids.sort_custom(func(a, b): return int(pts[a]) > int(pts[b]))
+			var ids := GrandPrixSummary.ranked_ids(pts)
 			for i in ids.size():
 				var id: String = ids[i]
 				cup_rows.append([i + 1, "You" if id == Net.me else Net.name_of(id), int(pts[id]), int(got.get(id, 0)), id == Net.me])
+			if last_race:
+				cup_summary = GrandPrixSummary.build(cup, Net.me, Net.name_of)
 	if Net.active:
 		if not _done:
 			note = "Waiting for the others to finish…"
 		elif not Net.is_host:
 			note = "The host starts the next race." if again_label == "Next race" else "The host can start another race."
-	results.show_results(place_of(player_kart), lap_times(player_kart), rows, again, note, cup_title, cup_rows, again_label)
+	results.show_results(place_of(player_kart), lap_times(player_kart), rows, again, note, cup_title, cup_rows, again_label, cup_summary)
 	hud.touch.visible = false
 
 

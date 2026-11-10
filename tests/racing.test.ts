@@ -66,6 +66,15 @@ describe('racing rules', () => {
     expect(racing.tick!(s, ctx(41000)).phase).toBe('done')
   })
 
+  it('validates optional lap timing without breaking older clients', () => {
+    let s = setup(['a'])
+    s = ok(racing.action(s, 'a', { type: 'ready' }, ctx()))
+    for (const laps of [[20, 20], [20, 20, -1], [20, 20, NaN], [20, 20, 30]]) {
+      expect('error' in racing.action(s, 'a', { type: 'finish', time: 60, laps }, ctx())).toBe(true)
+    }
+    expect(ok(racing.action(s, 'a', { type: 'finish', time: 60 }, ctx())).finish.a).toBe(60)
+  })
+
   it('computer drivers pick a kart and get ready', () => {
     let s = setup(['h', 'bot'])
     const a1 = racing.bot!(racing.view(s, 'bot'), ctx(), 'easy', 0)
@@ -80,13 +89,15 @@ describe('racing rules', () => {
     s = ok(racing.action(s, 'a', { type: 'pick', chassis: 'racer', tires: 'knobby', driver: 'deer' }, ctx()))
     const race = (st: RacingState, times: Record<string, number>) => {
       for (const id of ['a', 'b', 'c']) st = ok(racing.action(st, id, { type: 'ready' }, ctx()))
-      for (const [id, t] of Object.entries(times)) st = ok(racing.action(st, id, { type: 'finish', time: t }, ctx(5000)))
+      for (const [id, t] of Object.entries(times)) st = ok(racing.action(st, id, { type: 'finish', time: t, laps: [t / 3, t / 3, t / 3] }, ctx(5000)))
       return st.phase === 'done' ? st : racing.tick!(st, ctx(60000))
     }
     // Race 1: c, a, b.
     s = race(s, { c: 60, a: 61, b: 62 })
     expect(s.phase).toBe('done')
     expect(s.cup!.points).toEqual({ c: 15, a: 12, b: 10 })
+    const meadowResult = structuredClone(s.cup!.results[0]!)
+    expect(meadowResult).toMatchObject({ track: 'meadow', finish: { c: 60, a: 61, b: 62 }, places: { c: 1, a: 2, b: 3 }, points: { c: 15, a: 12, b: 10 } })
     expect(racing.isOver!(s)).toBe(false)
     expect('error' in racing.action(s, 'a', { type: 'track', id: 'mine' }, ctx())).toBe(true)
     s = ok(racing.action(s, 'b', { type: 'next' }, ctx()))
@@ -96,10 +107,18 @@ describe('racing rules', () => {
     s = race(s, { a: 70, c: 75 })
     expect(s.cup!.points).toEqual({ c: 27, a: 27, b: 10 })
     expect(s.cup!.last).toEqual({ a: 15, c: 12, b: 0 })
+    expect(s.cup!.results[0]).toEqual(meadowResult)
+    expect(s.cup!.results[1]).toMatchObject({ track: 'mine', finish: { a: 70, c: 75 }, places: { a: 1, c: 2 }, points: { a: 15, c: 12, b: 0 } })
+    expect(s.cup!.results[1]!.finish.b).toBeUndefined()
+    expect(s.cup!.results[1]!.laps.b).toBeUndefined()
     s = ok(racing.action(s, 'a', { type: 'next' }, ctx()))
     expect(s.track).toBe('frost')
     s = race(s, { b: 50, a: 51, c: 52 })
     expect(s.cup!.points).toEqual({ a: 39, c: 37, b: 25 })
+    expect(s.cup!.results.map(r => r.track)).toEqual(['meadow', 'mine', 'frost'])
+    expect(s.cup!.results[0]).toEqual(meadowResult)
+    expect(s.cup!.results[2]!.laps.a).toEqual([17, 17, 17])
+    expect(racing.tick!(s, ctx(999999)).cup!.results).toHaveLength(3)
     expect(racing.isOver!(s)).toBe(true)
     expect('error' in racing.action(s, 'a', { type: 'next' }, ctx())).toBe(true)
   })

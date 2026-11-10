@@ -23,6 +23,9 @@ var _note: Label
 var _body: BoxContainer
 var _cup_title: Label
 var _cup: VBoxContainer
+var _history_scroll: ScrollContainer
+var _history: GridContainer
+var _last_summary := {}
 
 
 func _ready() -> void:
@@ -70,6 +73,14 @@ func _ready() -> void:
 	_cup_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_cup = VBoxContainer.new()
 	v.add_child(_cup)
+	_history_scroll = ScrollContainer.new()
+	_history_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(_history_scroll)
+	_history = GridContainer.new()
+	_history.add_theme_constant_override("h_separation", 18)
+	_history.add_theme_constant_override("v_separation", 12)
+	_history_scroll.add_child(_history)
+	_history_scroll.visible = false
 	_again = Button.new()
 	_again.text = "Race again"
 	_again.custom_minimum_size = Vector2(0, 50)
@@ -104,7 +115,7 @@ static func clock(t: float) -> String:
 ## goes under it.
 ## cup_title / cup_rows: a Grand Prix's standings, rows [place, name,
 ## points, points this race, is_you]; empty for a single race.
-func show_results(place: int, laps: Array, rows: Array, can_again: bool, note: String, cup_title := "", cup_rows: Array = [], again_label := "Race again") -> void:
+func show_results(place: int, laps: Array, rows: Array, can_again: bool, note: String, cup_title := "", cup_rows: Array = [], again_label := "Race again", cup_summary: Dictionary = {}) -> void:
 	visible = true
 	_title.text = "%d%s place!" % [place, _ordinal(place)]
 	_title.add_theme_color_override("font_color", [GOLD, SILVER, BRONZE][place - 1] if place <= 3 else Color.WHITE)
@@ -145,6 +156,54 @@ func show_results(place: int, laps: Array, rows: Array, can_again: bool, note: S
 	_again.visible = can_again
 	_note.text = note
 	_note.visible = note != ""
+	_history_scroll.visible = not cup_summary.is_empty()
+	_body.visible = cup_summary.is_empty()
+	if not cup_summary.is_empty():
+		_cup.visible = false
+		_show_cup_summary(cup_summary)
+
+
+func _show_cup_summary(summary: Dictionary) -> void:
+	# The race refreshes results while waiting for other finishers. Keep the
+	# final table's controls and scroll position when its data is unchanged.
+	for row in summary.get("rows", []):
+		if bool(row.you):
+			var place := int(row.place)
+			_title.text = "%d%s in the Grand Prix!" % [place, _ordinal(place)]
+			_title.add_theme_color_override("font_color", [GOLD, SILVER, BRONZE][place - 1] if place <= 3 else Color.WHITE)
+			_total.text = "%d points across %d tracks" % [int(row.points), (summary.get("headers", []) as Array).size()]
+	if summary == _last_summary:
+		return
+	_last_summary = summary.duplicate(true)
+	_history_scroll.scroll_vertical = 0
+	for child in _history.get_children():
+		_history.remove_child(child)
+		child.queue_free()
+	var headers: Array = summary.get("headers", [])
+	_history.columns = headers.size() + 2
+	_history_cell("Racer", MUTED)
+	for header in headers:
+		_history_cell(str(header), MUTED)
+	_history_cell("Grand total", GOLD)
+	for row in summary.get("rows", []):
+		var color := GOLD if bool(row.you) else Color.WHITE
+		_history_cell("%d. %s" % [int(row.place), str(row.name)], color)
+		for cell in row.tracks:
+			var text := "Unavailable"
+			if bool(cell.available):
+				text = "%d%s · %d pts\n%s" % [int(cell.place), _ordinal(int(cell.place)), int(cell.points), clock(float(cell.time))] if float(cell.time) >= 0.0 else "DNF · 0 pts\n—"
+				if float(cell.best) > 0.0:
+					text += "\nbest " + clock(float(cell.best))
+			_history_cell(text, color)
+		var total := "%d pts\n" % int(row.points)
+		total += "History incomplete" if int(row.known) < headers.size() else clock(float(row.total_time)) if float(row.total_time) >= 0.0 else "%d/%d finished" % [int(row.finished), headers.size()]
+		_history_cell(total, color)
+
+
+func _history_cell(text: String, color: Color) -> void:
+	var cell := _label(_history, 18, color)
+	cell.text = text
+	cell.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 
 func hide_results() -> void:
@@ -172,6 +231,8 @@ func _process(_delta: float) -> void:
 	var vs := get_viewport().get_visible_rect().size
 	_dim.position = Vector2.ZERO
 	_dim.size = vs
+	if _history_scroll.visible:
+		_history_scroll.custom_minimum_size.y = minf(_history.get_combined_minimum_size().y, maxf(120.0, vs.y - 250.0))
 	# Side by side when there's room, else stacked (a phone held upright).
 	var want_v := vs.x < 560.0
 	if want_v != (_body is VBoxContainer):

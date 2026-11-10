@@ -1,0 +1,194 @@
+{
+  "format": "phone_screenshot_summary_v1",
+  "source": "User-provided screenshots; manually transcribed, not raw benchmark JSON",
+  "device": "iPhone 15 Pro",
+  "browser": "Safari (visible in screenshots)",
+  "ios_version": null,
+  "expected_deployed_commit": "568352cf58b26d8e47e2254fc6e6cddb088f6e8d",
+  "viewport_and_render_size": null,
+  "repeat_count_per_track": 1,
+  "notes": [
+    "All screens report complete fixed-route runs.",
+    "Thermal state, exact browser version and raw frame intervals were not recorded.",
+    "This is a human-readable hardware reference, not an automatic benchmark baseline."
+  ],
+  "tracks": {
+    "meadow": {
+      "route": "cave",
+      "samples": [
+        {
+          "lap": 1,
+          "half": 1,
+          "quality": "low",
+          "fps": 59.9,
+          "p95_ms": 18,
+          "p99_ms": 18,
+          "draws": 252
+        },
+        {
+          "lap": 1,
+          "half": 2,
+          "quality": "medium",
+          "fps": 56.0,
+          "p95_ms": 29,
+          "p99_ms": 31,
+          "draws": 284
+        },
+        {
+          "lap": 2,
+          "half": 1,
+          "quality": "high",
+          "fps": 35.5,
+          "p95_ms": 31,
+          "p99_ms": 33,
+          "draws": 275
+        },
+        {
+          "lap": 2,
+          "half": 2,
+          "quality": "high",
+          "fps": 32.3,
+          "p95_ms": 37,
+          "p99_ms": 39,
+          "draws": 293
+        },
+        {
+          "lap": 3,
+          "half": 1,
+          "quality": "medium",
+          "fps": 43.5,
+          "p95_ms": 26,
+          "p99_ms": 27,
+          "draws": 276
+        },
+        {
+          "lap": 3,
+          "half": 2,
+          "quality": "low",
+          "fps": 56.6,
+          "p95_ms": 21,
+          "p99_ms": 22,
+          "draws": 273
+        }
+      ]
+    },
+    "mine": {
+      "route": "tunnel",
+      "samples": [
+        {
+          "lap": 1,
+          "half": 1,
+          "quality": "low",
+          "fps": 59.8,
+          "p95_ms": 18,
+          "p99_ms": 18,
+          "draws": 294
+        },
+        {
+          "lap": 1,
+          "half": 2,
+          "quality": "medium",
+          "fps": 55.3,
+          "p95_ms": 24,
+          "p99_ms": 25,
+          "draws": 387
+        },
+        {
+          "lap": 2,
+          "half": 1,
+          "quality": "high",
+          "fps": 36.8,
+          "p95_ms": 34,
+          "p99_ms": 35,
+          "draws": 288
+        },
+        {
+          "lap": 2,
+          "half": 2,
+          "quality": "high",
+          "fps": 35.9,
+          "p95_ms": 37,
+          "p99_ms": 38,
+          "draws": 358
+        },
+        {
+          "lap": 3,
+          "half": 1,
+          "quality": "medium",
+          "fps": 44.3,
+          "p95_ms": 27,
+          "p99_ms": 29,
+          "draws": 299
+        },
+        {
+          "lap": 3,
+          "half": 2,
+          "quality": "low",
+          "fps": 56.2,
+          "p95_ms": 22,
+          "p99_ms": 23,
+          "draws": 368
+        }
+      ]
+    },
+    "frost": {
+      "route": "underwater",
+      "samples": [
+        {
+          "lap": 1,
+          "half": 1,
+          "quality": "low",
+          "fps": 59.8,
+          "p95_ms": 18,
+          "p99_ms": 18,
+          "draws": 254
+        },
+        {
+          "lap": 1,
+          "half": 2,
+          "quality": "medium",
+          "fps": 60.0,
+          "p95_ms": 18,
+          "p99_ms": 19,
+          "draws": 299
+        },
+        {
+          "lap": 2,
+          "half": 1,
+          "quality": "high",
+          "fps": 56.1,
+          "p95_ms": 22,
+          "p99_ms": 23,
+          "draws": 280
+        },
+        {
+          "lap": 2,
+          "half": 2,
+          "quality": "high",
+          "fps": 46.9,
+          "p95_ms": 25,
+          "p99_ms": 26,
+          "draws": 313
+        },
+        {
+          "lap": 3,
+          "half": 1,
+          "quality": "medium",
+          "fps": 59.3,
+          "p95_ms": 19,
+          "p99_ms": 19,
+          "draws": 258
+        },
+        {
+          "lap": 3,
+          "half": 2,
+          "quality": "low",
+          "fps": 60.0,
+          "p95_ms": 18,
+          "p99_ms": 19,
+          "draws": 280
+        }
+      ]
+    }
+  }
+}

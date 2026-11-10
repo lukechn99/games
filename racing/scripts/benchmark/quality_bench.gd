@@ -37,7 +37,7 @@ func _ready() -> void:
 	layer.layer = 9
 	add_child(layer)
 	layer.add_child(_label)
-	Controls.set_quality(Controls.Quality.LOW, false)
+	_apply_phase(0)
 
 
 func _process(_delta: float) -> void:
@@ -54,7 +54,7 @@ func _process(_delta: float) -> void:
 			_fail("viewport resized")
 		if _interruptions() != _interruptions_start:
 			_fail("run interrupted")
-		if Controls.quality != ORDER[_phase]:
+		if Controls.quality != _quality_for_phase(_phase):
 			_fail("quality changed outside the schedule")
 	if next != _phase:
 		if next != _phase + 1:
@@ -73,7 +73,7 @@ func _process(_delta: float) -> void:
 		if _phase == 0:
 			_interruptions_start = _interruptions()
 			_viewport_start = get_viewport().size
-		Controls.set_quality(ORDER[_phase], false)
+		_apply_phase(_phase)
 	if not route.errors.is_empty():
 		_fail(route.errors[0])
 	if not _errors.is_empty():
@@ -91,11 +91,12 @@ func _process(_delta: float) -> void:
 		_sample.completed.connect(_on_sample_completed)
 		add_child(_sample)
 	_label.text = _summary() + "\nLap %d half %d: %s (%s)" % [_phase / 2 + 1, _phase % 2 + 1,
-		["Low", "Medium", "High"][ORDER[_phase]], "settling" if _sample == null else "sampling"]
+		_phase_label(_phase), "settling" if _sample == null else "sampling"]
 
 
 func _on_sample_completed(result: Dictionary) -> void:
-	result["sampling_mode"] = "track_halves"
+	result["sampling_mode"] = _mode()
+	result["feature_profile"] = _phase_label(_phase)
 	result["route"] = route.route_name
 	result["lap"] = _phase / 2 + 1
 	result["half"] = _phase % 2 + 1
@@ -111,6 +112,8 @@ func _on_sample_completed(result: Dictionary) -> void:
 	_sample = null
 	if result.partial:
 		_fail("half-track sample timed out")
+	elif not result.valid:
+		_fail("sample rendering settings changed" if result.get("render_config_changed", false) else "sample interrupted or resized")
 
 
 func _finish() -> void:
@@ -122,8 +125,11 @@ func _finish() -> void:
 		if not route.valid_lap(lap):
 			_fail("lap %d did not complete the required route" % lap)
 	var valid := _errors.is_empty() and route.errors.is_empty() and _results.size() == 6 and _results.all(func(r): return r.valid and not r.partial)
-	var out := {"schema": 4, "mode": "track_halves", "track": context.track.layout,
-		"order": ["low", "medium", "high", "high", "medium", "low"],
+	var order: Array[String] = []
+	for i in 6:
+		order.append(_phase_label(i))
+	var out := {"schema": 4, "mode": _mode(), "track": context.track.layout,
+		"order": order,
 		"settle_distance_m": settle_distance_m, "valid": valid, "partial": _results.size() != 6,
 		"route": route.route_name, "route_evidence": route.evidence, "errors": _errors + route.errors,
 		"results": _results}
@@ -136,12 +142,36 @@ func _finish() -> void:
 
 
 func _summary() -> String:
-	var text := "bench %s — three laps, fixed %s route" % [context.track.layout, route.route_name]
+	var text := "bench %s — %s, fixed %s route" % [context.track.layout, _report_name(), route.route_name]
 	for r in _results:
-		text += "\nLap %d half %d %s: %.1f fps | p95 %.0f, p99 %.0f ms | %d draws" % [
-			r.lap, r.half, String(r.quality).capitalize(), r.wall_frame_stats.fps,
-			r.wall_frame_stats.p95, r.wall_frame_stats.p99, r.draws]
+		text += "\n" + _result_line(r)
 	return text
+
+
+func _quality_for_phase(index: int) -> int:
+	return ORDER[index]
+
+
+func _apply_phase(index: int) -> void:
+	Controls.set_quality(_quality_for_phase(index) as Controls.Quality, false)
+
+
+func _phase_label(index: int) -> String:
+	return ["low", "medium", "high"][_quality_for_phase(index)]
+
+
+func _mode() -> String:
+	return "track_halves"
+
+
+func _report_name() -> String:
+	return "three laps"
+
+
+func _result_line(r: Dictionary) -> String:
+	return "Lap %d half %d %s: %.1f fps | p95 %.0f, p99 %.0f ms | %d draws" % [
+		r.lap, r.half, String(r.quality).capitalize(), r.wall_frame_stats.fps,
+		r.wall_frame_stats.p95, r.wall_frame_stats.p99, r.draws]
 
 
 func _fail(reason: String) -> void:

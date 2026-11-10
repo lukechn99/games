@@ -9,9 +9,9 @@ static func attach(race: Node, query: String) -> bool:
 	for item in query.trim_prefix("?").split("&"):
 		var pair := item.split("=", true, 1)
 		params[pair[0]] = pair[1] if pair.size() > 1 else ""
-	if not params.has("bench") and not params.has("benchqualities") and not params.has("benchhalves"):
+	if not params.has("bench") and not params.has("benchqualities") and not params.has("benchhalves") and not params.has("benchmedium"):
 		return false
-	var halves := params.has("benchqualities") or params.has("benchhalves")
+	var halves := params.has("benchqualities") or params.has("benchhalves") or params.has("benchmedium")
 	var context := BenchmarkContext.new(race, race.track, race.player_kart, race.karts, func(): return race.get("_racing"))
 	if halves:
 		# Keep all rivals on the same route too, preserving their builds/levels.
@@ -29,7 +29,7 @@ static func attach(race: Node, query: String) -> bool:
 		var driver := BenchmarkDriver.new(race.player_kart, race.track, "hard", 99)
 		driver.record_route = true
 		race.add_child(driver)
-		var bench := QualityBench.new()
+		var bench: QualityBench = MediumBench.new() if params.has("benchmedium") else QualityBench.new()
 		bench.context = context
 		bench.route = driver.route
 		race.add_child(bench)

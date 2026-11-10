@@ -31,3 +31,8 @@ test('half-track comparisons require identical route and measured bounds', () =>
   assert.ok(incompatibilities({ ...half, route: 'bridge' }, half).includes('route differs'))
   assert.ok(incompatibilities({ ...half, measured_from_m: 60 }, half).includes('measured_from_m differs'))
 })
+
+test('different Medium feature profiles and AA modes are not regression baselines', () => {
+  assert.ok(incompatibilities({ ...run(), feature_profile: 'Medium AA off' }, { ...run(), feature_profile: 'Medium base' }).includes('feature_profile differs'))
+  assert.ok(incompatibilities({ ...run(), msaa_samples: 0 }, { ...run(), msaa_samples: 2 }).includes('msaa_samples differs'))
+})

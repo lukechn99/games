@@ -306,3 +306,22 @@ preserved. Classic palette comparisons remain available through `palette=classic
 Phone comparisons now use three full laps, split at half the canonical racing-line distance. The schedule is Low/Medium, High/High, Medium/Low; every quality covers both halves once. Each half excludes the same first 50 m, then records its own FPS, frame-time percentiles, draw calls and route progress. Required routes are Meadow cave, Mine tunnel and Frost underwater through hole index 1, validated on all three player laps. This replaces the earlier six timed windows. Use `?autodrive&benchqualities&quality=low`, adding `track=mine` or `track=frost`.
 
 The isolated `scripts/benchmark/` module adapts the race through `BenchmarkContext`; no route/quality test policy is embedded in kart physics or track assets. Real-route integration tests and normal gameplay regression tests run on every deployment. Moving traffic and physics remain live, so route-matched halves improve coverage without claiming exact replay equivalence or proving phone performance gains.
+
+## iPhone 15 Pro: Medium at 60 FPS
+
+Current single-run phone reference: Medium halves 1/2 are Meadow 43.5/56.0 FPS,
+Mine 44.3/55.3, Frost 59.3/60.0. Original screenshots are transcribed in
+`benchmarks/iphone-15-pro-reference.json`; browser/OS versions, raw frame data
+and thermal state were unavailable. No FPS improvement has been established yet.
+
+Next measurement: `?autodrive&benchmedium&quality=low` (plus `track=mine` or
+`track=frost`). This tests normal Medium, Medium without MSAA, and Medium with
+a 900k 3D-pixel cap, each on both fixed-route halves with balanced ordering.
+The cap keeps MSAA; the AA-off case keeps normal resolution. Other Medium
+features stay enabled. Read feature labels, FPS/p95/p99 and actual requested
+AA/estimated pixel counts before choosing a default change. Normal presets
+and the existing three-quality comparison are unaffected.
+
+A masked terrain-noise optimization was investigated and set aside: held-view
+software measurements were too inconsistent to establish a win. Shader edits
+were reverted rather than attributing a phone improvement to unverified work.

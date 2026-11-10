@@ -11,7 +11,7 @@ export function incompatibilities(x, baseline) {
   for (const [field, legacy] of [['duration_clock', 'simulation'], ['sampling_mode', 'single_quality']]) {
     if ((x[field] || legacy) !== (baseline[field] || legacy)) reasons.push(`${field} differs`)
   }
-  for (const field of ['track', 'quality', 'route', 'segment_from_m', 'segment_to_m', 'measured_from_m', 'requested_seconds', 'godot_version', 'kart_count', 'control_mode', 'seeds', 'viewport_size', 'scale_3d', 'browser', 'browser_version', 'runner']) {
+  for (const field of ['track', 'quality', 'feature_profile', 'msaa_samples', 'route', 'segment_from_m', 'segment_to_m', 'measured_from_m', 'requested_seconds', 'godot_version', 'kart_count', 'control_mode', 'seeds', 'viewport_size', 'scale_3d', 'browser', 'browser_version', 'runner']) {
     if (JSON.stringify(x[field]) !== JSON.stringify(baseline[field])) reasons.push(`${field} differs`)
   }
   const xs = [x.start_progress, ...x.progress_samples, x.end_progress]

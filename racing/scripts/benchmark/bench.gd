@@ -51,6 +51,9 @@ var _viewport_start := Vector2i.ZERO
 var _resized := false
 var _quality_start := ""
 var _startup_ms := 0.0
+var _scale_start := 1.0
+var _msaa_start := Viewport.MSAA_DISABLED
+var _render_config_changed := false
 
 
 func _ready() -> void:
@@ -79,6 +82,8 @@ func _process(delta: float) -> void:
 		_start_progress = _player_progress()
 		_viewport_start = get_viewport().size
 		_quality_start = Controls.quality_name().to_lower()
+		_scale_start = get_viewport().scaling_3d_scale
+		_msaa_start = get_viewport().msaa_3d
 		if OS.has_feature("web"):
 			_startup_ms = float(JavaScriptBridge.eval("window.__benchStartedAt = performance.now()", true))
 		for k: Kart in context.karts:
@@ -91,6 +96,7 @@ func _process(delta: float) -> void:
 		_wall_frames.append((now_us - _last_frame_us) / 1000.0)
 	_last_frame_us = now_us
 	_resized = _resized or get_viewport().size != _viewport_start
+	_render_config_changed = _render_config_changed or get_viewport().msaa_3d != _msaa_start or not is_equal_approx(get_viewport().scaling_3d_scale, _scale_start)
 	_t += delta
 	_frames += 1
 	var p := Performance
@@ -251,13 +257,15 @@ func _finish() -> void:
 		"duration_clock": "track_half" if external_window else "wall" if use_wall_duration else "simulation",
 		"startup_to_green_ms": _startup_ms,
 		"requested_seconds": seconds,
-		"valid": _interruptions() == _interruptions_start and not _resized and _quality_start == Controls.quality_name().to_lower(),
+		"valid": _interruptions() == _interruptions_start and not _resized and not _render_config_changed and _quality_start == Controls.quality_name().to_lower(),
+		"render_config_changed": _render_config_changed,
 		"interruptions": _interruptions() - _interruptions_start,
 		"resized": _resized,
 		"godot_version": Engine.get_version_info()["string"],
 		"browser": browser_info,
 		"viewport_size": [vp.size.x, vp.size.y],
 		"scale_3d": vp.scaling_3d_scale,
+		"msaa_samples": [0, 2, 4, 8][vp.msaa_3d],
 		"render_size_estimate": [int(vp.size.x * vp.scaling_3d_scale), int(vp.size.y * vp.scaling_3d_scale)],
 		"kart_count": context.karts.size(),
 		"control_mode": "autodrive",

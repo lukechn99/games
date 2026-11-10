@@ -704,6 +704,41 @@ Every change is checked with two commands whose output is a few lines, so checki
 
 - First baseline finding: wheels were about half of all draw calls (each wheel is several separate meshes, on every kart).
 
+#### Medium target on iPhone 15 Pro
+
+The user screenshots for the first fixed-route build are transcribed in
+[`benchmarks/iphone-15-pro-reference.json`](benchmarks/iphone-15-pro-reference.json).
+They are human-readable summaries, not raw benchmark baselines. Medium measured
+43.5/56.0 FPS on Meadow halves 1/2, 44.3/55.3 on Mine, and 59.3/60.0 on Frost.
+Target sustained near-60 FPS on both halves; confirm changes with real phone runs.
+
+`?autodrive&benchmedium&quality=low` runs a controlled Medium feature comparison:
+
+| Lap | Half 1 | Half 2 |
+|---|---|---|
+| 1 | Normal Medium | Medium, MSAA off |
+| 2 | Medium, 900k pixel cap | Medium, 900k pixel cap |
+| 3 | Medium, MSAA off | Normal Medium |
+
+All six phases select actual Medium first through the normal quality signal,
+then override only MSAA or the 3D pixel cap. Shading, relief, kart shadows,
+scenery distance and full-resolution UI remain Medium. The 900k cap retains
+Medium's normal MSAA and never increases rendering resolution on smaller
+viewports. Fixed routes, 50-m settling prefixes, invalidation rules and the
+three-lap schedule are shared with the normal quality controller. Results use
+`mode: medium_ablation` and include feature labels, requested AA samples and
+estimated rendered pixels; baseline comparisons reject feature/AA mismatches.
+Mid-sample AA or resolution changes invalidate a window even when the quality enum remains Medium. These experiments never write saved preferences or change the shipped preset.
+`MediumBench` is a small subclass inside the benchmark module; there are no
+experiment flags or feature overrides in game/AI code.
+
+A trial of masked-out terrain-noise early-outs produced visually matching held
+views but no repeatable software-renderer timing win; that shader patch was not
+adopted. Keep on-device feature isolation ahead of speculative default tuning.
+`tests/benchmark_medium.gd` checks the real game's preset adapter and completes
+a three-lap Medium experiment; the browser harness checks its actual Web entry
+point, interruption invalidation and saved-preference preservation.
+
 #### Comparable measurements (schema 2)
 
 `--profile phone` uses 844 × 390 CSS pixels at DPR 3 with touch enabled;

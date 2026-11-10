@@ -13,7 +13,7 @@ const b = await browser()
 const out = 'racing/tools/bench/out/qualities'
 await mkdir(out, { recursive: true })
 try {
-  const scenarios = process.argv.includes('--full') ? ['halves', 'interrupted', 'single'] : ['interrupted', 'single']
+  const scenarios = process.argv.includes('--full') ? ['halves', 'medium-interrupted', 'interrupted', 'single'] : ['medium-interrupted', 'interrupted', 'single']
   for (const scenario of scenarios) {
     const page = await b.newPage({ viewport: { width: 640, height: 360 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
     const errors = []
@@ -24,27 +24,28 @@ try {
       await Promise.race([page.waitForFunction(fn, null, { timeout, polling: 250 }), broken])
       assert.deepEqual(errors, [])
     }
-    await page.addInitScript(() => localStorage.setItem('kw_quality', 'medium'))
+    await page.addInitScript(() => localStorage.setItem('kw_quality', 'high'))
     page.on('console', m => { if (isError(m.text())) onError(m.text()) })
     page.on('pageerror', e => onError(String(e)))
     console.log(`Starting ${scenario}`)
-    await page.goto(`${server.url}/racing/index.html?autodrive&quality=low&${scenario === 'single' ? 'bench=1' : 'benchqualities'}`)
-    if (scenario === 'interrupted') {
+    await page.goto(`${server.url}/racing/index.html?autodrive&quality=low&${scenario === 'single' ? 'bench=1' : scenario === 'medium-interrupted' ? 'benchmedium' : 'benchqualities'}`)
+    if (scenario.endsWith('interrupted')) {
       await waitFor(() => window.__benchStartedAt, 300000)
       await page.setViewportSize({ width: 600, height: 360 })
     }
     await waitFor(() => window.__bench, scenario === 'halves' ? 3600000 : 300000)
     const report = await page.evaluate(() => window.__bench)
     assert.deepEqual(errors, [])
-    assert.equal(report.valid, scenario !== 'interrupted')
-    assert.equal(report.partial, scenario === 'interrupted')
+    assert.equal(report.valid, !scenario.endsWith('interrupted'))
+    assert.equal(report.partial, scenario.endsWith('interrupted'))
     if (scenario === 'single') {
       assert.equal(report.schema, 2)
       assert.equal(report.quality, 'low')
     } else {
       assert.equal(report.schema, 4)
-      assert.equal(report.mode, 'track_halves')
-      assert.equal(await page.evaluate(() => localStorage.getItem('kw_quality')), 'medium')
+      assert.equal(report.mode, scenario === 'medium-interrupted' ? 'medium_ablation' : 'track_halves')
+      assert.equal(await page.evaluate(() => localStorage.getItem('kw_quality')), 'high')
+      if (scenario === 'medium-interrupted') assert.deepEqual(report.order, ['Medium base', 'Medium AA off', 'Medium 900k cap', 'Medium 900k cap', 'Medium AA off', 'Medium base'])
       if (scenario === 'halves') {
         assert.deepEqual(report.results.map(r => r.quality), ['low', 'medium', 'high', 'high', 'medium', 'low'])
         assert.deepEqual(report.results.map(r => r.half), [1, 2, 1, 2, 1, 2])

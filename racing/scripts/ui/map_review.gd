@@ -33,6 +33,7 @@ func setup(query: String) -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	_label = Label.new()
+	_label.visible = not query.contains("clean")
 	_label.position = Vector2(12, 12)
 	_label.add_theme_font_size_override("font_size", 16)
 	_label.add_theme_color_override("font_outline_color", Color.BLACK)

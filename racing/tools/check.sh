@@ -36,6 +36,7 @@ valid_run() {
     game) grep -qE '^[0-9]+ passed, 0 failed' "$log" && ! grep -q 'SCRIPT ERROR' "$log" ;;
     medium) grep -q "^medium checks: 0 failures" "$log" && ! grep -q "SCRIPT ERROR" "$log" ;;
     benchmark) grep -q "^benchmark checks: 0 failures" "$log" && ! grep -q "SCRIPT ERROR" "$log" ;;
+    grand-prix) grep -q "^Grand Prix checks: 0 failures" "$log" && ! grep -q "SCRIPT ERROR" "$log" ;;
     intro) grep -q '^intro checks: 0 failures' "$log" && ! grep -q 'SCRIPT ERROR' "$log" ;;
     *) return 0 ;;
   esac
@@ -45,6 +46,7 @@ summary() {
   case $1 in
     medium) grep -oE "medium checks: [0-9]+ failures" "$log" | tail -1 ;;
     benchmark) grep -oE "benchmark checks: [0-9]+ failures" "$log" | tail -1 ;;
+    grand-prix) grep -oE "Grand Prix checks: [0-9]+ failures" "$log" | tail -1 ;;
     intro) grep -oE "intro checks: [0-9]+ failures" "$log" | tail -1 ;;
     game) grep -oE '[0-9]+ passed, [0-9]+ failed' "$log" | tail -1 ;;
     vitest) grep -E 'Tests +[0-9]+' "$log" | sed 's/\x1b\[[0-9;]*m//g; s/^ *//' | tail -1 ;;
@@ -54,7 +56,7 @@ summary() {
 
 details() {
   case $1 in
-    game|intro|benchmark|medium) grep -E 'FAIL|SCRIPT ERROR|Parse Error|passed, |intro checks|benchmark checks|medium checks' -A1 "$log" ;;
+    game|intro|benchmark|medium|grand-prix) grep -E 'FAIL|SCRIPT ERROR|Parse Error|passed, |intro checks|benchmark checks|medium checks|Grand Prix checks' -A1 "$log" ;;
     vitest) sed 's/\x1b\[[0-9;]*m//g' "$log" | grep -E 'FAIL|✗|×|Error|expected|Tests ' ;;
     *) cat "$log" ;;
   esac
@@ -64,10 +66,11 @@ if [[ $what == all || $what == game ]]; then
   step game "$GODOT" --headless --path racing --fixed-fps 60 -s tests/run_tests.gd
   step medium "$GODOT" --headless --path racing --fixed-fps 60 -s tests/benchmark_medium.gd
   step benchmark "$GODOT" --headless --path racing --fixed-fps 60 -s tests/benchmark_halves.gd
+  step grand-prix "$GODOT" --headless --path racing --fixed-fps 60 -s tests/grand_prix.gd
   step intro "$GODOT" --headless --path racing --fixed-fps 60 -s tests/intro_handoff.gd
 fi
 if [[ $what == all || $what == site ]]; then
-	step browser-tools node --test racing/tools/bench/compare.test.mjs racing/web/mobile.test.mjs racing/web/landscape.test.mjs
+	step browser-tools node --test racing/tools/bench/compare.test.mjs racing/web/mobile.test.mjs racing/web/landscape.test.mjs racing/web/loading.test.mjs
   step vitest npx vitest run --reporter=dot
   step types npx tsc --noEmit
   step lint npx eslint --quiet .

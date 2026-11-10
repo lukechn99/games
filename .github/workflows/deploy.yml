@@ -29,7 +29,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
-      - run: node --test racing/tools/bench/compare.test.mjs racing/web/mobile.test.mjs racing/web/landscape.test.mjs
+      - run: node --test racing/tools/bench/compare.test.mjs racing/web/mobile.test.mjs racing/web/landscape.test.mjs racing/web/loading.test.mjs
 
       # Kart racer (Godot): run its physics tests, then export it into
       # public/racing so the site build below publishes it at /racing/.
@@ -70,10 +70,13 @@ jobs:
           ~/godot/godot --headless --path racing --fixed-fps 60 -s tests/benchmark_medium.gd 2>&1 | tee /tmp/medium-tests.log
           grep -q "medium checks: 0 failures" /tmp/medium-tests.log
           ! grep -q "SCRIPT ERROR" /tmp/medium-tests.log
+          ~/godot/godot --headless --path racing --fixed-fps 60 -s tests/grand_prix.gd 2>&1 | tee /tmp/gp-tests.log
+          grep -q "Grand Prix checks: 0 failures" /tmp/gp-tests.log
+          ! grep -q "SCRIPT ERROR" /tmp/gp-tests.log
           mkdir -p public/racing
           ~/godot/godot --headless --path racing --export-release "Web" "$PWD/public/racing/index.html"
           test -f public/racing/index.wasm
-          cp racing/web/mobile.js racing/web/landscape.js racing/web/tilt.js racing/web/net.js public/racing/
+          cp racing/web/mobile.js racing/web/landscape.js racing/web/tilt.js racing/web/net.js racing/web/loading.js public/racing/
       - run: npm run build
         env:
           # Project sites live at https://<user>.github.io/<repo>/

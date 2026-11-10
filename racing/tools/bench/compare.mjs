@@ -8,6 +8,9 @@ export function incompatibilities(x, baseline) {
   if (!baseline) return ['no baseline']
   if (!baselineEligible(x) || !baselineEligible(baseline)) return ['incomplete, invalid, errored or legacy result']
   const reasons = []
+  for (const [field, legacy] of [['duration_clock', 'simulation'], ['sampling_mode', 'single_quality']]) {
+    if ((x[field] || legacy) !== (baseline[field] || legacy)) reasons.push(`${field} differs`)
+  }
   for (const field of ['track', 'quality', 'requested_seconds', 'godot_version', 'kart_count', 'control_mode', 'seeds', 'viewport_size', 'scale_3d', 'browser', 'browser_version', 'runner']) {
     if (JSON.stringify(x[field]) !== JSON.stringify(baseline[field])) reasons.push(`${field} differs`)
   }

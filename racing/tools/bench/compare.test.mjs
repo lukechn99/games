@@ -19,3 +19,8 @@ test('same duration with a different route is not comparable', () => {
   const alternate = { ...run(), progress_samples: [{ ...progress, position: [50, 0, 0] }] }
   assert.ok(incompatibilities(alternate, run()).includes('sampled route coverage differs'))
 })
+test('sweep samples and wall-duration windows cannot masquerade as fixed-quality baselines', () => {
+  assert.ok(incompatibilities({ ...run(), duration_clock: 'wall' }, run()).includes('duration_clock differs'))
+  assert.ok(incompatibilities({ ...run(), sampling_mode: 'quality_sweep' }, run()).includes('sampling_mode differs'))
+  assert.deepEqual(incompatibilities({ ...run(), duration_clock: 'simulation', sampling_mode: 'single_quality' }, run()), [])
+})

@@ -15,6 +15,7 @@ signal completed(result: Dictionary)
 
 var race: Node            # main.gd
 var publish_result := true  # QualityBench combines samples into one report.
+var use_wall_duration := false
 var seconds := 30.0
 var wall_limit := 120.0   # real seconds after the green light; slow machines stop early ("partial")
 
@@ -107,12 +108,13 @@ func _process(delta: float) -> void:
 		else:
 			_stuck_now[n] = 0.0
 	var wall := (Time.get_ticks_msec() - _wall0) / 1000.0
-	if _spots_done < SPOTS and _t >= seconds * (_spots_done + 0.5) / SPOTS:
+	var elapsed := wall if use_wall_duration else _t
+	if _spots_done < SPOTS and elapsed >= seconds * (_spots_done + 0.5) / SPOTS:
 		_spots_done += 1
 		_progress.append(_player_progress())
 		_breakdown()
 	_label.text = "bench %.0f / %.0f s" % [_t, seconds]
-	if _t >= seconds or wall >= wall_limit:
+	if elapsed >= seconds or wall >= wall_limit:
 		_finish()
 
 
@@ -228,6 +230,7 @@ func _finish() -> void:
 		browser_info = JSON.parse_string(str(JavaScriptBridge.eval("JSON.stringify({user_agent:navigator.userAgent,dpr:devicePixelRatio,css_size:[innerWidth,innerHeight],canvas_size:[document.querySelector('canvas').width,document.querySelector('canvas').height]})", true)))
 	var out := {
 		"schema": 2,
+		"duration_clock": "wall" if use_wall_duration else "simulation",
 		"startup_to_green_ms": _startup_ms,
 		"requested_seconds": seconds,
 		"valid": _interruptions() == _interruptions_start and not _resized and _quality_start == Controls.quality_name().to_lower(),
@@ -250,7 +253,7 @@ func _finish() -> void:
 		"track": race.track.layout,
 		"quality": Controls.quality_name().to_lower(),
 		"seconds": snappedf(_t, 0.1),
-		"partial": _t < seconds - 0.5,
+		"partial": ((Time.get_ticks_msec() - _wall0) / 1000.0 if use_wall_duration else _t) < seconds - 0.5,
 		"frames": _frames,
 		"simulation_fps": snappedf(f / _t, 0.1),
 		"simulation_frame_p50": snappedf(sorted[sorted.size() / 2], 0.1),

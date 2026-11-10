@@ -300,3 +300,9 @@ colours while sharing the approved kart paints. The chooser capture tool
 (`racing/tools/bench/thumbnails.mjs`) regenerates all four cards from the actual
 Web export and checks for browser errors. Shared tree surfaces/LODs/culling are
 preserved. Classic palette comparisons remain available through `palette=classic`.
+
+## Controlled-route quality comparison
+
+Phone comparisons now use three full laps, split at half the canonical racing-line distance. The schedule is Low/Medium, High/High, Medium/Low; every quality covers both halves once. Each half excludes the same first 50 m, then records its own FPS, frame-time percentiles, draw calls and route progress. Required routes are Meadow cave, Mine tunnel and Frost underwater through hole index 1, validated on all three player laps. This replaces the earlier six timed windows. Use `?autodrive&benchqualities&quality=low`, adding `track=mine` or `track=frost`.
+
+The isolated `scripts/benchmark/` module adapts the race through `BenchmarkContext`; no route/quality test policy is embedded in kart physics or track assets. Real-route integration tests and normal gameplay regression tests run on every deployment. Moving traffic and physics remain live, so route-matched halves improve coverage without claiming exact replay equivalence or proving phone performance gains.

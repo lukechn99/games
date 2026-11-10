@@ -307,7 +307,7 @@ func _test_touch_interruptions() -> void:
 
 
 func _test_benchmark_stats() -> void:
-	var bench = load("res://scripts/ui/bench.gd")
+	var bench = load("res://scripts/benchmark/bench.gd")
 	var intervals: Array[float] = [10.0, 20.0, 40.0, 60.0, 200.0]
 	var result: Dictionary = bench.frame_stats(intervals)
 	check(result.p50 == 40.0 and result.p95 == 200.0 and result.p99 == 200.0 and result.max == 200.0, "wall-clock percentiles retain long hitches")

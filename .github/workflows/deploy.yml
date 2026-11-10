@@ -64,6 +64,9 @@ jobs:
           ~/godot/godot --headless --path racing --fixed-fps 60 -s tests/intro_handoff.gd 2>&1 | tee /tmp/intro-tests.log
           grep -q "intro checks: 0 failures" /tmp/intro-tests.log
           ! grep -q "SCRIPT ERROR" /tmp/intro-tests.log
+          ~/godot/godot --headless --path racing --fixed-fps 60 -s tests/benchmark_halves.gd 2>&1 | tee /tmp/benchmark-tests.log
+          grep -q "benchmark checks: 0 failures" /tmp/benchmark-tests.log
+          ! grep -q "SCRIPT ERROR" /tmp/benchmark-tests.log
           mkdir -p public/racing
           ~/godot/godot --headless --path racing --export-release "Web" "$PWD/public/racing/index.html"
           test -f public/racing/index.wasm

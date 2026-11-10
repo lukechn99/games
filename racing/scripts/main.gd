@@ -95,19 +95,13 @@ func _ready() -> void:
 		# drives your kart while the chase camera follows it.
 		player.set_physics_process(false)
 		_autopilot_review = true
-		add_child(BotDriver.new(player_kart, track, "hard", 99))
+		_benching = BenchmarkSession.attach(self, q)
+		if not _benching:
+			add_child(BotDriver.new(player_kart, track, "hard", 99))
 		if q.contains("view=side"):
 			ChaseCamera.review_offset = Vector2(4.0, 2.5)
 		if q.contains("introt="):
 			_intro_pin = float(q.split("introt=")[1].split("&")[0])
-		if q.contains("bench"):
-			# Measure the race (tools/bench): ?bench or ?bench=SECONDS.
-			var bench: Node = QualityBench.new() if q.contains("benchqualities") else Bench.new()
-			bench.race = self
-			if q.contains("bench="):
-				bench.seconds = clampf(float(q.split("bench=")[1].split("&")[0]), 1.0, 300.0)
-			_benching = true
-			add_child(bench)
 		if q.contains("intro"):
 			# Start from the aerial tour, as after the kart builder.
 			_fly_over(0.0)

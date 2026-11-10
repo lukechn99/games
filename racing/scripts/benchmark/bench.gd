@@ -13,9 +13,13 @@ const SPOTS := 4          # draw breakdowns taken during the run
 
 signal completed(result: Dictionary)
 
-var race: Node            # main.gd
+var context: BenchmarkContext
 var publish_result := true  # QualityBench combines samples into one report.
 var use_wall_duration := false
+var external_window := false
+var segment_from_m := 0.0
+var segment_to_m := 0.0
+var _window_complete := false
 var seconds := 30.0
 var wall_limit := 120.0   # real seconds after the green light; slow machines stop early ("partial")
 
@@ -66,7 +70,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if _done or not race.get("_racing"):
+	if _done or not context.is_running():
 		return
 	if _t == 0.0:
 		_wall0 = Time.get_ticks_msec()
@@ -77,7 +81,7 @@ func _process(delta: float) -> void:
 		_quality_start = Controls.quality_name().to_lower()
 		if OS.has_feature("web"):
 			_startup_ms = float(JavaScriptBridge.eval("window.__benchStartedAt = performance.now()", true))
-		for k: Kart in race.get("karts"):
+		for k: Kart in context.karts:
 			_resets[k.display_name] = 0
 			_stuck[k.display_name] = 0.0
 			_stuck_now[k.display_name] = 0.0
@@ -100,7 +104,7 @@ func _process(delta: float) -> void:
 	_phys += p.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
 	_proc += p.get_monitor(Performance.TIME_PROCESS) * 1000.0
 	_frame_ms.append(delta * 1000.0)
-	for k: Kart in race.get("karts"):
+	for k: Kart in context.karts:
 		var n := k.display_name
 		if k.linear_velocity.length() < 2.0 and not k.finished:
 			_stuck_now[n] += delta
@@ -109,13 +113,27 @@ func _process(delta: float) -> void:
 			_stuck_now[n] = 0.0
 	var wall := (Time.get_ticks_msec() - _wall0) / 1000.0
 	var elapsed := wall if use_wall_duration else _t
-	if _spots_done < SPOTS and elapsed >= seconds * (_spots_done + 0.5) / SPOTS:
+	var fraction := elapsed / seconds
+	if external_window:
+		fraction = inverse_lerp(segment_from_m, segment_to_m, context.track.offset_of(context.player_kart.global_position))
+	if _spots_done < SPOTS and fraction >= (_spots_done + 0.5) / SPOTS:
 		_spots_done += 1
 		_progress.append(_player_progress())
 		_breakdown()
 	_label.text = "bench %.0f / %.0f s" % [_t, seconds]
-	if elapsed >= seconds or wall >= wall_limit:
+	if (not external_window and elapsed >= seconds) or wall >= wall_limit:
 		_finish()
+
+
+func has_samples() -> bool:
+	return _frames > 1
+
+
+func finish_window() -> void:
+	if _done or not has_samples():
+		return
+	_window_complete = true
+	_finish()
 
 
 func _on_respawn(k: Kart) -> void:
@@ -133,7 +151,7 @@ func _breakdown() -> void:
 		return
 	var planes := cam.get_frustum()
 	var eye := cam.global_position
-	var stack: Array[Node] = [race]
+	var stack: Array[Node] = [context.scene]
 	while not stack.is_empty():
 		var n: Node = stack.pop_back()
 		stack.append_array(n.get_children())
@@ -183,7 +201,7 @@ func _breakdown() -> void:
 
 func _owner_of(n: Node) -> String:
 	var p := n.get_parent()
-	while p != null and p != race:
+	while p != null and p != context.scene:
 		if p is Kart:
 			return "kart"
 		var s: Script = p.get_script()
@@ -213,7 +231,7 @@ func _finish() -> void:
 	sorted.sort()
 	var laps := {}
 	var total_resets := 0
-	for k: Kart in race.get("karts"):
+	for k: Kart in context.karts:
 		laps[k.display_name] = maxi(0, k.lap - 1)
 		total_resets += int(_resets[k.display_name])
 	var worst_stuck := 0.0
@@ -230,7 +248,7 @@ func _finish() -> void:
 		browser_info = JSON.parse_string(str(JavaScriptBridge.eval("JSON.stringify({user_agent:navigator.userAgent,dpr:devicePixelRatio,css_size:[innerWidth,innerHeight],canvas_size:[document.querySelector('canvas').width,document.querySelector('canvas').height]})", true)))
 	var out := {
 		"schema": 2,
-		"duration_clock": "wall" if use_wall_duration else "simulation",
+		"duration_clock": "track_half" if external_window else "wall" if use_wall_duration else "simulation",
 		"startup_to_green_ms": _startup_ms,
 		"requested_seconds": seconds,
 		"valid": _interruptions() == _interruptions_start and not _resized and _quality_start == Controls.quality_name().to_lower(),
@@ -241,7 +259,7 @@ func _finish() -> void:
 		"viewport_size": [vp.size.x, vp.size.y],
 		"scale_3d": vp.scaling_3d_scale,
 		"render_size_estimate": [int(vp.size.x * vp.scaling_3d_scale), int(vp.size.y * vp.scaling_3d_scale)],
-		"kart_count": race.get("karts").size(),
+		"kart_count": context.karts.size(),
 		"control_mode": "autodrive",
 		"seeds": {"player_bot": 99, "rival_bots": [3, 4, 5], "items": 99, "track": 42},
 		"start_progress": _start_progress,
@@ -250,10 +268,10 @@ func _finish() -> void:
 		"wall_frames_ms": _wall_frames,
 		"wall_frame_stats": wall_stats,
 		"wall_race_s": (Time.get_ticks_msec() - _wall0) / 1000.0,
-		"track": race.track.layout,
+		"track": context.track.layout,
 		"quality": Controls.quality_name().to_lower(),
 		"seconds": snappedf(_t, 0.1),
-		"partial": ((Time.get_ticks_msec() - _wall0) / 1000.0 if use_wall_duration else _t) < seconds - 0.5,
+		"partial": not _window_complete if external_window else ((Time.get_ticks_msec() - _wall0) / 1000.0 if use_wall_duration else _t) < seconds - 0.5,
 		"frames": _frames,
 		"simulation_fps": snappedf(f / _t, 0.1),
 		"simulation_frame_p50": snappedf(sorted[sorted.size() / 2], 0.1),
@@ -268,7 +286,7 @@ func _finish() -> void:
 		"resets": total_resets,
 		"reset_reasons": _reasons,
 		"stuck_s": snappedf(worst_stuck, 0.1),
-		"player_completed_laps": maxi(0, int(race.get("player_kart").lap) - 1),
+		"player_completed_laps": maxi(0, int(context.player_kart.lap) - 1),
 		"laps": laps,
 		"sources": src.slice(0, 25),
 	}
@@ -291,9 +309,9 @@ func _interruptions() -> int:
 
 
 func _player_progress() -> Dictionary:
-	var k: Kart = race.get("player_kart")
+	var k: Kart = context.player_kart
 	return {"seconds": snappedf(_t, 0.01), "lap_counter": k.lap,
-		"next_checkpoint": k.next_checkpoint, "offset_m": snappedf(race.track.offset_of(k.global_position), 0.1),
+		"next_checkpoint": k.next_checkpoint, "offset_m": snappedf(context.track.offset_of(k.global_position), 0.1),
 		"position": [snappedf(k.global_position.x, 0.1), snappedf(k.global_position.y, 0.1), snappedf(k.global_position.z, 0.1)]}
 
 

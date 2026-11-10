@@ -24,3 +24,10 @@ test('sweep samples and wall-duration windows cannot masquerade as fixed-quality
   assert.ok(incompatibilities({ ...run(), sampling_mode: 'quality_sweep' }, run()).includes('sampling_mode differs'))
   assert.deepEqual(incompatibilities({ ...run(), duration_clock: 'simulation', sampling_mode: 'single_quality' }, run()), [])
 })
+
+test('half-track comparisons require identical route and measured bounds', () => {
+  const half = { ...run(), route: 'tunnel', segment_from_m: 0, segment_to_m: 800, measured_from_m: 50 }
+  assert.deepEqual(incompatibilities(half, { ...half }), [])
+  assert.ok(incompatibilities({ ...half, route: 'bridge' }, half).includes('route differs'))
+  assert.ok(incompatibilities({ ...half, measured_from_m: 60 }, half).includes('measured_from_m differs'))
+})

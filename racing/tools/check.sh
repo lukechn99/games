@@ -34,6 +34,7 @@ step() {   # name, command...
 valid_run() {
   case $1 in
     game) grep -qE '^[0-9]+ passed, 0 failed' "$log" && ! grep -q 'SCRIPT ERROR' "$log" ;;
+    benchmark) grep -q "^benchmark checks: 0 failures" "$log" && ! grep -q "SCRIPT ERROR" "$log" ;;
     intro) grep -q '^intro checks: 0 failures' "$log" && ! grep -q 'SCRIPT ERROR' "$log" ;;
     *) return 0 ;;
   esac
@@ -41,6 +42,7 @@ valid_run() {
 
 summary() {
   case $1 in
+    benchmark) grep -oE "benchmark checks: [0-9]+ failures" "$log" | tail -1 ;;
     intro) grep -oE "intro checks: [0-9]+ failures" "$log" | tail -1 ;;
     game) grep -oE '[0-9]+ passed, [0-9]+ failed' "$log" | tail -1 ;;
     vitest) grep -E 'Tests +[0-9]+' "$log" | sed 's/\x1b\[[0-9;]*m//g; s/^ *//' | tail -1 ;;
@@ -50,7 +52,7 @@ summary() {
 
 details() {
   case $1 in
-    game|intro) grep -E 'FAIL|SCRIPT ERROR|Parse Error|passed, |intro checks' -A1 "$log" ;;
+    game|intro|benchmark) grep -E 'FAIL|SCRIPT ERROR|Parse Error|passed, |intro checks|benchmark checks' -A1 "$log" ;;
     vitest) sed 's/\x1b\[[0-9;]*m//g' "$log" | grep -E 'FAIL|✗|×|Error|expected|Tests ' ;;
     *) cat "$log" ;;
   esac
@@ -58,6 +60,7 @@ details() {
 
 if [[ $what == all || $what == game ]]; then
   step game "$GODOT" --headless --path racing --fixed-fps 60 -s tests/run_tests.gd
+  step benchmark "$GODOT" --headless --path racing --fixed-fps 60 -s tests/benchmark_halves.gd
   step intro "$GODOT" --headless --path racing --fixed-fps 60 -s tests/intro_handoff.gd
 fi
 if [[ $what == all || $what == site ]]; then

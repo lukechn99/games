@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// Integration checks for the real Web quality sweep and legacy single sample.
+// Real Web wiring/negative checks. --full also races all three laps; this
+// can take tens of minutes on SwiftShader. Real-route coverage is tested
+// separately by tests/benchmark_halves.gd at fixed physics speed in CI.
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -11,44 +13,50 @@ const b = await browser()
 const out = 'racing/tools/bench/out/qualities'
 await mkdir(out, { recursive: true })
 try {
-  for (const scenario of ['sweep', 'interrupted', 'single']) {
+  const scenarios = process.argv.includes('--full') ? ['halves', 'interrupted', 'single'] : ['interrupted', 'single']
+  for (const scenario of scenarios) {
     const page = await b.newPage({ viewport: { width: 640, height: 360 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
     const errors = []
+    let signalError
+    const broken = new Promise(resolve => { signalError = resolve })
+    const onError = text => { errors.push(text); console.error(text); signalError() }
+    const waitFor = async (fn, timeout) => {
+      await Promise.race([page.waitForFunction(fn, null, { timeout, polling: 250 }), broken])
+      assert.deepEqual(errors, [])
+    }
     await page.addInitScript(() => localStorage.setItem('kw_quality', 'medium'))
-    page.on('console', m => { if (isError(m.text())) { errors.push(m.text()); console.error(m.text()) } })
-    page.on('pageerror', e => errors.push(String(e)))
+    page.on('console', m => { if (isError(m.text())) onError(m.text()) })
+    page.on('pageerror', e => onError(String(e)))
     console.log(`Starting ${scenario}`)
-    await page.goto(`${server.url}/racing/index.html?autodrive&bench=1&quality=low${scenario === 'single' ? '' : '&benchqualities'}`)
+    await page.goto(`${server.url}/racing/index.html?autodrive&quality=low&${scenario === 'single' ? 'bench=1' : 'benchqualities'}`)
     if (scenario === 'interrupted') {
-      await page.waitForFunction(() => window.__benchStartedAt, null, { timeout: 180000 })
-      // Resize after a sample starts; the benchmark must not silently accept it.
+      await waitFor(() => window.__benchStartedAt, 300000)
       await page.setViewportSize({ width: 600, height: 360 })
     }
-    await page.waitForFunction(() => window.__bench, null, { timeout: 240000, polling: 250 })
+    await waitFor(() => window.__bench, scenario === 'halves' ? 3600000 : 300000)
     const report = await page.evaluate(() => window.__bench)
     assert.deepEqual(errors, [])
     assert.equal(report.valid, scenario !== 'interrupted')
-    assert.equal(report.partial, false)
+    assert.equal(report.partial, scenario === 'interrupted')
     if (scenario === 'single') {
       assert.equal(report.schema, 2)
       assert.equal(report.quality, 'low')
     } else {
-      assert.equal(report.schema, 3)
-      assert.equal(report.rounds, 2)
-      assert.equal(report.requested_seconds_per_sample, 1)
-      assert.deepEqual(report.results.map(r => r.quality), ['low', 'medium', 'high', 'low', 'medium', 'high'])
-      assert.deepEqual(report.results.map(r => r.round), [1, 1, 1, 2, 2, 2])
-      assert.deepEqual(report.results.map(r => r.phase), [1, 2, 3, 4, 5, 6])
-      assert.ok(report.results.every(r => r.frames > 0 && r.wall_frames_ms.length > 0))
-      assert.ok(report.results.every(r => r.duration_clock === 'wall' && r.wall_race_s >= 1))
-      assert.ok(report.results[2].scale_3d > report.results[0].scale_3d)
-      if (scenario === 'sweep') assert.equal(report.results[0].scale_3d, report.results[3].scale_3d)
-      assert.equal(report.different_track_sections, true)
-      assert.ok(report.results[1].start_progress.offset_m !== report.results[0].start_progress.offset_m)
+      assert.equal(report.schema, 4)
+      assert.equal(report.mode, 'track_halves')
       assert.equal(await page.evaluate(() => localStorage.getItem('kw_quality')), 'medium')
+      if (scenario === 'halves') {
+        assert.deepEqual(report.results.map(r => r.quality), ['low', 'medium', 'high', 'high', 'medium', 'low'])
+        assert.deepEqual(report.results.map(r => r.half), [1, 2, 1, 2, 1, 2])
+        assert.deepEqual(report.results.map(r => r.lap), [1, 1, 2, 2, 3, 3])
+        assert.ok(report.results.every(r => r.frames > 1 && r.duration_clock === 'track_half'))
+        assert.ok(Object.values(report.route_evidence).every(r => r.cave))
+      } else {
+        assert.ok(report.errors.includes('viewport resized'))
+      }
     }
     await writeFile(join(out, `${scenario}.json`), JSON.stringify(report, null, 2))
-    if (scenario === 'sweep') await page.screenshot({ path: join(out, 'phone-summary.png') })
+    await page.screenshot({ path: join(out, `${scenario}.png`) })
     console.log(`PASS ${scenario}: valid=${report.valid}, schema=${report.schema}, no browser/script errors`)
     await page.close()
   }

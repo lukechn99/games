@@ -15,6 +15,9 @@ var kart: Kart
 var track: Track
 var level := "medium"
 var lane := 0.0              # preferred offset from the racing line, metres
+var noise_seed: int:
+	get:
+		return _noise.seed
 var _noise := FastNoiseLite.new()
 var _t := 0.0
 var _stuck := 0.0
@@ -44,28 +47,18 @@ func _physics_process(delta: float) -> void:
 	var off := track.offset_of(kart.global_position)
 	var spd := maxf(kart.speed, 0.0)
 	var look := 7.0 + spd * 0.55
-	var aim := track.transform_at(off + look)
 	var wander := lane + _noise.get_noise_1d(_t) * 3.0 * float(cfg["wobble"]) * 10.0
 	# Where the road splits, each bot picks a side, and switches lap to lap.
 	# Easy bots leave the rope bridge alone, and anyone who has just fallen
 	# off keeps to the main road for the rest of that lap.
 	var bi := track.branch_at(off + look)
-	var bridge: bool = bi >= 0 and track.branches[bi]["kind"] == "bridge"
 	# Narrow: the bridge, or the mine's trestle over the cavern.
 	var narrow: bool = bi >= 0 and not track._branch_has_road(bi, off + look)
-	var take := bi >= 0 and (kart.lap + get_index() + bi) % 2 == 0
-	if bridge and (level == "easy" or _fell_on_lap == kart.lap):
-		take = false
+	var take := _take_branch(bi, off)
 	if take and narrow:
 		wander *= 0.15   # down the middle of the planks
-	var target := aim.origin + aim.basis.x * wander
-	# A route given as its own path (Frosty Pass's lake): follow the path.
 	var on_path: bool = take and not (track.branches[bi].get("pts", PackedVector3Array()) as PackedVector3Array).is_empty()
-	if on_path:
-		var bf := track.branch_frame(off + look, bi)
-		target = bf.origin + bf.basis.x * wander
-	elif take:
-		target += aim.basis.x * track.branch_offset(off + look, bi)
+	var target := _target_at(off + look, wander, bi, take)
 
 	var to := target - kart.global_position
 	to.y = 0.0
@@ -117,3 +110,23 @@ func _bend_ahead(from: float, span: float) -> float:
 	var fa := -a.basis.z
 	var fb := -b.basis.z
 	return absf(fa.signed_angle_to(fb, Vector3.UP)) / span
+
+
+## Route choice and target calculation are extension points for driving policies.
+func _take_branch(bi: int, _offset: float) -> bool:
+	var take := bi >= 0 and (kart.lap + get_index() + bi) % 2 == 0
+	if bi >= 0 and track.branches[bi]["kind"] == "bridge" and (level == "easy" or _fell_on_lap == kart.lap):
+		take = false
+	return take
+
+
+func _target_at(offset: float, lateral: float, bi: int, take: bool) -> Vector3:
+	var frame := track.transform_at(offset)
+	var target := frame.origin + frame.basis.x * lateral
+	if take:
+		if not (track.branches[bi].get("pts", PackedVector3Array()) as PackedVector3Array).is_empty():
+			frame = track.branch_frame(offset, bi)
+			target = frame.origin + frame.basis.x * lateral
+		else:
+			target += frame.basis.x * track.branch_offset(offset, bi)
+	return target

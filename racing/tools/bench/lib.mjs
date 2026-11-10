@@ -15,7 +15,7 @@ export const GAME = join(REPO, 'racing')
 const PUBLIC = join(REPO, 'public')
 const GODOT = process.env.GODOT || join(homedir(), 'godot/godot')
 
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.pck': 'application/octet-stream', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.css': 'text/css' }
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.pck': 'application/octet-stream', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.css': 'text/css' }
 
 /** Serves public/ on a free port. Returns { url, close }. */
 export async function serve() {

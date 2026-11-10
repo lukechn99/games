@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react'
 import type { GameViewProps } from '@/lib/games/ui'
 import { useSession } from '@/lib/session'
-import { Button } from '@/components/ui/button'
 import { TRACKS, type RacingAction, type RacingView as View } from './rules'
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
@@ -30,6 +29,8 @@ function TrackPicker({ view, snapshot, me, isHost, act }: GameViewProps<View, Ra
   const host = snapshot.players.find((p) => p.id === hostId)?.name ?? 'The host'
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-8">
+      {/* eslint-disable-next-line @next/next/no-img-element -- static outlined wordmark */}
+      <img src={`${BASE}/branding/animal-karts.svg`} alt="Animal Karts" className="mx-auto w-80 max-w-full" />
       <h2 className="text-2xl font-semibold">{canPick ? 'Pick a track' : `${host} is picking the track`}</h2>
       <div className="grid grid-cols-2 gap-3">
         {[...TRACKS, { id: 'gp', name: 'Grand Prix' } as const].map((t) => (
@@ -105,7 +106,7 @@ function Race({ view, snapshot, me, isHost, act, hostNow, playAgain }: GameViewP
       // A new round reloads the game, so it starts fresh with the new seats.
       key={snapshot.game?.round ?? 0}
       ref={frame}
-      title="Karts & Wheels"
+      title="Animal Karts"
       src={`${BASE}/racing/index.html?room=1&track=${view.track}`}
       className="block w-full border-0 bg-[#88c6f2]"
       style={{ height: 'calc(100dvh - var(--shell-head, 0px))' }}

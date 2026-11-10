@@ -1,4 +1,4 @@
-# Karts & Wheels: design document
+# Animal Karts: design document
 
 A cartoon kart racer for Game Night, built in Godot. Friends in the same room build
 their own karts, pick an animal driver, and race each other from their phones,
@@ -26,7 +26,7 @@ decision changes, change it here first.
 - **It feels dynamic:** screen shake on crashes, big hits and bumpy landings.
 - **Steer by tilting your phone** like a steering wheel, or with on-screen buttons, a keyboard or a gamepad. Players choose.
 
-Name: **Karts & Wheels** (Decided).
+Name: **Animal Karts** (Decided).
 
 ## 2. Goals and non-goals
 
@@ -57,7 +57,7 @@ Name: **Karts & Wheels** (Decided).
 
 **The flow (Decided, built unless marked)**
 
-1. **Lobby.** The existing Game Night lobby. The host picks Karts & Wheels and adds bots as usual.
+1. **Lobby.** The existing Game Night lobby. The host picks Animal Karts and adds bots as usual.
 2. **Track picker.** The host picks one of the tracks, or **Grand Prix**, on the room page: a card for each with an aerial thumbnail and its name, nothing more. Everyone else sees who is picking. (A vote, with the host able to override, is still a possible later change.)
 3. **Kart builder** (section 5). Each player picks a chassis, wheels and driver over a slow aerial tour of the track, with the kart turning on the right, then taps Ready.
 4. **Fly-in.** Once everyone is ready, the camera carries on from exactly where the aerial tour was, turning the same way, and spirals down in one slow circle (8 s) to stop behind your kart, in place for the race.
@@ -617,7 +617,7 @@ Assumptions: one kart update is about 40 bytes, plus about 70 bytes of packet ov
 - **Fair-ish:** the host checks checkpoints in order and a minimum lap time, and finish times come from the host's clock. A determined cheater could still drive faster than possible on their own phone. Among friends, that's acceptable.
 
 ### 13.5 What's built (M4, first version)
-- **In the games menu:** Karts & Wheels is a room game for 1–8 players. The host can add computer drivers.
+- **In the games menu:** Animal Karts is a room game for 1–8 players. The host can add computer drivers.
 - **Room rules** (`lib/games/racing/rules.ts`, with tests) hold only what everyone must agree on:
   - the track and lap count;
   - each racer's kart parts and whether they're ready;
@@ -956,7 +956,7 @@ Settled since the first list: the launch drivers (fox, frog, rhino, deer), showi
 | 2026-11-06 | Lobby shows the chosen animal seated in the kart | The user's direction |
 | 2026-11-06 | Mine Shaft layout: outer ledge loop with a cliff, a shorter tunnel through the mountain with coal piles and a cavern, and a swaying rope-bridge shortcut | The user's sketch |
 | 2026-11-06 | Karts is a multiplayer room game in the games menu; a map selection page will come before the kart builder | The user's request |
-| 2026-11-06 | The game is called Karts & Wheels | The user's decision |
+| 2026-11-06 | The game is called Animal Karts | The user's decision |
 | 2026-11-06 | Items in play: crates in the cave route, honey puddle and tumbleweed; held item shown on the item button and on the back of the kart | The user's request |
 | 2026-11-06 | Kart data goes player to player (mesh), with the host as fallback | The user's question: a mesh is faster and spreads the load; the host was only the quickest first version |
 | 2026-11-06 | Mining Mountain built and offered alongside Meadow Loop; the host picks the track before the kart builder | The user's request |
@@ -1001,3 +1001,29 @@ Track chooser images are generated from the current Low-quality Web export with
 `node racing/tools/bench/thumbnails.mjs`. It waits for shader warm-up and checks
 browser errors before saving `public/tracks/{meadow,mine,frost}.jpg`; `gp.jpg`
 combines those same three captures. Regenerate after visible track/art changes.
+
+Grand Prix final results retain a completed-race snapshot for each track in the
+room state: finishing places, points, total race times and validated lap times.
+The final screen shows all three tracks for every racer and cumulative points
+and time; its heading uses the overall cup position. Larger fields scroll.
+DNF and unavailable history from older rooms are displayed separately. Clients
+that report only a finishing time remain compatible, without invented best laps.
+`tests/grand_prix.gd` checks formatting/layout and `tools/bench/grand-prix.mjs`
+captures the real Web screen using explicit completed-room fixtures.
+
+Map loading uses a single map-specific aerial still under Godot's existing
+status overlay; progress, errors and removal remain engine-owned. Generate
+`public/tracks/aerial-{meadow,mine,frost}.jpg` with
+`node racing/tools/bench/aerials.mjs` after visible map changes. These are clean
+whole-track captures, separate from chooser beauty shots. Review the actual
+loading shell with `node racing/tools/bench/loading.mjs`.
+
+The game is named **Animal Karts**. Keep the internal `racing` identifier, URLs
+and saved settings stable. Lettering should pair an expressive, readable first
+word with boxier KARTS. `node racing/tools/bench/branding.mjs` renders three
+options from the existing OFL fonts: Pacifico/Black Ops One (flowing), Lilita
+One/Black Ops One (bold/playful), and a stacked Pacifico/Black Ops One badge.
+Lettering B (Lilita One / Black Ops One) is approved. The track picker and
+loading screens share `public/branding/animal-karts.svg`, generated as font
+outlines by `python3 racing/tools/make_wordmark.py`; no runtime font download
+is needed. The OFL license files remain with the source fonts.

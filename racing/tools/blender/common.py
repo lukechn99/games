@@ -1,4 +1,4 @@
-"""Shared helpers for the Karts & Wheels Blender scripts (run with python3, bpy).
+"""Shared helpers for the Animal Karts Blender scripts (run with python3, bpy).
 
 Each asset script builds its model from scratch, exports a .glb into
 racing/assets/models/ and can render a preview PNG to look at.

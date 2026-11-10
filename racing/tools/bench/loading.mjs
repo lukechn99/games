@@ -22,6 +22,7 @@ try {
         const image = new Image()
         image.src = preload.href
         await image.decode()
+        await document.querySelector('.racing-loading-caption img').decode()
         await new Promise(requestAnimationFrame)
       })
       await page.screenshot({ path: join(out, `${track}.png`) })

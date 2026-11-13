@@ -52,6 +52,9 @@ var layout := "meadow"
 var points: Array = POINTS
 var surface_zones: Array = SURFACE_ZONES
 var rail_zones: Array = RAIL_ZONES
+## Frost: stretches held at a gentle bank for the icy hairpins, [from, to]
+## as fractions of the lap (the ice itself is patches inside them).
+var ice_bank_zones: Array = []
 ## Other routes that leave the main road and rejoin it: each is
 ## {from, to, shift: PackedFloat32Array (sideways offset every metre), kind}.
 var branches: Array[Dictionary] = []
@@ -202,11 +205,9 @@ func bank_at(offset: float) -> float:
 	var bank := lerpf(_bank[i], _bank[(i + 1) % _bank.size()], x - floorf(x))
 	if layout == "frost":
 		var d := fposmod(offset, length)
-		for zone in surface_zones:
-			if zone["surface"] != "ice":
-				continue
-			var start := float(zone["from"]) * length
-			var end := float(zone["to"]) * length
+		for zone: Array in ice_bank_zones:
+			var start := float(zone[0]) * length
+			var end := float(zone[1]) * length
 			if d < start or d > end:
 				continue
 			var edge := smoothstep(start, start + 12.0, d) * (1.0 - smoothstep(end - 12.0, end, d))

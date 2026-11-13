@@ -759,11 +759,9 @@ func _test_frost() -> void:
 	check(merge_smooth, "lake merge restores road height gradually without a steep bank-lift step")
 	var icy_support := true
 	var icy_samples := 0
-	for zone in track.surface_zones:
-		if zone["surface"] != "ice":
-			continue
-		var d := float(zone["from"]) * track.length + 12.0
-		while d < float(zone["to"]) * track.length - 12.0:
+	for zone: Array in track.ice_bank_zones:
+		var d := float(zone[0]) * track.length + 12.0
+		while d < float(zone[1]) * track.length - 12.0:
 			var turn := track._flat_dir(d - 8.0).signed_angle_to(track._flat_dir(d + 8.0), Vector3.UP)
 			if absf(turn) > 0.1:
 				var frame := track.road_frame(d)
@@ -771,6 +769,14 @@ func _test_frost() -> void:
 				icy_samples += 1
 			d += 2.0
 	check(icy_support and icy_samples > 0, "icy bends bank their outside edge upward with gentle minimum support")
+	# Ice comes in short patches with dry road between, not long slides.
+	var ice_patches := 0
+	var longest_ice := 0.0
+	for zone in track.surface_zones:
+		if zone["surface"] == "ice":
+			ice_patches += 1
+			longest_ice = maxf(longest_ice, (float(zone["to"]) - float(zone["from"])) * track.length)
+	check(ice_patches >= 4 and longest_ice <= 15.0, "Frosty Pass ice is short patches (%d, longest %.0f m)" % [ice_patches, longest_ice])
 
 	# The junction must cover the full drivable width of BOTH paths. Test
 	# the polygon and actual colliders, which use the same rendered mesh.

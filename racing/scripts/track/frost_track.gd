@@ -35,6 +35,9 @@ const LAKE_CENTER := Vector3(-92, 0, -75)
 const LAKE_RX := 40.0
 const LAKE_RZ := 105.0
 const ICE_Y := 0.1
+## Ice patches in each hairpin: where (0 turn-in .. 1 exit) and how long.
+const ICE_PATCHES := [0.2, 0.5, 0.8]
+const ICE_PATCH_M := 10.0
 const DEEP := -7.5          # the sunken road's surface
 ## Holes in the ice: [fraction along the lake, sideways metres, radius].
 ## Spread over the whole width, so you have to weave between them.
@@ -61,11 +64,17 @@ static func configure(t: Track) -> void:
 static func plan(t: Track) -> void:
 	var L := t.length
 	var zones := []
-	# Icy hairpins: from the turn-in to the exit of each.
+	# Icy hairpins: patches of ice (turn-in, apex, exit) with dry road
+	# between, not one long slide (design doc 6). The hairpin as a whole
+	# keeps its gentle banking, so the road doesn't ripple patch to patch.
+	t.ice_bank_zones = []
 	for pair in [[3, 5], [7, 9]]:
 		var a := t.offset_of(POINTS[pair[0]]) - 6.0
 		var b := t.offset_of(POINTS[pair[1]]) + 6.0
-		zones.append({"from": a / L, "to": b / L, "surface": "ice"})
+		t.ice_bank_zones.append([a / L, b / L])
+		for at in ICE_PATCHES:
+			var mid := lerpf(a, b, at)
+			zones.append({"from": (mid - ICE_PATCH_M * 0.5) / L, "to": (mid + ICE_PATCH_M * 0.5) / L, "surface": "ice"})
 	# Snow drifting over the summit road.
 	var s0 := t.offset_of(POINTS[11])
 	var s1 := t.offset_of(POINTS[12])

@@ -25,7 +25,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serve, browser, ensureExport, isError, REPO } from './lib.mjs'
 
-import { baselineEligible, incompatibilities } from './compare.mjs'
+import { baselineEligible, baselineRecord, incompatibilities } from './compare.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const BASELINE = join(HERE, 'baseline.json')
@@ -128,16 +128,20 @@ if (flag('--sources')) {
   }
 }
 if (flag('--update')) {
-  if (repeats !== 1 || executions.some((r) => !baselineEligible(results[r.key]))) {
-    problems.push('baseline NOT updated: use one complete, valid, error-free run per scenario')
+  // Saves each scenario that had one complete, valid, error-free run; the
+  // rest keep their old baseline (slow software runs may never finish High).
+  if (repeats !== 1) {
+    problems.push('baseline NOT updated: use --repeat 1')
   } else {
-    const merged = { ...base }
+    const saved = []
+    const skipped = []
     for (const r of executions) {
-      const omit = new Set(['sources', 'error_lines', 'reset_reasons', 'wall_frames_ms'])
-      merged[r.baselineKey] = Object.fromEntries(Object.entries(results[r.key]).filter(([key]) => !omit.has(key)))
+      if (!baselineEligible(results[r.key])) { skipped.push(r.baselineKey); continue }
+      base[r.baselineKey] = baselineRecord(results[r.key])
+      saved.push(r.baselineKey)
     }
-    await writeFile(BASELINE, JSON.stringify(merged, null, 1) + '\n')
-    console.log('baseline updated')
+    if (saved.length) await writeFile(BASELINE, JSON.stringify(base, null, 1) + '\n')
+    console.log(`baseline: saved ${saved.join(', ') || 'nothing'}` + (skipped.length ? `; not saved (incomplete or invalid): ${skipped.join(', ')}` : ''))
   }
 }
 console.log(problems.length ? `\n${problems.length} to look at:\n  ` + problems.join('\n  ') : '\nrun checks passed; see per-run baseline comparison status above')

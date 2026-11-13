@@ -23,3 +23,9 @@ export function incompatibilities(x, baseline) {
   })) reasons.push('sampled route coverage differs')
   return reasons
 }
+
+/** What a baseline keeps of a run: everything but the bulky detail. */
+export function baselineRecord(x) {
+  const omit = new Set(['sources', 'error_lines', 'reset_reasons', 'wall_frames_ms'])
+  return Object.fromEntries(Object.entries(x).filter(([key]) => !omit.has(key)))
+}

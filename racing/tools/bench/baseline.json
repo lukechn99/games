@@ -1,170 +1,714 @@
 {
- "meadow:low": {
-  "draws": 302,
-  "draws_max": 469,
-  "fps": 7.5,
-  "frame_p50": 133,
-  "frame_p95": 144.2,
-  "frames": 197,
-  "laps": {
-   "Deer": 1,
-   "Frog": 1,
-   "Rhino": 1,
-   "You": 1
+ "meadow:low:desktop": {
+  "browser": {
+   "canvas_size": [
+    960,
+    540
+   ],
+   "css_size": [
+    960,
+    540
+   ],
+   "dpr": 1,
+   "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36"
   },
-  "objects": 865,
-  "partial": true,
-  "physics_ms": 2.74,
-  "player_laps": 1,
-  "quality": "low",
-  "resets": 0,
-  "script_ms": 617.25,
-  "seconds": 26.1,
-  "stuck_s": 0.4,
-  "track": "meadow",
-  "tris_k": 133,
-  "tris_k_max": 197,
-  "errors": 0,
-  "wall_s": 152
- },
- "mine:low": {
-  "draws": 391,
-  "draws_max": 658,
-  "fps": 7.5,
-  "frame_p50": 133.1,
-  "frame_p95": 145.8,
-  "frames": 143,
-  "laps": {
-   "Deer": 1,
-   "Frog": 1,
-   "Rhino": 1,
-   "You": 1
+  "control_mode": "autodrive",
+  "draws": 237,
+  "draws_max": 385,
+  "duration_clock": "simulation",
+  "end_progress": {
+   "lap_counter": 1,
+   "next_checkpoint": 9,
+   "offset_m": 722.7,
+   "position": [
+    125.3,
+    1.4,
+    80.3
+   ],
+   "seconds": 30.14
   },
-  "objects": 985,
-  "partial": true,
-  "physics_ms": 4.22,
-  "player_laps": 1,
-  "quality": "low",
-  "resets": 0,
-  "script_ms": 822.84,
-  "seconds": 19.1,
-  "stuck_s": 0.4,
-  "track": "mine",
-  "tris_k": 176,
-  "tris_k_max": 266,
-  "errors": 0,
-  "wall_s": 153
- },
- "frost:low": {
-  "draws": 283,
-  "draws_max": 417,
-  "fps": 7.5,
-  "frame_p50": 132.7,
-  "frame_p95": 145,
-  "frames": 225,
+  "frames": 226,
+  "godot_version": "4.4.1-stable (official)",
+  "interruptions": 0,
+  "kart_count": 4,
   "laps": {
-   "Deer": 1,
-   "Frog": 1,
-   "Rhino": 1,
-   "You": 1
+   "Deer": 0,
+   "Frog": 0,
+   "Rhino": 0,
+   "You": 0
   },
-  "objects": 665,
+  "msaa_samples": 0,
+  "objects": 724,
   "partial": false,
-  "physics_ms": 3.2,
-  "player_laps": 1,
+  "physics_ms": 3.12,
+  "player_completed_laps": 0,
+  "process_ms": 680.7,
+  "progress_samples": [
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 1,
+    "offset_m": 51.8,
+    "position": [
+     -0.2,
+     0.2,
+     -11.8
+    ],
+    "seconds": 3.87
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 4,
+    "offset_m": 265.2,
+    "position": [
+     50.8,
+     4,
+     -199.2
+    ],
+    "seconds": 11.35
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 6,
+    "offset_m": 467.2,
+    "position": [
+     146.6,
+     4.2,
+     -72.5
+    ],
+    "seconds": 18.81
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 8,
+    "offset_m": 648.2,
+    "position": [
+     191,
+     2.8,
+     85.3
+    ],
+    "seconds": 26.28
+   }
+  ],
   "quality": "low",
+  "render_config_changed": false,
+  "render_size_estimate": [
+   960,
+   540
+  ],
+  "requested_seconds": 30,
   "resets": 0,
-  "script_ms": 383.44,
-  "seconds": 30,
-  "stuck_s": 0.4,
-  "track": "frost",
-  "tris_k": 71,
-  "tris_k_max": 104,
-  "errors": 0,
-  "wall_s": 110
- },
- "frost:high": {
-  "draws": 297,
-  "draws_max": 428,
-  "fps": 7.5,
-  "frame_p50": 133.2,
-  "frame_p95": 144.2,
-  "frames": 189,
-  "laps": {
-   "Deer": 1,
-   "Frog": 1,
-   "Rhino": 1,
-   "You": 1
+  "resized": false,
+  "scale_3d": 1,
+  "schema": 2,
+  "seconds": 30.1,
+  "seeds": {
+   "items": 99,
+   "player_bot": 99,
+   "rival_bots": [
+    3,
+    4,
+    5
+   ],
+   "track": 42
   },
-  "objects": 683,
-  "partial": true,
-  "physics_ms": 2.87,
-  "player_laps": 1,
-  "quality": "high",
-  "resets": 0,
-  "script_ms": 639.64,
-  "seconds": 25.2,
-  "stuck_s": 0.4,
-  "track": "frost",
-  "tris_k": 112,
-  "tris_k_max": 205,
-  "errors": 0,
-  "wall_s": 154
- },
- "meadow:high": {
-  "draws": 295,
-  "draws_max": 418,
-  "fps": 7.5,
-  "frame_p50": 133.8,
-  "frame_p95": 144.1,
-  "frames": 95,
-  "laps": {
-   "Deer": 1,
-   "Frog": 1,
-   "Rhino": 1,
-   "You": 1
+  "simulation_fps": 7.5,
+  "simulation_frame_p50": 133,
+  "simulation_frame_p95": 144.9,
+  "start_progress": {
+   "lap_counter": 0,
+   "next_checkpoint": 0,
+   "offset_m": 978.9,
+   "position": [
+    -3.2,
+    0.3,
+    47.8
+   ],
+   "seconds": 0
   },
-  "objects": 843,
-  "partial": true,
-  "physics_ms": 2.53,
-  "player_laps": 1,
-  "quality": "high",
-  "resets": 0,
-  "script_ms": 1275.53,
-  "seconds": 12.7,
-  "stuck_s": 0.8,
+  "startup_to_green_ms": 33209.9200000004,
+  "stuck_s": 1.6,
   "track": "meadow",
-  "tris_k": 185,
-  "tris_k_max": 292,
-  "errors": 0,
-  "wall_s": 173
- },
- "mine:high": {
-  "draws": 308,
-  "draws_max": 383,
-  "fps": 7.5,
-  "frame_p50": 132.6,
-  "frame_p95": 143.2,
-  "frames": 71,
-  "laps": {
-   "Deer": 1,
-   "Frog": 1,
-   "Rhino": 1,
-   "You": 1
+  "tris_k": 137,
+  "tris_k_max": 226,
+  "valid": true,
+  "viewport_size": [
+   960,
+   540
+  ],
+  "wall_frame_stats": {
+   "fps": 1.5,
+   "max": 1075.4,
+   "over_100ms": 225,
+   "over_33ms": 225,
+   "over_50ms": 225,
+   "p50": 678.9,
+   "p95": 872.3,
+   "p99": 943.7
   },
-  "objects": 810,
-  "partial": true,
-  "physics_ms": 4.64,
-  "player_laps": 1,
-  "quality": "high",
+  "wall_race_s": 154.799,
+  "build": {
+   "checkout_commit": "d733bbae0bd570b1fd3e1a0bc12196242a2c28ff",
+   "checkout_dirty": true,
+   "exported_this_run": true,
+   "artifacts": {
+    "index.pck": "d898ae6da4955803887bd76812bd0033c57c3510a54f20b8a006dbc38138738e",
+    "index.wasm": "e4a43dbae28662b2a68f6136857a94db6695430901515800b9883f6327cb7116",
+    "index.js": "19eb180d568bb8e17bcf4c72ca034ed3af44deeb90304deefee4e665562dfe31",
+    "mobile.js": "323bfea1b1c08c0092ee16df4b3ba4c558af93e077723d5a92b742f6a6e6e842",
+    "landscape.js": "e307e834b9e5c6618adede8f16e20c696cf7b3c151a4a4d55ad30a734c721375",
+    "tilt.js": "598816db2f0cdc8be69ee27c3a344c795e86db51e50e682dda3601a11498e873",
+    "net.js": "6c7a702157097ea21a5a1b232203c98cc665969efd4f03f55deac11e8cfb27b3"
+   }
+  },
+  "runner": {
+   "profile": "desktop",
+   "viewport": {
+    "width": 960,
+    "height": 540
+   },
+   "deviceScaleFactor": 1,
+   "renderer": "SwiftShader",
+   "platform": "linux",
+   "arch": "x64",
+   "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+   "cpu_count": 2
+  },
+  "browser_version": "153.0.8010.12",
+  "errors": 0,
+  "wall_s": 192
+ },
+ "mine:low:desktop": {
+  "browser": {
+   "canvas_size": [
+    960,
+    540
+   ],
+   "css_size": [
+    960,
+    540
+   ],
+   "dpr": 1,
+   "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36"
+  },
+  "control_mode": "autodrive",
+  "draws": 268,
+  "draws_max": 578,
+  "duration_clock": "simulation",
+  "end_progress": {
+   "lap_counter": 1,
+   "next_checkpoint": 6,
+   "offset_m": 774.8,
+   "position": [
+    135,
+    24.4,
+    -291.5
+   ],
+   "seconds": 30.05
+  },
+  "frames": 226,
+  "godot_version": "4.4.1-stable (official)",
+  "interruptions": 0,
+  "kart_count": 4,
+  "laps": {
+   "Deer": 0,
+   "Frog": 0,
+   "Rhino": 0,
+   "You": 0
+  },
+  "msaa_samples": 0,
+  "objects": 874,
+  "partial": false,
+  "physics_ms": 4.98,
+  "player_completed_laps": 0,
+  "process_ms": 881.6,
+  "progress_samples": [
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 1,
+    "offset_m": 51.8,
+    "position": [
+     38.5,
+     14.1,
+     305
+    ],
+    "seconds": 3.86
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 2,
+    "offset_m": 268.4,
+    "position": [
+     184.8,
+     16.8,
+     164.9
+    ],
+    "seconds": 11.37
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 4,
+    "offset_m": 474.3,
+    "position": [
+     113.5,
+     16.4,
+     -12.8
+    ],
+    "seconds": 18.85
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 5,
+    "offset_m": 675.7,
+    "position": [
+     161.8,
+     23.2,
+     -205.4
+    ],
+    "seconds": 26.32
+   }
+  ],
+  "quality": "low",
+  "render_config_changed": false,
+  "render_size_estimate": [
+   960,
+   540
+  ],
+  "requested_seconds": 30,
   "resets": 0,
-  "script_ms": 1682.83,
-  "seconds": 9.4,
+  "resized": false,
+  "scale_3d": 1,
+  "schema": 2,
+  "seconds": 30.1,
+  "seeds": {
+   "items": 99,
+   "player_bot": 99,
+   "rival_bots": [
+    3,
+    4,
+    5
+   ],
+   "track": 42
+  },
+  "simulation_fps": 7.5,
+  "simulation_frame_p50": 133.7,
+  "simulation_frame_p95": 144.7,
+  "start_progress": {
+   "lap_counter": 0,
+   "next_checkpoint": 0,
+   "offset_m": 1725.9,
+   "position": [
+    -20.7,
+    14.2,
+    308.6
+   ],
+   "seconds": 0
+  },
+  "startup_to_green_ms": 37972.4399999999,
   "stuck_s": 0.4,
   "track": "mine",
-  "tris_k": 203,
-  "tris_k_max": 266,
+  "tris_k": 175,
+  "tris_k_max": 269,
+  "valid": true,
+  "viewport_size": [
+   960,
+   540
+  ],
+  "wall_frame_stats": {
+   "fps": 1.1,
+   "max": 1766.9,
+   "over_100ms": 224,
+   "over_33ms": 225,
+   "over_50ms": 224,
+   "p50": 895.7,
+   "p95": 1175.7,
+   "p99": 1309.1
+  },
+  "wall_race_s": 205.171,
+  "build": {
+   "checkout_commit": "d733bbae0bd570b1fd3e1a0bc12196242a2c28ff",
+   "checkout_dirty": true,
+   "exported_this_run": true,
+   "artifacts": {
+    "index.pck": "d898ae6da4955803887bd76812bd0033c57c3510a54f20b8a006dbc38138738e",
+    "index.wasm": "e4a43dbae28662b2a68f6136857a94db6695430901515800b9883f6327cb7116",
+    "index.js": "19eb180d568bb8e17bcf4c72ca034ed3af44deeb90304deefee4e665562dfe31",
+    "mobile.js": "323bfea1b1c08c0092ee16df4b3ba4c558af93e077723d5a92b742f6a6e6e842",
+    "landscape.js": "e307e834b9e5c6618adede8f16e20c696cf7b3c151a4a4d55ad30a734c721375",
+    "tilt.js": "598816db2f0cdc8be69ee27c3a344c795e86db51e50e682dda3601a11498e873",
+    "net.js": "6c7a702157097ea21a5a1b232203c98cc665969efd4f03f55deac11e8cfb27b3"
+   }
+  },
+  "runner": {
+   "profile": "desktop",
+   "viewport": {
+    "width": 960,
+    "height": 540
+   },
+   "deviceScaleFactor": 1,
+   "renderer": "SwiftShader",
+   "platform": "linux",
+   "arch": "x64",
+   "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+   "cpu_count": 2
+  },
+  "browser_version": "153.0.8010.12",
   "errors": 0,
-  "wall_s": 167
+  "wall_s": 247
+ },
+ "frost:low:desktop": {
+  "browser": {
+   "canvas_size": [
+    960,
+    540
+   ],
+   "css_size": [
+    960,
+    540
+   ],
+   "dpr": 1,
+   "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36"
+  },
+  "control_mode": "autodrive",
+  "draws": 199,
+  "draws_max": 310,
+  "duration_clock": "simulation",
+  "end_progress": {
+   "lap_counter": 1,
+   "next_checkpoint": 7,
+   "offset_m": 639.1,
+   "position": [
+    81.6,
+    13,
+    -215.8
+   ],
+   "seconds": 30.14
+  },
+  "frames": 226,
+  "godot_version": "4.4.1-stable (official)",
+  "interruptions": 0,
+  "kart_count": 4,
+  "laps": {
+   "Deer": 0,
+   "Frog": 0,
+   "Rhino": 0,
+   "You": 0
+  },
+  "msaa_samples": 0,
+  "objects": 570,
+  "partial": false,
+  "physics_ms": 4.19,
+  "player_completed_laps": 0,
+  "process_ms": 446.48,
+  "progress_samples": [
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 1,
+    "offset_m": 51.8,
+    "position": [
+     -0.5,
+     0.3,
+     -11.8
+    ],
+    "seconds": 3.87
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 3,
+    "offset_m": 221.2,
+    "position": [
+     72.9,
+     4.6,
+     -110.7
+    ],
+    "seconds": 11.34
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 4,
+    "offset_m": 375.9,
+    "position": [
+     142.3,
+     11.4,
+     1.2
+    ],
+    "seconds": 18.81
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 6,
+    "offset_m": 543.4,
+    "position": [
+     155.3,
+     16,
+     -161.7
+    ],
+    "seconds": 26.27
+   }
+  ],
+  "quality": "low",
+  "render_config_changed": false,
+  "render_size_estimate": [
+   960,
+   540
+  ],
+  "requested_seconds": 30,
+  "resets": 0,
+  "resized": false,
+  "scale_3d": 1,
+  "schema": 2,
+  "seconds": 30.1,
+  "seeds": {
+   "items": 99,
+   "player_bot": 99,
+   "rival_bots": [
+    3,
+    4,
+    5
+   ],
+   "track": 42
+  },
+  "simulation_fps": 7.5,
+  "simulation_frame_p50": 133.6,
+  "simulation_frame_p95": 144.4,
+  "start_progress": {
+   "lap_counter": 0,
+   "next_checkpoint": 0,
+   "offset_m": 1230.5,
+   "position": [
+    -2.9,
+    0.4,
+    48
+   ],
+   "seconds": 0
+  },
+  "startup_to_green_ms": 26647.5,
+  "stuck_s": 0.4,
+  "track": "frost",
+  "tris_k": 75,
+  "tris_k_max": 109,
+  "valid": true,
+  "viewport_size": [
+   960,
+   540
+  ],
+  "wall_frame_stats": {
+   "fps": 2.3,
+   "max": 724.2,
+   "over_100ms": 225,
+   "over_33ms": 225,
+   "over_50ms": 225,
+   "p50": 428.3,
+   "p95": 587.2,
+   "p99": 670.7
+  },
+  "wall_race_s": 99.923,
+  "build": {
+   "checkout_commit": "d733bbae0bd570b1fd3e1a0bc12196242a2c28ff",
+   "checkout_dirty": true,
+   "exported_this_run": true,
+   "artifacts": {
+    "index.pck": "d898ae6da4955803887bd76812bd0033c57c3510a54f20b8a006dbc38138738e",
+    "index.wasm": "e4a43dbae28662b2a68f6136857a94db6695430901515800b9883f6327cb7116",
+    "index.js": "19eb180d568bb8e17bcf4c72ca034ed3af44deeb90304deefee4e665562dfe31",
+    "mobile.js": "323bfea1b1c08c0092ee16df4b3ba4c558af93e077723d5a92b742f6a6e6e842",
+    "landscape.js": "e307e834b9e5c6618adede8f16e20c696cf7b3c151a4a4d55ad30a734c721375",
+    "tilt.js": "598816db2f0cdc8be69ee27c3a344c795e86db51e50e682dda3601a11498e873",
+    "net.js": "6c7a702157097ea21a5a1b232203c98cc665969efd4f03f55deac11e8cfb27b3"
+   }
+  },
+  "runner": {
+   "profile": "desktop",
+   "viewport": {
+    "width": 960,
+    "height": 540
+   },
+   "deviceScaleFactor": 1,
+   "renderer": "SwiftShader",
+   "platform": "linux",
+   "arch": "x64",
+   "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+   "cpu_count": 2
+  },
+  "browser_version": "153.0.8010.12",
+  "errors": 0,
+  "wall_s": 129
+ },
+ "frost:high:desktop": {
+  "browser": {
+   "canvas_size": [
+    960,
+    540
+   ],
+   "css_size": [
+    960,
+    540
+   ],
+   "dpr": 1,
+   "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36"
+  },
+  "control_mode": "autodrive",
+  "draws": 208,
+  "draws_max": 322,
+  "duration_clock": "simulation",
+  "end_progress": {
+   "lap_counter": 1,
+   "next_checkpoint": 7,
+   "offset_m": 638.3,
+   "position": [
+    82.4,
+    13.2,
+    -215.6
+   ],
+   "seconds": 30.13
+  },
+  "frames": 226,
+  "godot_version": "4.4.1-stable (official)",
+  "interruptions": 0,
+  "kart_count": 4,
+  "laps": {
+   "Deer": 0,
+   "Frog": 0,
+   "Rhino": 0,
+   "You": 0
+  },
+  "msaa_samples": 4,
+  "objects": 578,
+  "partial": false,
+  "physics_ms": 3.49,
+  "player_completed_laps": 0,
+  "process_ms": 765.86,
+  "progress_samples": [
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 1,
+    "offset_m": 51.8,
+    "position": [
+     -0.5,
+     0.3,
+     -11.8
+    ],
+    "seconds": 3.88
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 3,
+    "offset_m": 221.1,
+    "position": [
+     72.9,
+     4.6,
+     -110.8
+    ],
+    "seconds": 11.34
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 4,
+    "offset_m": 375.5,
+    "position": [
+     142,
+     11.4,
+     1.4
+    ],
+    "seconds": 18.8
+   },
+   {
+    "lap_counter": 1,
+    "next_checkpoint": 6,
+    "offset_m": 543.1,
+    "position": [
+     155.4,
+     16,
+     -161.3
+    ],
+    "seconds": 26.26
+   }
+  ],
+  "quality": "high",
+  "render_config_changed": false,
+  "render_size_estimate": [
+   960,
+   540
+  ],
+  "requested_seconds": 30,
+  "resets": 0,
+  "resized": false,
+  "scale_3d": 1,
+  "schema": 2,
+  "seconds": 30.1,
+  "seeds": {
+   "items": 99,
+   "player_bot": 99,
+   "rival_bots": [
+    3,
+    4,
+    5
+   ],
+   "track": 42
+  },
+  "simulation_fps": 7.5,
+  "simulation_frame_p50": 133,
+  "simulation_frame_p95": 145.1,
+  "start_progress": {
+   "lap_counter": 0,
+   "next_checkpoint": 0,
+   "offset_m": 1230.5,
+   "position": [
+    -3,
+    0.4,
+    48
+   ],
+   "seconds": 0
+  },
+  "startup_to_green_ms": 39684.3650000002,
+  "stuck_s": 0.4,
+  "track": "frost",
+  "tris_k": 126,
+  "tris_k_max": 210,
+  "valid": true,
+  "viewport_size": [
+   960,
+   540
+  ],
+  "wall_frame_stats": {
+   "fps": 1.3,
+   "max": 1286.1,
+   "over_100ms": 225,
+   "over_33ms": 225,
+   "over_50ms": 225,
+   "p50": 759.2,
+   "p95": 1025.7,
+   "p99": 1172.7
+  },
+  "wall_race_s": 175.343,
+  "build": {
+   "checkout_commit": "d733bbae0bd570b1fd3e1a0bc12196242a2c28ff",
+   "checkout_dirty": true,
+   "exported_this_run": true,
+   "artifacts": {
+    "index.pck": "d898ae6da4955803887bd76812bd0033c57c3510a54f20b8a006dbc38138738e",
+    "index.wasm": "e4a43dbae28662b2a68f6136857a94db6695430901515800b9883f6327cb7116",
+    "index.js": "19eb180d568bb8e17bcf4c72ca034ed3af44deeb90304deefee4e665562dfe31",
+    "mobile.js": "323bfea1b1c08c0092ee16df4b3ba4c558af93e077723d5a92b742f6a6e6e842",
+    "landscape.js": "e307e834b9e5c6618adede8f16e20c696cf7b3c151a4a4d55ad30a734c721375",
+    "tilt.js": "598816db2f0cdc8be69ee27c3a344c795e86db51e50e682dda3601a11498e873",
+    "net.js": "6c7a702157097ea21a5a1b232203c98cc665969efd4f03f55deac11e8cfb27b3"
+   }
+  },
+  "runner": {
+   "profile": "desktop",
+   "viewport": {
+    "width": 960,
+    "height": 540
+   },
+   "deviceScaleFactor": 1,
+   "renderer": "SwiftShader",
+   "platform": "linux",
+   "arch": "x64",
+   "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+   "cpu_count": 2
+  },
+  "browser_version": "153.0.8010.12",
+  "errors": 0,
+  "wall_s": 217
  }
 }

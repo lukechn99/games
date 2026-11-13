@@ -9,6 +9,7 @@
 //     --profile phone  844×390 CSS px, DPR 3 (desktop default: 960×540 DPR 1)
 //     --repeat N    retain N independent samples (default 1)
 //     --sources     also list the biggest sources of draw calls
+//     --wall N      real seconds a run may take before it stops as partial (300)
 //     --update      save these results as the new baseline
 //     --export      re-export the game even if it looks current
 //
@@ -34,6 +35,9 @@ const argv = process.argv.slice(2)
 const flag = (f) => argv.includes(f)
 const opt = (f, d) => (argv.includes(f) ? argv[argv.indexOf(f) + 1] : d)
 const secs = Number(opt('--secs', 30))
+// Software rendering here is slow: allow time for complete runs, which
+// the baseline requires (a phone keeps the game's own 120 s cap).
+const wall = Number(opt('--wall', 300))
 const profile = opt('--profile', 'desktop')
 const repeats = Number(opt('--repeat', 1))
 const profiles = {
@@ -43,7 +47,7 @@ const profiles = {
 if (!profiles[profile] || !Number.isFinite(secs) || secs < 1 || secs > 300 || !Number.isInteger(repeats) || repeats < 1 || repeats > 20) {
   throw new Error('Use --profile desktop|phone, --secs 1..300 and --repeat 1..20')
 }
-const named = argv.filter((a, i) => !a.startsWith('--') && !['--secs', '--profile', '--repeat'].includes(argv[i - 1]))
+const named = argv.filter((a, i) => !a.startsWith('--') && !['--secs', '--profile', '--repeat', '--wall'].includes(argv[i - 1]))
 const runs = (named.length ? named : ['meadow', 'mine', 'frost']).flatMap((n) => {
   const [track, q] = n.split(':')
   return (q ? [q] : ['low', 'high']).map((quality) => ({ track, quality, key: `${track}:${quality}` }))
@@ -71,10 +75,10 @@ for (const r of executions) {
   const errors = []
   page.on('console', (m) => { if (isError(m.text())) errors.push(m.text().slice(0, 200)) })
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)))
-  const q = `autodrive&bench=${secs}&quality=${r.quality}` + (r.track === 'meadow' ? '' : `&track=${r.track}`)
+  const q = `autodrive&bench=${secs}&benchwall=${wall}&quality=${r.quality}` + (r.track === 'meadow' ? '' : `&track=${r.track}`)
   await page.goto(`${url}/racing/index.html?${q}`)
   try {
-    await page.waitForFunction(() => window.__bench, null, { timeout: 420 * 1000, polling: 1000 })
+    await page.waitForFunction(() => window.__bench, null, { timeout: (wall + 300) * 1000, polling: 1000 })
     results[r.key] = { ...(await page.evaluate(() => window.__bench)), build, runner, browser_version: b.version(), errors: errors.length, error_lines: errors.slice(0, 5), wall_s: Math.round((Date.now() - t0) / 1000) }
   } catch {
     results[r.key] = { failed: 'no result (timed out)', errors: errors.length, error_lines: errors.slice(0, 5) }

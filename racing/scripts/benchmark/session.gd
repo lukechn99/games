@@ -39,5 +39,9 @@ static func attach(race: Node, query: String) -> bool:
 		bench.context = context
 		if params.has("bench") and not str(params["bench"]).is_empty():
 			bench.seconds = clampf(float(params["bench"]), 1.0, 300.0)
+		# ?benchwall=SECONDS: how long a slow machine may take before the run
+		# stops as "partial" (default 120 s, right for phones).
+		if params.has("benchwall"):
+			bench.wall_limit = clampf(float(params["benchwall"]), 10.0, 900.0)
 		race.add_child(bench)
 	return true

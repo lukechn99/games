@@ -165,13 +165,14 @@ All builds should finish within about 5% of each other on a lap when driven well
 **Proposed rules:** item crates sit in rows across the track and reappear 3 seconds after being picked up. You hold one item at a time. What you get depends on your position: karts near the back get more catch-up items.
 
 **Decided launch items:** the **honey puddle**, the **tumbleweed** and the **growing snowball**, all built.
-**Decided:** each track has its own item pool, so items match the terrain. For now the snowball comes only from crates on Frosty Pass; honey and tumbleweeds come everywhere.
+**Decided:** each track has its own item pool, so items match the terrain. For now the snowball and the sand gun come only from crates on Frosty Pass; honey and tumbleweeds come everywhere. Next (Proposed): an item of its own for each of the other tracks.
 
 | Launch item | What it does | Where |
 |---|---|---|
 | **Honey puddle** | Dropped behind you. It grabs: a kart that drives into it loses half its speed at once, then is held to 45% and steers sluggishly for 2 seconds. It lasts 15 seconds or until 3 karts have driven through it | All tracks |
 | **Tumbleweed** | Rolled backwards down the track. It bounces unpredictably and knocks karts sideways | Meadow Loop, Canyon Run, dry tracks |
 | **Snowball** | Bowled forward along the track, faster than any kart. It grows as it rolls (from about 1 m across to 3 m), so the further it travels, the bigger the hit. It bursts on the first kart it reaches (knocking it aside and nearly stopping it) or when it leaves the road | Frosty Pass |
+| **Sand gun** | A blaster on your kart's nose sprays sand for 5 seconds, sweeping side to side so the sand lands in an S across the road about 8 m ahead. Ice under sand grips like road, for every kart, until it blows away 8 seconds later (the user asked for 5 to 10 at most). Its use is to get through the icy hairpin patches or across the lake at full grip | Frosty Pass |
 
 **Candidates for later** (each fills a role every kart racer needs, with our own twist):
 
@@ -192,6 +193,7 @@ All builds should finish within about 5% of each other on a lap when driven well
 - **Honey puddle:** works as in the table above: slow and sluggish steering for 2 seconds, lasting 15 seconds or 3 karts.
 - **Tumbleweed:** rolls backwards down the road from your kart, wandering and hopping. A hit shoves you sideways and slows you, but never spins you round or flips you.
 - **Snowball:** as in the table. Computer drivers bowl it at a kart up to 45 m ahead.
+- **Sand gun:** computer drivers spray when ice is 6 to 30 m ahead (or after 20 seconds of holding it).
 - **Coins:** rows of spinning coins on the road, each +1% top speed up to 10; a crash loses all held coins. The HUD shows the count beside a slowly spinning preview of the same cached coin mesh. Collected road coins are hidden and shown again on their respawn timer; their nodes are reused. **Decided:** they run in diagonal lines across the road, alternating direction, so collecting a whole line takes steering.
 - **Item boxes:** a squishy pink jelly cube with a fat yellow question mark inside, its hook curling well down (drawn as a stroke, not taken from a font).
 - **Computer drivers** use an item when someone is close behind them, or after 8 seconds.
@@ -988,6 +990,8 @@ Settled since the first list: the launch drivers (fox, frog, rhino, deer), showi
 | 2026-11-07 | Scenery in the new style: soft lighting and smooth Blender trees | The user's priority |
 | 2026-11-07 | A music section in the design doc, to decide together | The user's request |
 | 2026-11-09 | Approve the stronger colour-separation direction and eight-colour starting palette in 9.1a; prototype Meadow first and review matched Web captures before broader rollout | The user's supplied Mario Kart screenshots and approval of the proposed palette |
+| 2026-11-13 | Frosty Pass ice in short patches (three 10 m patches per hairpin), not 77 m sheets | The user: long ice was very hard to drive over |
+| 2026-11-13 | Sand gun (Frosty Pass item): 5 s weaving spray, sand cancels ice for 8 s, for everyone | The user's idea, and its S shape and 5 to 10 s life |
 
 Frost lake exit: banking and its centre-line lift ease back in over 60 m after
 the flat merge zone, preventing a step where the bank previously switched on.

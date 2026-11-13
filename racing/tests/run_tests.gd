@@ -778,6 +778,55 @@ func _test_frost() -> void:
 			longest_ice = maxf(longest_ice, (float(zone["to"]) - float(zone["from"])) * track.length)
 	check(ice_patches >= 4 and longest_ice <= 15.0, "Frosty Pass ice is short patches (%d, longest %.0f m)" % [ice_patches, longest_ice])
 
+	# Sand gun: Frosty Pass only; sprays an S of sand ahead for 5 s; sand
+	# makes ice grip like road, then blows away.
+	var sk := Kart.new()
+	sk.configure("frame", "slicks", "fox")
+	sk.track = track
+	_world.add_child(sk)
+	var sall: Array[Kart] = [sk]
+	var sitems := Items.new()
+	_world.add_child(sitems)
+	sitems.setup(track, sall, sall)
+	check("sandgun" in sitems.pool(), "the sand gun is in Frosty Pass crates")
+	var patch: Dictionary = {}
+	for zone in track.surface_zones:
+		if zone["surface"] == "ice":
+			patch = zone
+			break
+	var pd := (float(patch["from"]) + float(patch["to"])) * 0.5 * track.length
+	var pf := track.road_frame(pd)
+	sk.global_transform = Transform3D(pf.basis, pf.origin + Vector3.UP * 0.6)
+	await _ticks(20)
+	check(sk.surface_name == "ice", "a kart on an ice patch is on ice", sk.surface_name)
+	# Spray from behind the patch, so the S lands on it.
+	sk.global_transform = Transform3D(pf.basis, pf.origin + pf.basis.z * Items.SAND_AHEAD + Vector3.UP * 0.6)
+	sk.linear_velocity = Vector3.ZERO
+	sitems.spawn("sandgun", sk.global_position, -pf.basis.z, 7)
+	await _ticks(int(Items.SPRAY_TIME * 60.0) - 30)
+	var left := false
+	var right := false
+	for pile in Items.sand:
+		var side := ((pile[0] as Vector3) - sk.global_position).dot(sk.global_transform.basis.x)
+		left = left or side < -2.5
+		right = right or side > 2.5
+	check(Items.sand.size() > 25 and left and right, "the spray lays sand weaving to both sides", str(Items.sand.size()))
+	await _ticks(60)
+	var piles := Items.sand.size()
+	await _ticks(30)
+	check(Items.sand.size() <= piles and sitems._sprays.is_empty(), "spraying stops after 5 seconds")
+	sk.global_transform = Transform3D(pf.basis, pf.origin + Vector3.UP * 0.6)
+	sk.linear_velocity = Vector3.ZERO
+	Items.sand.append([pf.origin, Items.SAND_LIFE])
+	await _ticks(20)
+	check(sk.surface_name == "asphalt", "ice under sand grips like road", sk.surface_name)
+	await _ticks(int(Items.SAND_LIFE * 60.0) + 10)
+	check(Items.sand.is_empty(), "sand blows away after %d seconds" % Items.SAND_LIFE)
+	sk.global_transform = Transform3D(pf.basis, pf.origin + Vector3.UP * 0.6)
+	sk.linear_velocity = Vector3.ZERO
+	await _ticks(20)
+	check(sk.surface_name == "ice", "and the ice is slippery again", sk.surface_name)
+
 	# The junction must cover the full drivable width of BOTH paths. Test
 	# the polygon and actual colliders, which use the same rendered mesh.
 	var coverage_ok := true

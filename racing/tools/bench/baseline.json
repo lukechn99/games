@@ -369,21 +369,21 @@
    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36"
   },
   "control_mode": "autodrive",
-  "draws": 199,
-  "draws_max": 310,
+  "draws": 170,
+  "draws_max": 308,
   "duration_clock": "simulation",
   "end_progress": {
    "lap_counter": 1,
    "next_checkpoint": 7,
-   "offset_m": 639.1,
+   "offset_m": 720.5,
    "position": [
-    81.6,
-    13,
-    -215.8
+    2.4,
+    4.2,
+    -226.3
    ],
-   "seconds": 30.14
+   "seconds": 30.01
   },
-  "frames": 226,
+  "frames": 225,
   "godot_version": "4.4.1-stable (official)",
   "interruptions": 0,
   "kart_count": 4,
@@ -394,11 +394,11 @@
    "You": 0
   },
   "msaa_samples": 0,
-  "objects": 570,
+  "objects": 591,
   "partial": false,
-  "physics_ms": 4.19,
+  "physics_ms": 4.14,
   "player_completed_laps": 0,
-  "process_ms": 446.48,
+  "process_ms": 410.23,
   "progress_samples": [
    {
     "lap_counter": 1,
@@ -414,35 +414,35 @@
    {
     "lap_counter": 1,
     "next_checkpoint": 3,
-    "offset_m": 221.2,
+    "offset_m": 242.1,
     "position": [
-     72.9,
-     4.6,
-     -110.7
+     77.7,
+     5.5,
+     -90.8
     ],
     "seconds": 11.34
    },
    {
     "lap_counter": 1,
-    "next_checkpoint": 4,
-    "offset_m": 375.9,
+    "next_checkpoint": 5,
+    "offset_m": 421.4,
     "position": [
-     142.3,
-     11.4,
-     1.2
+     156.7,
+     12.6,
+     -41.7
     ],
     "seconds": 18.81
    },
    {
     "lap_counter": 1,
     "next_checkpoint": 6,
-    "offset_m": 543.4,
+    "offset_m": 602.5,
     "position": [
-     155.3,
-     16,
-     -161.7
+     114.8,
+     16.5,
+     -201.2
     ],
-    "seconds": 26.27
+    "seconds": 26.26
    }
   ],
   "quality": "low",
@@ -456,7 +456,7 @@
   "resized": false,
   "scale_3d": 1,
   "schema": 2,
-  "seconds": 30.1,
+  "seconds": 30,
   "seeds": {
    "items": 99,
    "player_bot": 99,
@@ -468,186 +468,8 @@
    "track": 42
   },
   "simulation_fps": 7.5,
-  "simulation_frame_p50": 133.6,
-  "simulation_frame_p95": 144.4,
-  "start_progress": {
-   "lap_counter": 0,
-   "next_checkpoint": 0,
-   "offset_m": 1230.5,
-   "position": [
-    -2.9,
-    0.4,
-    48
-   ],
-   "seconds": 0
-  },
-  "startup_to_green_ms": 26647.5,
-  "stuck_s": 0.4,
-  "track": "frost",
-  "tris_k": 75,
-  "tris_k_max": 109,
-  "valid": true,
-  "viewport_size": [
-   960,
-   540
-  ],
-  "wall_frame_stats": {
-   "fps": 2.3,
-   "max": 724.2,
-   "over_100ms": 225,
-   "over_33ms": 225,
-   "over_50ms": 225,
-   "p50": 428.3,
-   "p95": 587.2,
-   "p99": 670.7
-  },
-  "wall_race_s": 99.923,
-  "build": {
-   "checkout_commit": "d733bbae0bd570b1fd3e1a0bc12196242a2c28ff",
-   "checkout_dirty": true,
-   "exported_this_run": true,
-   "artifacts": {
-    "index.pck": "d898ae6da4955803887bd76812bd0033c57c3510a54f20b8a006dbc38138738e",
-    "index.wasm": "e4a43dbae28662b2a68f6136857a94db6695430901515800b9883f6327cb7116",
-    "index.js": "19eb180d568bb8e17bcf4c72ca034ed3af44deeb90304deefee4e665562dfe31",
-    "mobile.js": "323bfea1b1c08c0092ee16df4b3ba4c558af93e077723d5a92b742f6a6e6e842",
-    "landscape.js": "e307e834b9e5c6618adede8f16e20c696cf7b3c151a4a4d55ad30a734c721375",
-    "tilt.js": "598816db2f0cdc8be69ee27c3a344c795e86db51e50e682dda3601a11498e873",
-    "net.js": "6c7a702157097ea21a5a1b232203c98cc665969efd4f03f55deac11e8cfb27b3"
-   }
-  },
-  "runner": {
-   "profile": "desktop",
-   "viewport": {
-    "width": 960,
-    "height": 540
-   },
-   "deviceScaleFactor": 1,
-   "renderer": "SwiftShader",
-   "platform": "linux",
-   "arch": "x64",
-   "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
-   "cpu_count": 2
-  },
-  "browser_version": "153.0.8010.12",
-  "errors": 0,
-  "wall_s": 129
- },
- "frost:high:desktop": {
-  "browser": {
-   "canvas_size": [
-    960,
-    540
-   ],
-   "css_size": [
-    960,
-    540
-   ],
-   "dpr": 1,
-   "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36"
-  },
-  "control_mode": "autodrive",
-  "draws": 208,
-  "draws_max": 322,
-  "duration_clock": "simulation",
-  "end_progress": {
-   "lap_counter": 1,
-   "next_checkpoint": 7,
-   "offset_m": 638.3,
-   "position": [
-    82.4,
-    13.2,
-    -215.6
-   ],
-   "seconds": 30.13
-  },
-  "frames": 226,
-  "godot_version": "4.4.1-stable (official)",
-  "interruptions": 0,
-  "kart_count": 4,
-  "laps": {
-   "Deer": 0,
-   "Frog": 0,
-   "Rhino": 0,
-   "You": 0
-  },
-  "msaa_samples": 4,
-  "objects": 578,
-  "partial": false,
-  "physics_ms": 3.49,
-  "player_completed_laps": 0,
-  "process_ms": 765.86,
-  "progress_samples": [
-   {
-    "lap_counter": 1,
-    "next_checkpoint": 1,
-    "offset_m": 51.8,
-    "position": [
-     -0.5,
-     0.3,
-     -11.8
-    ],
-    "seconds": 3.88
-   },
-   {
-    "lap_counter": 1,
-    "next_checkpoint": 3,
-    "offset_m": 221.1,
-    "position": [
-     72.9,
-     4.6,
-     -110.8
-    ],
-    "seconds": 11.34
-   },
-   {
-    "lap_counter": 1,
-    "next_checkpoint": 4,
-    "offset_m": 375.5,
-    "position": [
-     142,
-     11.4,
-     1.4
-    ],
-    "seconds": 18.8
-   },
-   {
-    "lap_counter": 1,
-    "next_checkpoint": 6,
-    "offset_m": 543.1,
-    "position": [
-     155.4,
-     16,
-     -161.3
-    ],
-    "seconds": 26.26
-   }
-  ],
-  "quality": "high",
-  "render_config_changed": false,
-  "render_size_estimate": [
-   960,
-   540
-  ],
-  "requested_seconds": 30,
-  "resets": 0,
-  "resized": false,
-  "scale_3d": 1,
-  "schema": 2,
-  "seconds": 30.1,
-  "seeds": {
-   "items": 99,
-   "player_bot": 99,
-   "rival_bots": [
-    3,
-    4,
-    5
-   ],
-   "track": 42
-  },
-  "simulation_fps": 7.5,
-  "simulation_frame_p50": 133,
-  "simulation_frame_p95": 145.1,
+  "simulation_frame_p50": 133.4,
+  "simulation_frame_p95": 144.2,
   "start_progress": {
    "lap_counter": 0,
    "next_checkpoint": 0,
@@ -659,33 +481,33 @@
    ],
    "seconds": 0
   },
-  "startup_to_green_ms": 39684.3650000002,
+  "startup_to_green_ms": 27415.04,
   "stuck_s": 0.4,
   "track": "frost",
-  "tris_k": 126,
-  "tris_k_max": 210,
+  "tris_k": 67,
+  "tris_k_max": 109,
   "valid": true,
   "viewport_size": [
    960,
    540
   ],
   "wall_frame_stats": {
-   "fps": 1.3,
-   "max": 1286.1,
-   "over_100ms": 225,
-   "over_33ms": 225,
-   "over_50ms": 225,
-   "p50": 759.2,
-   "p95": 1025.7,
-   "p99": 1172.7
+   "fps": 2.5,
+   "max": 564.5,
+   "over_100ms": 224,
+   "over_33ms": 224,
+   "over_50ms": 224,
+   "p50": 398.7,
+   "p95": 519.4,
+   "p99": 554.6
   },
-  "wall_race_s": 175.343,
+  "wall_race_s": 91.057,
   "build": {
-   "checkout_commit": "d733bbae0bd570b1fd3e1a0bc12196242a2c28ff",
+   "checkout_commit": "8b2a810002dbb6b33228a2ba916c174454f6e27a",
    "checkout_dirty": true,
-   "exported_this_run": true,
+   "exported_this_run": false,
    "artifacts": {
-    "index.pck": "d898ae6da4955803887bd76812bd0033c57c3510a54f20b8a006dbc38138738e",
+    "index.pck": "a284589b3eaa200eb275fd89f82aeb78cedb6a941aaa346758cb01bd4c0fb340",
     "index.wasm": "e4a43dbae28662b2a68f6136857a94db6695430901515800b9883f6327cb7116",
     "index.js": "19eb180d568bb8e17bcf4c72ca034ed3af44deeb90304deefee4e665562dfe31",
     "mobile.js": "323bfea1b1c08c0092ee16df4b3ba4c558af93e077723d5a92b742f6a6e6e842",
@@ -709,6 +531,6 @@
   },
   "browser_version": "153.0.8010.12",
   "errors": 0,
-  "wall_s": 217
+  "wall_s": 120
  }
 }

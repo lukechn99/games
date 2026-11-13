@@ -9,6 +9,9 @@ extends Node3D
 ##   sluggish for 2 seconds. It lasts 15 seconds or 3 karts.
 ## - Tumbleweed: rolled backwards down the track from your kart. It bounces
 ##   about unpredictably and knocks karts sideways.
+## - Sand gun (Frosty Pass): sprays sand for 5 seconds in a weaving S across
+##   the road ahead of you. Ice under sand grips like road, for anyone, until
+##   the sand blows away 8 seconds later.
 ##
 ## Online, using an item is sent to everyone, so every game shows it; each
 ## game only applies hits to the karts it drives (like bumps).
@@ -30,6 +33,16 @@ var _crates: Array[Dictionary] = []      # {node, pos, away}
 var _honey: Array[Dictionary] = []       # {node, pos, life, uses, inside: {}}
 var _weeds: Array[Dictionary] = []       # {node, pos, vel, life, rng, hit: {}}
 var _snowballs: Array[Dictionary] = []   # {node, pos, vel, age}
+var _sprays: Array[Dictionary] = []      # {kart, t, next, phase, gun, jet}
+const SPRAY_TIME := 5.0                   # seconds of spraying
+const SAND_LIFE := 8.0                    # how long sand lies before it blows away
+const SAND_R := 2.2                       # each pile's radius (m)
+const SAND_AHEAD := 8.0                   # where it lands, ahead of the kart
+const SAND_SWEEP := 4.0                   # the S: side to side, ± metres...
+const SAND_WEAVE := 1.6                   # ...once each way in this many seconds
+## Sand on the ground, for every kart's tyres: [position, seconds left].
+static var sand: Array = []
+var _sand_mm: MultiMeshInstance3D
 const SNOWBALL_SPEED := 34.0              # faster than any kart
 var _was_pressed := {}
 var _rng := RandomNumberGenerator.new()
@@ -41,6 +54,7 @@ func setup(t: Track, all: Array[Kart], mine: Array[Kart]) -> void:
 	karts = all
 	owned = mine
 	_rng.seed = 99
+	sand.clear()
 	for f in track.crate_frames():
 		for x in CRATE_LANES:
 			var p: Vector3 = f.origin + f.basis.x * x + Vector3.UP * 1.0
@@ -161,6 +175,8 @@ func _physics_process(delta: float) -> void:
 	_update_coins(delta)
 	_update_weeds(delta)
 	_update_snowballs(delta)
+	_update_sprays(delta)
+	_update_sand(delta)
 
 
 func _crate_pickups(delta: float) -> void:
@@ -192,7 +208,7 @@ func _crate_pickups(delta: float) -> void:
 
 ## What crates can give here: the snowball only on snowy tracks (design doc 6).
 func pool() -> Array:
-	return KINDS + ["snowball"] if track and track.layout == "frost" else KINDS
+	return KINDS + ["snowball", "sandgun"] if track and track.layout == "frost" else KINDS
 
 
 func _use_items() -> void:
@@ -209,9 +225,11 @@ func _use_items() -> void:
 			back.y = 0.0
 			back = back.normalized()
 			var seed_value := _rng.randi()
-			# Dropped behind, except the snowball, which is bowled ahead.
-			var dir := -back if kind == "snowball" else back
-			var at := k.global_position + dir * (3.2 if kind == "snowball" else 2.6)
+			# Dropped behind, except the snowball (bowled ahead) and the sand
+			# gun (sprays ahead, from the kart itself).
+			var ahead := kind in ["snowball", "sandgun"]
+			var dir := -back if ahead else back
+			var at := k.global_position + dir * ({"snowball": 3.2, "sandgun": 0.0}.get(kind, 2.6) as float)
 			spawn(kind, at, dir, seed_value)
 			used.emit(kind, at, dir, seed_value)
 
@@ -226,13 +244,28 @@ func _bot_wants(k: Kart) -> bool:
 		if other == k:
 			continue
 		var rel := other.global_position - k.global_position
+		if k.held_item == "sandgun":
+			break   # (decided below, by the road ahead, not by rivals)
 		if k.held_item == "snowball":
 			# Bowl it at someone a little way ahead.
 			if rel.length() < 45.0 and rel.dot(-k.global_transform.basis.z) > 6.0:
 				return true
 		elif rel.length() < 25.0 and rel.dot(k.global_transform.basis.z) > 3.0:
 			return true
+	if k.held_item == "sandgun":
+		return _ice_ahead(k) or _bot_wait[k] > 20.0
 	return _bot_wait[k] > 8.0
+
+
+## Ice on the road 6 to 30 m ahead of this kart (a computer driver's cue to
+## spray sand).
+func _ice_ahead(k: Kart) -> bool:
+	var fwd := -k.global_transform.basis.z
+	for d in [6.0, 14.0, 22.0, 30.0]:
+		var p: Vector3 = k.global_position + fwd * d
+		if FrostTrack.main_on_ice(p) or track.surface_at_fraction(fposmod(track.offset_of(p), track.length) / track.length) == "ice":
+			return true
+	return false
 
 
 ## Put an item into play (ours, or one another player used).
@@ -251,6 +284,19 @@ func spawn(kind: String, pos: Vector3, dir: Vector3, seed_value: int) -> void:
 			var rng := RandomNumberGenerator.new()
 			rng.seed = seed_value
 			_weeds.append({"node": n, "pos": pos + Vector3.UP * 0.8, "vel": dir * 13.0, "life": 9.0, "rng": rng, "hit": {}, "hop": 0.0})
+		"sandgun":
+			# The kart that fired: the nearest to where it was used.
+			var who: Kart = null
+			for k in karts:
+				if who == null or k.global_position.distance_to(pos) < who.global_position.distance_to(pos):
+					who = k
+			if who == null or who.global_position.distance_to(pos) > 6.0:
+				return
+			var rng := RandomNumberGenerator.new()
+			rng.seed = seed_value
+			var gun := _gun_node()
+			who.add_child(gun)
+			_sprays.append({"kart": who, "t": 0.0, "next": 0.0, "phase": rng.randf() * TAU, "gun": gun})
 		"snowball":
 			var n := MeshInstance3D.new()
 			n.mesh = _snow_mesh()
@@ -381,6 +427,117 @@ func _update_snowballs(delta: float) -> void:
 
 
 ## A burst of snow.
+# --- Sand gun -----------------------------------------------------------------
+
+static var _gun_scene: PackedScene
+
+
+## The blaster on the kart's nose, with a jet of sand from its nozzle.
+func _gun_node() -> Node3D:
+	if _gun_scene == null:
+		_gun_scene = load("res://assets/models/sand_gun.glb")
+	var root := Node3D.new()
+	root.position = Vector3(0, 0.75, -1.1)
+	root.add_child(_gun_scene.instantiate())
+	var jet := CPUParticles3D.new()
+	jet.position = Vector3(0, 0, -0.6)
+	jet.amount = 40
+	jet.lifetime = 0.6
+	jet.direction = Vector3(0, 0.35, -1)
+	jet.spread = 14.0
+	jet.initial_velocity_min = 11.0
+	jet.initial_velocity_max = 15.0
+	jet.gravity = Vector3(0, -16, 0)
+	jet.scale_amount_min = 0.08
+	jet.scale_amount_max = 0.16
+	var m := SphereMesh.new()
+	m.radius = 0.5
+	m.height = 1.0
+	m.radial_segments = 4
+	m.rings = 2
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Parts.surface("sand")["color"]
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.material = mat
+	jet.mesh = m
+	jet.local_coords = false
+	root.add_child(jet)
+	return root
+
+
+func _update_sprays(delta: float) -> void:
+	for sp in _sprays.duplicate():
+		var k: Kart = sp["kart"]
+		sp["t"] += delta
+		var gun: Node3D = sp["gun"]
+		if not is_instance_valid(k) or sp["t"] >= SPRAY_TIME:
+			if is_instance_valid(gun):
+				gun.queue_free()
+			_sprays.erase(sp)
+			continue
+		# The nozzle swings side to side with the S it draws.
+		var swing := sin(TAU * float(sp["t"]) / SAND_WEAVE + float(sp["phase"]))
+		gun.rotation.y = -swing * 0.45
+		sp["next"] -= delta
+		if sp["next"] > 0.0:
+			continue
+		sp["next"] = 0.12
+		var fwd := -k.global_transform.basis.z
+		fwd.y = 0.0
+		fwd = fwd.normalized()
+		var right := fwd.cross(Vector3.UP)
+		var at := _ground_below(k.global_position + fwd * (SAND_AHEAD + k.linear_velocity.length() * 0.15) + right * swing * SAND_SWEEP)
+		sand.append([at, SAND_LIFE])
+
+
+## Sand piles: one batched mesh for all of them (a single draw call).
+func _update_sand(delta: float) -> void:
+	if sand.is_empty() and _sand_mm == null:
+		return
+	for s in sand:
+		s[1] -= delta
+	sand = sand.filter(func(s): return s[1] > 0.0)
+	if _sand_mm == null:
+		_sand_mm = MultiMeshInstance3D.new()
+		_sand_mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = SAND_R * 0.8
+		cyl.bottom_radius = SAND_R
+		cyl.height = 0.08
+		cyl.radial_segments = 12
+		cyl.rings = 1
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Parts.surface("sand")["color"]
+		mat.albedo_texture = load(Palette.TEX_DIR + "dirt.png") if ResourceLoader.exists(Palette.TEX_DIR + "dirt.png") else null
+		mat.uv1_triplanar = true
+		mat.roughness = 1.0
+		cyl.material = mat
+		mm.mesh = cyl
+		_sand_mm.multimesh = mm
+		add_child(_sand_mm)
+	var mm := _sand_mm.multimesh
+	if mm.instance_count < sand.size():
+		mm.instance_count = maxi(64, sand.size() * 2)
+	mm.visible_instance_count = sand.size()
+	for i in sand.size():
+		var s: Array = sand[i]
+		# Grows in as it lands, thins away in its last second.
+		var k := minf(1.0, (SAND_LIFE - float(s[1])) * 6.0) * minf(1.0, float(s[1]))
+		var b := Basis().scaled(Vector3(maxf(k, 0.05), 1.0, maxf(k, 0.05))).rotated(Vector3.UP, float(i) * 1.7)
+		mm.set_instance_transform(i, Transform3D(b, (s[0] as Vector3) + Vector3.UP * 0.02))
+
+
+## True where sand lies on the ground (tyres grip there: kart.gd).
+static func sanded(p: Vector3) -> bool:
+	for s in sand:
+		var q: Vector3 = s[0]
+		if absf(q.y - p.y) < 1.5 and Vector2(q.x - p.x, q.z - p.z).length_squared() < SAND_R * SAND_R:
+			return true
+	return false
+
+
 func _puff(at: Vector3, r: float) -> void:
 	var p := CPUParticles3D.new()
 	p.one_shot = true

@@ -81,6 +81,12 @@ func _ready() -> void:
 	camera.follow(player_kart)
 	hud.minimap.setup(track, karts, player_kart)
 	start_race()
+	# ?give=ITEM (testing): start holding it (after start_race, which clears
+	# items); with ?autodrive the computer driving your kart uses it too.
+	if Query.has("give="):
+		player_kart.held_item = Query.value("give")
+		if Query.has("autodrive"):
+			player_kart.set_meta("bot_items", true)
 	var q := q0
 	if q.contains("map"):
 		_map_review(q)

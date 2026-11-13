@@ -6,6 +6,8 @@
   windmill     a little countryside windmill (sails are their own object)
   lantern      a stone garden lantern with a glowing window
   coin         a chunky gold coin with a raised rim and a stamped mark
+  sand_gun     Frosty Pass's sand blaster: a hopper heaped with sand on a
+               chunky body, a flared nozzle forward (-z), a grip below
 
 Each goes to assets/models/<name>.glb. Colours are strong and matte or
 satin, never mirror-like, so they don't wash out under a bright sky.
@@ -206,6 +208,42 @@ def coin():
     return finish(parts), (0, 0, 0.6), 2.2
 
 
+
+def sand_gun():
+    """Built along +x (lathe axis), then turned so the nozzle points -z."""
+    body_c = c.material("Blaster", (1.0, 0.53, 0.24), 0.45)          # the approved frost orange
+    trim = c.material("Blaster_trim", (0.16, 0.2, 0.3), 0.55)
+    steel = c.material("Blaster_steel", (0.72, 0.76, 0.8), 0.35, metal=0.6)
+    sand = c.material("Sand", (0.93, 0.8, 0.52), 0.9)
+    parts = []
+    # Barrel, flaring into a wide nozzle at the front.
+    barrel = s.lathe("Barrel", [(0.12, 0.0), (0.12, 0.08), (0.36, 0.075), (0.44, 0.09), (0.54, 0.16), (0.57, 0.17), (0.57, 0.13), (0.5, 0.08)], segs=28)
+    c.smooth(barrel)
+    parts.append((barrel, steel))
+    ring = s.lathe("Ring", [(0.26, 0.0), (0.26, 0.1), (0.32, 0.1), (0.32, 0.0)], segs=28)
+    parts.append((ring, trim))
+    # The body: a rounded block behind the barrel.
+    body = s.box("Body", (-0.08, 0.0, 0.0), (0.48, 0.32, 0.3), bevel=0.06, seg=3)
+    parts.append((body, body_c))
+    stripe = s.box("Stripe", (-0.08, 0.0, 0.0), (0.12, 0.33, 0.31), bevel=0.02, seg=2)
+    parts.append((stripe, trim))
+    # Grip, raked back under the body.
+    grip = s.box("Grip", (-0.17, -0.2, 0.0), (0.1, 0.24, 0.1), bevel=0.035, seg=2)
+    grip.rotation_euler = (0, 0, math.radians(18))
+    parts.append((grip, trim))
+    # Hopper: a funnel on top, heaped with sand.
+    hop = s.lathe("Hopper", [(0.0, 0.07), (0.05, 0.09), (0.16, 0.16), (0.2, 0.17), (0.2, 0.0)], segs=24)
+    hop.rotation_euler = (0, math.radians(-90), 0)    # funnel axis up (Godot y)
+    hop.location = s.g(-0.1, 0.13, 0.0)
+    c.smooth(hop)
+    parts.append((hop, body_c))
+    heap = blob("Heap", (-0.1, 0.35, 0.0), 0.15, squash=0.5, seed=3, detail=2)
+    parts.append((heap, sand))
+    objs = finish(parts)
+    for o in objs:
+        o.select_set(True)
+    return objs, (0, 0, 0.1), 2.0
+
 def _pine(tiers, snowy=True):
     """A pine of stacked, slightly drooping tiers, each with a snow cap that
     hangs over its edge in a scalloped lip."""
@@ -291,7 +329,7 @@ def snowman():
     return finish(parts), (0, 0, 1.7), 8.0
 
 
-BUILDERS = {"tree_puffy": tree_puffy, "lamp_post": lamp_post, "guardrail": guardrail,
+BUILDERS = {"sand_gun": sand_gun, "tree_puffy": tree_puffy, "lamp_post": lamp_post, "guardrail": guardrail,
             "windmill": windmill, "lantern": lantern, "coin": coin,
             "snowpine_tall": snowpine_tall, "pine_tall": pine_tall, "tree_round": tree_round, "bush": bush, "snowpine_round": snowpine_round, "snowman": snowman}
 
@@ -342,6 +380,8 @@ if __name__ == "__main__":
         bpy.context.view_layer.objects.active = rest[0]
         bpy.ops.object.join()
         rest[0].name = name
+        if name == "sand_gun":
+            rest[0].rotation_euler.z += math.radians(90)   # +x (nozzle) -> Godot -z
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         objs = [rest[0]] + keep
         if name in TREE_BUDGETS:

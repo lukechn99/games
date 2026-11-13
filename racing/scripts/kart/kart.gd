@@ -369,6 +369,9 @@ func _physics_process(delta: float) -> void:
 		# Tire forces in the plane of the ground.
 		var normal: Vector3 = hit["normal"]
 		var s := _surface_of(hit["collider"])
+		# Sand from a sand gun takes the slip out of ice (items.gd).
+		if s == "ice" and not Items.sand.is_empty() and Items.sanded(hit["position"]):
+			s = "asphalt"
 		surfaces[s] = int(surfaces.get(s, 0)) + 1
 		if (hit["collider"] as Object).has_meta("deck"):
 			_on_deck_time = 1.5   # (covers a bounce into the air off the planks)

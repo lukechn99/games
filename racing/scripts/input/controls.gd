@@ -51,19 +51,16 @@ func _ready() -> void:
 	_add_action("drift", [KEY_SHIFT, KEY_SPACE], [JOY_BUTTON_RIGHT_SHOULDER])
 	_add_action("item", [KEY_E, KEY_ENTER], [JOY_BUTTON_A])
 	_add_action("respawn", [KEY_R], [JOY_BUTTON_Y])
+	if Query.has("shake=off"):
+		shake_level = 0.0
+	shadows = Query.has("shadows=on")
 	if OS.has_feature("web"):
-		var query := str(JavaScriptBridge.eval("location.search", true))
-		if query.contains("shake=off"):
-			shake_level = 0.0
-	if OS.has_feature("web"):
-		var q := str(JavaScriptBridge.eval("location.search", true))
-		shadows = q.contains("shadows=on")
 		var saved := str(JavaScriptBridge.eval("(function(){try{return localStorage.getItem('kw_quality')||''}catch(e){return ''}})()", true))
 		var names := ["low", "medium", "high"]
 		if names.has(saved):
 			quality = names.find(saved) as Quality
 		for name in names:
-			if q.contains("quality=" + name):
+			if Query.has("quality=" + name):
 				quality = names.find(name) as Quality
 
 

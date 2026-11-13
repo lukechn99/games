@@ -14,7 +14,8 @@ log=$(mktemp)
 step() {   # name, command...
   local name=$1; shift
   local t0=$SECONDS
-  if "$@" >"$log" 2>&1; then
+  # A test that waits on something that never happens fails after 10 min.
+  if timeout 600 "$@" >"$log" 2>&1; then
     # Godot may exit zero after a script error before reaching the tests.
     # Match CI: require the final summary and reject script errors too.
     if ! valid_run "$name"; then
@@ -62,7 +63,18 @@ details() {
   esac
 }
 
+# Godot learns new class_name scripts only on import. A fresh checkout, or
+# a pull that adds classes, otherwise fails with "Identifier not declared".
+refresh_classes() {
+  local cache=racing/.godot/global_script_class_cache.cfg
+  if [[ ! -f $cache ]] || [[ -n $(find racing/scripts racing/tests -name '*.gd' -newer "$cache" -print -quit) ]]; then
+    "$GODOT" --headless --path racing --import >/dev/null 2>&1
+    touch "$cache"
+  fi
+}
+
 if [[ $what == all || $what == game ]]; then
+  refresh_classes
   step game "$GODOT" --headless --path racing --fixed-fps 60 -s tests/run_tests.gd
   step medium "$GODOT" --headless --path racing --fixed-fps 60 -s tests/benchmark_medium.gd
   step benchmark "$GODOT" --headless --path racing --fixed-fps 60 -s tests/benchmark_halves.gd

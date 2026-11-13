@@ -49,7 +49,27 @@ const KIT_TEX := {
 }
 const TEX_DIR := "res://assets/textures/"
 
-static var preview_pop := false
+## The approved art-direction palette (design doc 9), on unless the page
+## asks for ?palette=classic. Every approved colour lives here, so the look is
+## tuned in one place; `theme` picks the track's set.
+static var approved := false
+const APPROVED := {
+	"road": Color("45474b"),
+	"road_paint": Color("fff1ce"),
+	"ice_road": Color("6bbff2"),
+	"lake_ice": Color("99d9f3"),
+	"kart": {"frame": Color("f04432"), "soapbox": Color("246bdb"), "hauler": Color("ffc928")},
+	"leaf_green": {"meadow": Color("65b936"), "mine": Color("57924a"), "frost": Color("174f50")},
+	"sky_top": {"meadow": Color("48b9ef"), "mine": Color("49bfd5"), "frost": Color("57b9f1")},
+	"frost_sun": Color("f5faff"),
+	"grass": {   # deep, fresh, dry
+		"meadow": [Color("216744"), Color("65b936"), Color("a3c64a")],
+		"frost": [Color("8fafd2"), Color("f6fbff"), Color("d4e6f4")],
+	},
+	"mine_rock": [Color("bc7150"), Color("95553e"), Color("723e32")],
+	"mine_kit": {"wood": Color("9d5f37"), "woodDark": Color("54392a"), "woodInner": Color("d5a46a"), "red": Color("279e9b"), "colorRed": Color("279e9b"), "colorYellow": Color("efb435")},
+	"frost_kit_red": Color("ff873c"),
+}
 static var theme := "meadow"
 static var _cache := {}
 static var relief_shaders: Array[ShaderMaterial] = []   # shader materials with a 'relief' strength
@@ -218,16 +238,16 @@ static func restyle(mesh: Mesh) -> Mesh:
 			if not _cache.has("tree_vertex"):
 				var tree := ShaderMaterial.new()
 				tree.shader = load("res://shaders/tree.gdshader")
-				tree.set_shader_parameter("preview_pop", preview_pop)
-				tree.set_shader_parameter("preview_green", Color("57924a") if theme == "mine" else Color("174f50") if theme == "frost" else Color("65b936"))
+				tree.set_shader_parameter("tint_leaves", approved)
+				tree.set_shader_parameter("leaf_green", APPROVED["leaf_green"][theme])
 				_cache["tree_vertex"] = tree
 			out.surface_set_material(i, _cache["tree_vertex"])
 			continue
 		var c: Color = KIT.get(name, (src as BaseMaterial3D).albedo_color if src is BaseMaterial3D else Color.WHITE)
-		if preview_pop and theme == "mine":
-			c = {"wood": Color("9d5f37"), "woodDark": Color("54392a"), "woodInner": Color("d5a46a"), "red": Color("279e9b"), "colorRed": Color("279e9b"), "colorYellow": Color("efb435")}.get(name, c)
-		elif preview_pop and theme == "frost" and name in ["red", "colorRed"]:
-			c = Color("ff873c")
+		if approved and theme == "mine":
+			c = APPROVED["mine_kit"].get(name, c)
+		elif approved and theme == "frost" and name in ["red", "colorRed"]:
+			c = APPROVED["frost_kit_red"]
 		if name.begins_with("leafs"):
 			out.surface_set_material(i, leaves(c))
 			continue

@@ -19,7 +19,7 @@ var _clock := 0.0             # host clock minus ours, ms
 
 func _ready() -> void:
 	if OS.has_feature("web"):
-		active = str(JavaScriptBridge.eval("location.search", true)).contains("room=")
+		active = Query.has("room=")
 	set_process(active)
 
 

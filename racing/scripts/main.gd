@@ -30,13 +30,11 @@ var _fps_frames := 0
 
 
 func _ready() -> void:
-	var preview_query := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else OS.get_environment("KW_QUERY")
-	Palette.theme = "mine" if preview_query.contains("track=mine") else "frost" if preview_query.contains("track=frost") else "meadow"
-	Palette.preview_pop = not preview_query.contains("palette=classic")
+	var q0 := Query.text()
+	Palette.theme = "mine" if q0.contains("track=mine") else "frost" if q0.contains("track=frost") else "meadow"
+	Palette.approved = not q0.contains("palette=classic")
 	_build_world()
 	track = Track.new()
-	# (Outside a browser, tools can pass the same flags in KW_QUERY.)
-	var q0 := str(JavaScriptBridge.eval("location.search", true)) if OS.has_feature("web") else OS.get_environment("KW_QUERY")
 	_capture_intro = q0.contains("introreview")
 	_trace_intro = q0.contains("introtrace") or _capture_intro
 	if q0.contains("track=mine"):
@@ -44,7 +42,7 @@ func _ready() -> void:
 	elif q0.contains("track=frost"):
 		track.layout = "frost"
 	if q0.contains("laps="):   # for checking the finish quickly
-		track.laps = clampi(int(q0.split("laps=")[1].split("&")[0]), 1, 9)
+		track.laps = clampi(int(Query.value("laps")), 1, 9)
 	add_child(track)
 	camera = ChaseCamera.new()
 	add_child(camera)
@@ -101,7 +99,7 @@ func _ready() -> void:
 		if q.contains("view=side"):
 			ChaseCamera.review_offset = Vector2(4.0, 2.5)
 		if q.contains("introt="):
-			_intro_pin = float(q.split("introt=")[1].split("&")[0])
+			_intro_pin = float(Query.value("introt"))
 		if q.contains("intro"):
 			# Start from the aerial tour, as after the kart builder.
 			_fly_over(0.0)
@@ -553,7 +551,7 @@ func _map_review(q: String) -> void:
 ## ?cam=OFFSET[,SIDE,HEIGHT,LOOK]: a still camera at that point of the lap,
 ## for reviewing the track's scenery.
 func _camera_view(q: String) -> void:
-	var spec := q.split("cam=")[1].split("&")[0].split(",")
+	var spec := Query.value("cam").split(",")
 	var off := float(spec[0])
 	var side := float(spec[1]) if spec.size() > 1 else 0.0
 	var height := float(spec[2]) if spec.size() > 2 else 3.0
@@ -598,7 +596,7 @@ func _showroom(q: String) -> void:
 		k.freeze = true
 		if q.contains("compression="):
 			k.set_physics_process(false)
-			k.wheel_compression.fill(clampf(float(q.split("compression=")[1].split("&")[0]), 0.0, 1.0) * Kart.SUSPENSION_TRAVEL)
+			k.wheel_compression.fill(clampf(float(Query.value("compression")), 0.0, 1.0) * Kart.SUSPENSION_TRAVEL)
 		k.global_transform = Transform3D(base.basis.rotated(Vector3.UP, 0.6 + (PI if q.contains("flip") else 0.0)), base.origin + base.basis.x * (float(i) - 1.5) * 3.2 + Vector3.UP * 0.32)
 		k.input = {"steer": 0.0, "throttle": 0.0, "brake": 0.0, "drift": false}
 	camera.set_process(false)
@@ -648,18 +646,12 @@ func _build_world() -> void:
 	env.glow_bloom = 0.0
 	env.glow_hdr_threshold = 0.95
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
-	if Palette.preview_pop:
-		mat.sky_top_color = Color("48b9ef")
+	if Palette.approved:
+		mat.sky_top_color = Palette.APPROVED["sky_top"][Palette.theme]
 		env.ambient_light_sky_contribution = 0.12
-		env.fog_light_color = Color("dce9eb")
-		env.fog_density = 0.00055
-		if Palette.theme == "mine":
-			mat.sky_top_color = Color("49bfd5")
-			env.fog_light_color = Color("eddbc1")
-		elif Palette.theme == "frost":
-			mat.sky_top_color = Color("57b9f1")
-			env.fog_light_color = Color("dfeefa")
-			env.fog_density = 0.00065
+		# (The approved palette also listed lighter fog per track, but those
+		# values were always overwritten below, so what was reviewed and
+		# approved uses this classic fog. Kept as is.)
 	_env = env
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.74, 0.87, 1.0)  # the horizon colour, so distance fades into sky
@@ -676,8 +668,8 @@ func _build_world() -> void:
 	sun.rotation_degrees = Vector3(-52, -35, 0)
 	sun.light_energy = 1.0
 	sun.light_color = Color(1.0, 0.94, 0.82)   # a touch warm, against the cool sky light
-	if Palette.preview_pop and Palette.theme == "frost":
-		sun.light_color = Color("f5faff")
+	if Palette.approved and Palette.theme == "frost":
+		sun.light_color = Palette.APPROVED["frost_sun"]
 	sun.light_specular = 1.0
 	# Real shadows only near the camera, so they stay cheap (design doc 9.4).
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
@@ -802,7 +794,7 @@ func start_race() -> void:
 	_finish_order.clear()
 	_done = false
 	results.hide_results()
-	hud.touch.visible = Controls.is_touch_device() or hud._query_has("touch")
+	hud.touch.visible = Controls.is_touch_device() or Query.has("touch")
 	if _autopilot:
 		_autopilot.queue_free()
 		_autopilot = null
@@ -861,7 +853,7 @@ func _process(delta: float) -> void:
 			_set_bots_enabled(true)
 			for k in karts:
 				k.race_time = 0.0
-			if OS.has_feature("web") and str(JavaScriptBridge.eval("location.search", true)).contains("finishnow"):
+			if Query.has("finishnow"):
 				# For checking the finish: everyone on the last lap, just short of the line.
 				for i in karts.size():
 					var k := karts[i]

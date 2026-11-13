@@ -285,8 +285,8 @@ func _road_mat(kind := "asphalt") -> ShaderMaterial:
 		# Glassy, frosted: the ice texture, its edge lines, and some sheen.
 		m.set_shader_parameter("detail", load(Palette.TEX_DIR + "ice.png"))
 		m.set_shader_parameter("paint", true)
-		if Palette.preview_pop:
-			m.set_shader_parameter("paint_color", Color("fff1ce"))
+		if Palette.approved:
+			m.set_shader_parameter("paint_color", Palette.APPROVED["road_paint"])
 		m.set_shader_parameter("wear", 0.0)
 		m.set_shader_parameter("surf", load(Palette.TEX_DIR + "surf_asphalt.png"))
 		m.set_shader_parameter("surf_n", load(Palette.TEX_DIR + "surf_asphalt_n.png"))
@@ -296,8 +296,8 @@ func _road_mat(kind := "asphalt") -> ShaderMaterial:
 		return m
 	m.set_shader_parameter("detail", load(Palette.TEX_DIR + ("dirt" if dirt else "asphalt") + ".png"))
 	m.set_shader_parameter("paint", not dirt)
-	if Palette.preview_pop:
-		m.set_shader_parameter("paint_color", Color("fff1ce"))
+	if Palette.approved:
+		m.set_shader_parameter("paint_color", Palette.APPROVED["road_paint"])
 	m.set_shader_parameter("wear", 0.2 if kind == "dirt" else (0.35 if layout == "mine" else 0.5))
 	var surf := "dirt" if dirt else "asphalt"
 	m.set_shader_parameter("surf", load(Palette.TEX_DIR + "surf_" + surf + ".png"))
@@ -314,10 +314,8 @@ func _grass_mat(banks: bool) -> ShaderMaterial:
 	m.shader = load("res://shaders/grass.gdshader")
 	m.set_shader_parameter("detail", load(Palette.TEX_DIR + "grass.png"))
 	m.set_shader_parameter("use_vertex", banks)
-	if Palette.preview_pop and layout == "meadow":
-		m.set_shader_parameter("deep", Color("216744"))
-		m.set_shader_parameter("fresh", Color("65b936"))
-		m.set_shader_parameter("dry", Color("a3c64a"))
+	if Palette.approved and layout == "meadow":
+		_set_grass_colours(m, "meadow")
 	if layout == "frost":
 		# Snow: blue-white in the hollows, bright on top, a hint of warmth.
 		m.set_shader_parameter("deep", Color(0.78, 0.85, 0.95))
@@ -325,10 +323,8 @@ func _grass_mat(banks: bool) -> ShaderMaterial:
 		m.set_shader_parameter("dry", Color(0.98, 0.97, 0.95))
 		m.set_shader_parameter("detail", load(Palette.TEX_DIR + "ice.png"))
 		m.set_shader_parameter("tile_m", 11.0)
-		if Palette.preview_pop:
-			m.set_shader_parameter("deep", Color("8fafd2"))
-			m.set_shader_parameter("fresh", Color("f6fbff"))
-			m.set_shader_parameter("dry", Color("d4e6f4"))
+		if Palette.approved:
+			_set_grass_colours(m, "frost")
 	_grass_mats.append(m)
 	if _road_dist:
 		_apply_road_distance(m)
@@ -343,6 +339,13 @@ var _road_dist_rect := Rect2()
 ## a metre, up to 12 m), so the grass shader can drift sand and dust over
 ## the verge right beside the road, as on a real circuit (design doc 9.4).
 ## Skipped without a screen (tests).
+func _set_grass_colours(m: ShaderMaterial, which: String) -> void:
+	var c: Array = Palette.APPROVED["grass"][which]
+	m.set_shader_parameter("deep", c[0])
+	m.set_shader_parameter("fresh", c[1])
+	m.set_shader_parameter("dry", c[2])
+
+
 func _bake_road_distance() -> void:
 	if DisplayServer.get_name() == "headless" or layout != "meadow":
 		return
@@ -575,7 +578,7 @@ func _merged_strip(st: SurfaceTool, da: float, db: float, index: int, bi := 0) -
 	# level with the separate route.
 	far_a.y = lerpf((ma.origin + ma.basis.x * (branch_offset(da, bi) + side * half)).y, far_a.y, clampf(absf(branch_offset(da, bi)) / BRANCH_SPLIT, 0.0, 1.0))
 	far_b.y = lerpf((mb.origin + mb.basis.x * (branch_offset(db, bi) + side * half)).y, far_b.y, clampf(absf(branch_offset(db, bi)) / BRANCH_SPLIT, 0.0, 1.0))
-	var base: Color = Color("45474b") if Palette.preview_pop else Parts.surface("asphalt")["color"]
+	var base: Color = Palette.APPROVED["road"] if Palette.approved else Parts.surface("asphalt")["color"]
 	var kerb := Color(0.92, 0.22, 0.2) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
 	if layout == "frost":
 		kerb = Color(0.2, 0.45, 0.92) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
@@ -799,10 +802,8 @@ func _rock_side(st: SurfaceTool, ea: Vector3, eb: Vector3, out_a: Vector3, out_b
 func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, index: int, d := 0.0, skip_kerb := 0.0, lift_extra := 0.0, tint := Color(0, 0, 0, 0)) -> void:
 	var half := ROAD_WIDTH * 0.5
 	var base: Color = Parts.surface(s)["color"] if tint.a == 0.0 else tint
-	if Palette.preview_pop and s == "asphalt" and tint.a == 0.0:
-		base = Color("45474b")
-	if Palette.preview_pop and s == "ice" and tint.a == 0.0:
-		base = Color("6bbff2")
+	if Palette.approved and tint.a == 0.0 and s in ["asphalt", "ice"]:
+		base = Palette.APPROVED["road" if s == "asphalt" else "ice_road"]
 	var lift := Vector3.UP * (0.04 + lift_extra)
 	# Road, then a kerb on each side (red and white blocks every 2 m). On the
 	# mine the road is packed earth and stone, edged with timber.

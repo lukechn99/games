@@ -35,7 +35,7 @@ func _ready() -> void:
 	touch = TouchControls.new()
 	root.add_child(touch)
 	touch.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	touch.visible = Controls.is_touch_device() or _query_has("touch")
+	touch.visible = Controls.is_touch_device() or Query.has("touch")
 
 	_item_box = ItemBox.new()
 	_item_box.size = Vector2(92, 92)
@@ -86,12 +86,8 @@ func _ready() -> void:
 	garage_btn.pressed.connect(func(): _garage.visible = not _garage.visible)
 	root.add_child(garage_btn)
 	_build_garage(root)
-	if _query_has("perf"):
+	if Query.has("perf"):
 		root.add_child(PerfOverlay.new())
-
-
-func _query_has(s: String) -> bool:
-	return OS.has_feature("web") and str(JavaScriptBridge.eval("location.search", true)).contains(s)
 
 
 func _label(parent: Control, size_px: int, pos: Vector2) -> Label:

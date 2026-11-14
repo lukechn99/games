@@ -100,6 +100,13 @@ func _ready() -> void:
 		_map_review(q)
 	elif q.contains("showroom"):
 		_showroom(q)
+	elif q.contains("spots"):
+		# The verify command's tour of this track's viewpoints (Spots).
+		_benching = true
+		hud.visible = false
+		var spots := Spots.new()
+		spots.race = self
+		add_child(spots)
 	elif q.contains("cam="):
 		_camera_view(q)
 	elif q.contains("autodrive"):
@@ -726,6 +733,17 @@ func _apply_quality() -> void:
 	for n in get_tree().get_nodes_in_group("detail"):
 		var gi := n as GeometryInstance3D
 		gi.visibility_range_end = float(gi.get_meta("far")) * Track.detail_reach
+	# Effect switches (testing): turn one effect off, or set it, on top of the
+	# quality level, to find what a device is paying for (design doc 14.3):
+	# ?glow=off  ?aa=0|2|4  ?relief=off  ?kartshadows=off  ?px=MILLIONS
+	if Query.has("glow=off"):
+		_env.glow_enabled = false
+	if Query.has("aa="):
+		vp.msaa_3d = {"0": Viewport.MSAA_DISABLED, "2": Viewport.MSAA_2X, "4": Viewport.MSAA_4X}.get(Query.value("aa"), vp.msaa_3d)
+	if Query.has("relief=off"):
+		Palette.apply_quality(false, false)
+	if Query.has("kartshadows=off"):
+		KartVisual.cast_shadows = false
 	_fps_time = 0.0
 	_fps_frames = 0
 
@@ -740,6 +758,8 @@ func _fit_resolution() -> void:
 	var vp := get_viewport()
 	var px := float(vp.size.x * vp.size.y)
 	var budget: float = [600000.0, 1200000.0, 2000000.0][Controls.quality]
+	if Query.has("px="):
+		budget = float(Query.value("px")) * 1000000.0
 	vp.scaling_3d_scale = clampf(sqrt(budget / maxf(px, 1.0)), 0.5, 1.0)
 
 

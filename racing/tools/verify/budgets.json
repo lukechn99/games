@@ -1,0 +1,12 @@
+{
+ "_about": "Limits per track (design doc 14.3). New tracks use the default; the first three are held at their levels when verify was built (2026-11-14) and should only go down. 'air' (the intro fly-over) is reported, not judged.",
+ "default": { "draws": 250, "tris_k": 150, "resets": 0, "stuck_s": 6, "lap_spread": 2.0, "freeze_ms": 50 },
+ "tracks": {
+  "meadow": { "draws": 310, "tris_k": 230 },
+  "mine": { "draws": 470, "tris_k": 295, "resets": 1 },
+  "frost": { "draws": 290, "tris_k": 160, "resets": 1, "lap_spread": 2.5 }
+ },
+ "unjudged_views": ["air"],
+ "download_mb": 60,
+ "picture_changed_percent": 4
+}

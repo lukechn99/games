@@ -307,6 +307,8 @@ func _finish() -> void:
 		out.track, out.quality, wall_stats.fps, wall_stats.p95, wall_stats.p99,
 		out.draws, out.tris_k, out.process_ms, out.physics_ms, out.player_completed_laps,
 		"INVALID: interrupted, resized or quality changed" if not out.valid else "PARTIAL run" if out.partial else "Complete sample"]
+	if publish_result and OS.has_feature("web"):
+		_offer_copy(out, wall_stats)
 	completed.emit(out)
 
 
@@ -340,3 +342,36 @@ static func frame_stats(values: Array[float]) -> Dictionary:
 		out["p%d" % percentile] = snappedf(sorted[maxi(0, int(ceil(sorted.size() * percentile / 100.0)) - 1)], 0.1)
 	out.max = snappedf(sorted[-1], 0.1)
 	return out
+
+
+## The effect switches in force (main.gd), for the result line.
+static func switches() -> String:
+	var on: PackedStringArray = []
+	for name in ["glow", "aa", "relief", "kartshadows", "px"]:
+		if Query.has(name + "="):
+			on.append("%s=%s" % [name, Query.value(name)])
+	return ",".join(on) if not on.is_empty() else "none"
+
+
+## A "Copy result" button on the page: one line of text to paste into a
+## chat, instead of a screenshot (design doc 14.3).
+func _offer_copy(out: Dictionary, wall: Dictionary) -> void:
+	var late := 0
+	for ms in _wall_frames:
+		if ms > 25.0:
+			late += 1
+	var vp := get_viewport()
+	var line := "kw-bench track=%s quality=%s switches=%s fps=%.1f p95=%.0fms p99=%.0fms late=%.1f%% draws=%d tris=%dk physics=%.1fms process=%.1fms laps=%d screen=%dx%d scale=%.2f %s" % [
+		out.track, out.quality, switches(), wall.fps, wall.p95, wall.p99,
+		100.0 * late / maxf(1.0, _wall_frames.size()), out.draws, out.tris_k, out.physics_ms, out.process_ms,
+		out.player_completed_laps, vp.size.x, vp.size.y, vp.scaling_3d_scale,
+		"INVALID" if not out.valid else "partial" if out.partial else "complete"]
+	JavaScriptBridge.eval("""(function(t){
+		var b=document.createElement('button');b.textContent='Copy result';
+		b.style.cssText='position:fixed;left:50%%;bottom:24px;transform:translateX(-50%%);z-index:99;font:600 18px system-ui;padding:14px 22px;border-radius:12px;border:0;background:#ffd23f;color:#111';
+		b.onclick=function(){
+			var shown=function(){var a=document.createElement('textarea');a.value=t;a.readOnly=true;a.style.cssText='position:fixed;left:5%%;right:5%%;bottom:84px;width:90%%;height:90px;z-index:99;font:13px monospace';document.body.appendChild(a);a.focus();a.select();};
+			if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){b.textContent='Copied'},shown)}else{shown()}
+		};
+		document.body.appendChild(b);
+	})(%s);""" % JSON.stringify(line), true)

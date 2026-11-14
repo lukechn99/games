@@ -831,6 +831,17 @@ Screen orientation controls prompt visibility; the visible viewport controls its
 size. CSS keeps the canvas fitted during rotation, while Godot owns the backing
 buffer and polls its dimensions. Avoid replaying resize events on fixed timers.
 
+### 14.3 Verifying a change (Decided)
+One command checks a change: `node racing/tools/verify/verify.mjs` (or name tracks, or `all`). It picks the tracks a change can affect, and prints about ten lines.
+- **Fast race** (`tests/race_report.gd`): eight computer drivers race each track with nothing drawn, two laps in 10 to 30 seconds. Reports lap times, resets and why, the longest stall, how many laps used each route, items used, and the slowest single step (a freeze, such as loading on first use).
+- **Viewpoints** (`scripts/benchmark/viewpoints.gd`): fixed camera spots per track: eight round the lap, the starting grid, each alternate route, set pieces, and the air. `?spots` tours them with the race frozen, counting draw calls and triangles at each, the same every run.
+- **Approved pictures** (`tools/verify/golden/`): each viewpoint is photographed and compared with its approved picture. Only changed or new ones are put on one sheet (`tools/verify/out/sheet.png`); no change, no image. `--approve` saves the current pictures as approved, after a deliberate look change.
+- **Budgets** (`tools/verify/budgets.json`): fixed limits per track; over is a failure, named by viewpoint. New tracks: 250 draw calls and 150k triangles at every viewpoint, no resets. The first three are held at their 2026-11-14 levels (Meadow 310 / 230k, Mine 470 / 295k, Frost 290 / 160k) and should only go down.
+- **Size**: the download, against a budget.
+- **Phones**: the in-game bench (`?autodrive&bench`) ends with a Copy result button: one line of text to paste back. Effect switches find what a phone pays for: `?glow=off`, `?aa=0|2|4`, `?relief=off`, `?kartshadows=off`, `?px=MILLIONS` (pixel budget).
+- Target for Series 2: Medium quality at 60 fps, no more than 2% of frames late, three races in a row on an iPhone 15 Pro.
+- First findings (2026-11-14): Mining Mountain's busiest viewpoints draw 411 to 467 calls and 290k triangles, nearly twice the new-track budget; the starting grid (eight karts in view) is 270 to 290 calls on every track; one reset each on Mine and Frost in the eight-kart race (the four-kart bench showed none).
+
 ## 15. Accessibility
 - Colour-blind-safe kart colours, plus a number on each kart.
 - Assists: automatic gas, steering help and auto-drift.

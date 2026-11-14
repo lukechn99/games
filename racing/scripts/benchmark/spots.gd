@@ -74,7 +74,7 @@ func _next() -> void:
 	if _i >= _spots.size():
 		_done = true
 		# Real lights switched on (each one redraws what it touches: design
-		# doc 14.3). Budget: none below High.
+		# doc 14.5). Budget: none below High.
 		var lights := 0
 		for n in get_tree().get_nodes_in_group("track_lights"):
 			if (n as Light3D).is_visible_in_tree():

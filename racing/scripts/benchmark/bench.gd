@@ -361,11 +361,18 @@ func _offer_copy(out: Dictionary, wall: Dictionary) -> void:
 		if ms > 25.0:
 			late += 1
 	var vp := get_viewport()
-	var line := "kw-bench track=%s quality=%s switches=%s fps=%.1f p95=%.0fms p99=%.0fms late=%.1f%% draws=%d tris=%dk physics=%.1fms process=%.1fms laps=%d screen=%dx%d scale=%.2f %s" % [
-		out.track, out.quality, switches(), wall.fps, wall.p95, wall.p99,
+	# What actually ran: the build, and the effects really in use.
+	var env: Environment = get_viewport().world_3d.environment if get_viewport().world_3d and get_viewport().world_3d.environment else null
+	var we := get_viewport().find_child("WorldEnvironment", true, false) as WorldEnvironment
+	if env == null and we:
+		env = we.environment
+	var effects := "glow=%s aa=%dx" % ["?" if env == null else ("on" if env.glow_enabled else "off"), [1, 2, 4, 8][get_viewport().msaa_3d]]
+	var line := "kw-bench build=%s %s track=%s quality=%s switches=%s fps=%.1f p95=%.0fms p99=%.0fms late=%.1f%% draws=%d tris=%dk physics=%.1fms process=%.1fms laps=%d screen=%dx%d scale=%.2f %s" % [
+		BuildId.ID, effects, out.track, out.quality, switches(), wall.fps, wall.p95, wall.p99,
 		100.0 * late / maxf(1.0, _wall_frames.size()), out.draws, out.tris_k, out.physics_ms, out.process_ms,
 		out.player_completed_laps, vp.size.x, vp.size.y, vp.scaling_3d_scale,
 		"INVALID" if not out.valid else "partial" if out.partial else "complete"]
+	JavaScriptBridge.eval("window.__bench_line = %s;" % JSON.stringify(line), true)
 	JavaScriptBridge.eval("""(function(t){
 		var b=document.createElement('button');b.textContent='Copy result';
 		b.style.cssText='position:fixed;left:50%%;bottom:24px;transform:translateX(-50%%);z-index:99;font:600 18px system-ui;padding:14px 22px;border-radius:12px;border:0;background:#ffd23f;color:#111';

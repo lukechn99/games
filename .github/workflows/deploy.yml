@@ -55,6 +55,8 @@ jobs:
           unzip -qj /tmp/templates.tpz 'templates/web_*' 'templates/version.txt' -d "$dest"
       - name: Test and export the kart racer
         run: |
+          # Stamp the build, so phone results say which version they ran.
+          sed -i "s/^const ID := .*/const ID := \"${GITHUB_SHA::7}\"/" racing/scripts/build_id.gd
           ~/godot/godot --headless --path racing --import
           # A script error can stop the tests without failing the step, so
           # also insist on the final "N passed, 0 failed" line.

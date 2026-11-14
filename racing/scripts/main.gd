@@ -716,14 +716,15 @@ func _build_world() -> void:
 
 ## Graphics levels (design doc 9.1). High: 4x anti-aliasing, glow, surface
 ## relief, clear-coat paint (and sun shadows with ?shadows=on). Medium: 2x
-## anti-aliasing, glow and relief. Low: none of those, and the 3D view drawn
+## anti-aliasing and relief, no glow (on an iPhone 15 Pro, glow alone took
+## Medium from 60 fps to 51, with 13% of frames late; design doc 14.3). Low: none of those, and the 3D view drawn
 ## at 75% resolution.
 func _apply_quality() -> void:
 	var q := Controls.quality
 	var vp := get_viewport()
 	vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][q]
 	_fit_resolution()
-	_env.glow_enabled = q >= Controls.Quality.MEDIUM
+	_env.glow_enabled = q == Controls.Quality.HIGH
 	sun.shadow_enabled = Controls.shadows and q == Controls.Quality.HIGH
 	Palette.apply_quality(q >= Controls.Quality.MEDIUM, q == Controls.Quality.HIGH)
 	# Low also draws less: no kart-shaped shadows (the soft patch stays),
@@ -735,9 +736,9 @@ func _apply_quality() -> void:
 		gi.visibility_range_end = float(gi.get_meta("far")) * Track.detail_reach
 	# Effect switches (testing): turn one effect off, or set it, on top of the
 	# quality level, to find what a device is paying for (design doc 14.3):
-	# ?glow=off  ?aa=0|2|4  ?relief=off  ?kartshadows=off  ?px=MILLIONS
-	if Query.has("glow=off"):
-		_env.glow_enabled = false
+	# ?glow=on|off  ?aa=0|2|4  ?relief=off  ?kartshadows=off  ?px=MILLIONS
+	if Query.has("glow="):
+		_env.glow_enabled = Query.value("glow") == "on"
 	if Query.has("aa="):
 		vp.msaa_3d = {"0": Viewport.MSAA_DISABLED, "2": Viewport.MSAA_2X, "4": Viewport.MSAA_4X}.get(Query.value("aa"), vp.msaa_3d)
 	if Query.has("relief=off"):

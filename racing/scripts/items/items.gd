@@ -54,6 +54,14 @@ func setup(t: Track, all: Array[Kart], mine: Array[Kart]) -> void:
 	karts = all
 	owned = mine
 	_rng.seed = 99
+	# Load this track's item models now, not when one is first used: loading
+	# one mid-race froze the game for a moment (bench: +6 ms a frame).
+	for kind in pool():
+		var model: String = {"honey": "honey", "tumbleweed": "tumbleweed", "snowball": "snowball"}.get(kind, "")
+		if model != "":
+			item_model(model)
+	if "sandgun" in pool() and _gun_scene == null:
+		_gun_scene = load("res://assets/models/sand_gun.glb")
 	sand.clear()
 	for f in track.crate_frames():
 		for x in CRATE_LANES:
@@ -78,8 +86,6 @@ func setup(t: Track, all: Array[Kart], mine: Array[Kart]) -> void:
 static var _crate_mat: ShaderMaterial
 static var _mark_mat: ShaderMaterial
 static var _box_parts: Array = []   # [mesh, material, transform]
-static var _honey_mat: StandardMaterial3D
-static var _weed_mat: StandardMaterial3D
 
 
 func _crate_mesh() -> Node3D:
@@ -122,46 +128,38 @@ func _crate_mesh() -> Node3D:
 	return root
 
 
+## Item models, built in Blender (tools/blender/props.py: honey, tumbleweed,
+## snowball), each one mesh, shaded like the karts: glossy honey, matte
+## twigs and snow.
+static var _models := {}
+
+
+static func item_model(name: String) -> Mesh:
+	if not _models.has(name):
+		var inst: Node = (load("res://assets/models/%s.glb" % name) as PackedScene).instantiate()
+		var src: MeshInstance3D = inst if inst is MeshInstance3D else inst.find_children("*", "MeshInstance3D", true, false)[0]
+		var m: Mesh = src.mesh.duplicate()
+		for i in m.get_surface_count():
+			var sm := m.surface_get_material(i) as BaseMaterial3D
+			var glossy := sm != null and sm.resource_name.begins_with("Honey")
+			m.surface_set_material(i, Palette.kart(Palette.Finish.PAINT if glossy else Palette.Finish.MATTE, sm.albedo_color if sm else Color(0.8, 0.8, 0.8)))
+		inst.free()
+		_models[name] = m
+	return _models[name]
+
+
 func _honey_mesh() -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius = 2.0
-	cyl.bottom_radius = 2.1
-	cyl.height = 0.06
-	cyl.radial_segments = 20
-	mi.mesh = cyl
-	if _honey_mat == null:
-		_honey_mat = StandardMaterial3D.new()
-		_honey_mat.albedo_color = Color(1.0, 0.68, 0.12)
-		_honey_mat.roughness = 0.1
-		_honey_mat.metallic_specular = 1.0
-		_honey_mat.rim_enabled = true
-		_honey_mat.rim = 0.4
-	mi.material_override = _honey_mat
+	mi.mesh = item_model("honey")
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mi
 
 
 func _weed_mesh() -> Node3D:
-	var root := Node3D.new()
-	if _weed_mat == null:
-		_weed_mat = StandardMaterial3D.new()
-		_weed_mat.albedo_color = Color(0.82, 0.63, 0.36)
-		_weed_mat.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	# A tangle of twiggy rings.
-	for i in 6:
-		var mi := MeshInstance3D.new()
-		var tor := TorusMesh.new()
-		tor.inner_radius = 0.62
-		tor.outer_radius = 0.7
-		tor.rings = 14
-		tor.ring_segments = 4
-		mi.mesh = tor
-		mi.material_override = _weed_mat
-		mi.rotation = Vector3(i * 1.1, i * 0.7, i * 0.4)
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		root.add_child(mi)
-	return root
+	var mi := MeshInstance3D.new()
+	mi.mesh = item_model("tumbleweed")
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
 
 
 # --- Each frame -------------------------------------------------------------
@@ -274,6 +272,9 @@ func spawn(kind: String, pos: Vector3, dir: Vector3, seed_value: int) -> void:
 		"honey":
 			var ground := _ground_below(pos)
 			var mi := _honey_mesh()
+			# Turned by where it lands, so no two look alike (not by _rng: that
+			# decides crate items, and every game must draw the same sequence).
+			mi.rotation.y = fposmod(pos.x * 1.7 + pos.z * 2.3, TAU)
 			mi.position = ground + Vector3.UP * 0.07
 			add_child(mi)
 			_honey.append({"node": mi, "pos": ground, "life": 15.0, "uses": 0, "inside": {}})
@@ -368,22 +369,8 @@ func _update_weeds(delta: float) -> void:
 # it goes, the bigger the hit. Bursts on the first kart it reaches, or when
 # it leaves the road (a bank or a wall), or after a while.
 
-static var _snow: SphereMesh
-
-
-func _snow_mesh() -> SphereMesh:
-	if _snow == null:
-		_snow = SphereMesh.new()
-		_snow.radius = 1.0
-		_snow.height = 2.0
-		_snow.radial_segments = 16
-		_snow.rings = 8
-		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(0.96, 0.97, 1.0)
-		m.albedo_texture = load(Palette.TEX_DIR + "ice.png")
-		m.roughness = 0.85
-		_snow.material = m
-	return _snow
+func _snow_mesh() -> Mesh:
+	return item_model("snowball")
 
 
 func _update_snowballs(delta: float) -> void:

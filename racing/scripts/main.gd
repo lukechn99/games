@@ -87,6 +87,14 @@ func _ready() -> void:
 		player_kart.held_item = Query.value("give")
 		if Query.has("autodrive"):
 			player_kart.set_meta("bot_items", true)
+	# ?drop=honey,tumbleweed,... (testing): those items on the road ahead at
+	# the start line, side by side, to look at them in place.
+	if Query.has("drop="):
+		var f := player_kart.global_transform
+		var kinds := Query.value("drop").split(",")
+		for i in kinds.size():
+			var at := f.origin - f.basis.z * (12.0 + 3.0 * i) + f.basis.x * (float(i) - (kinds.size() - 1) * 0.5) * 4.0
+			items.spawn(kinds[i], at, f.basis.z, 1 + i)
 	var q := q0
 	if q.contains("map"):
 		_map_review(q)
@@ -609,6 +617,15 @@ func _showroom(q: String) -> void:
 	camera.global_position = base.origin - base.basis.z * 6.5 + base.basis.x * 1.5 + Vector3.UP * 2.6
 	camera.look_at(base.origin + Vector3.UP * 0.4, Vector3.UP)
 	camera.fov = 52.0
+	# &items: the item models set out on the road in front of the karts.
+	if q.contains("items"):
+		var names := ["honey", "tumbleweed", "snowball", "sand_gun"]
+		for i in names.size():
+			var mi := MeshInstance3D.new()
+			mi.mesh = Items.item_model(names[i])
+			add_child(mi)
+			var lift := {"tumbleweed": 0.7, "snowball": 0.6, "sand_gun": 0.5}.get(names[i], 0.03) as float
+			mi.global_transform = Transform3D(base.basis.scaled(Vector3.ONE * (0.6 if names[i] == "snowball" else 1.0)), base.origin - base.basis.z * 2.5 + base.basis.x * (float(i) - 1.5) * 2.6 + Vector3.UP * lift)
 	# &drivers: every animal, one per kart. &face=N: close-up of kart N's driver.
 	if q.contains("drivers"):
 		var dids := Parts.DRIVERS.keys()

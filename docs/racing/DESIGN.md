@@ -705,6 +705,8 @@ Every change is checked with two commands whose output is a few lines, so checki
 - **Checks:** `tests/benchmark_halves.gd` drives real four-kart packs for three full laps on all tracks, checks required route evidence on every lap, and verifies half boundaries and the balanced schedule. It runs in CI and `check.sh game`. `node racing/tools/bench/qualities.mjs` checks real Web session wiring/interruption handling and original single-quality compatibility. Add `--full` to also wait for the full three-lap Web report (slow under software rendering).
 
 - First baseline finding: wheels were about half of all draw calls (each wheel is several separate meshes, on every kart).
+- Load models before the race, never on first use: the Blender item models, loaded the first time an item appeared, cost a visible freeze (bench: physics 3 ms to 10 ms a frame on average). Items now load their track's models in setup.
+- Testing views: `?showroom&items` sets the item models out on the road; `?give=ITEM` starts you holding an item; `?drop=ITEM,ITEM` lays items ahead of the start line.
 
 #### Medium target on iPhone 15 Pro
 
@@ -992,6 +994,7 @@ Settled since the first list: the launch drivers (fox, frog, rhino, deer), showi
 | 2026-11-09 | Approve the stronger colour-separation direction and eight-colour starting palette in 9.1a; prototype Meadow first and review matched Web captures before broader rollout | The user's supplied Mario Kart screenshots and approval of the proposed palette |
 | 2026-11-13 | Frosty Pass ice in short patches (three 10 m patches per hairpin), not 77 m sheets | The user: long ice was very hard to drive over |
 | 2026-11-13 | Sand gun (Frosty Pass item): 5 s weaving spray, sand cancels ice for 8 s, for everyone | The user's idea, and its S shape and 5 to 10 s life |
+| 2026-11-14 | Honey, tumbleweed and snowball rebuilt in Blender, one mesh each, shaded like the karts | Matching the new style; the tumbleweed was 6 draw calls, now 1 |
 
 Frost lake exit: banking and its centre-line lift ease back in over 60 m after
 the flat merge zone, preventing a step where the bank previously switched on.

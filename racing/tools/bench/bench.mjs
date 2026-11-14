@@ -73,15 +73,26 @@ for (const r of executions) {
   const t0 = Date.now()
   const page = await (await b.newContext(profiles[profile])).newPage()
   const errors = []
-  page.on('console', (m) => { if (isError(m.text())) errors.push(m.text().slice(0, 200)) })
+  // A script that doesn't compile never finishes the race: stop at once
+  // instead of waiting out the timeout.
+  let broken
+  const brokenSeen = new Promise((resolve) => { broken = resolve })
+  page.on('console', (m) => {
+    if (isError(m.text())) errors.push(m.text().slice(0, 200))
+    if (/Parse Error|Compile Error/.test(m.text())) broken()
+  })
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)))
   const q = `autodrive&bench=${secs}&benchwall=${wall}&quality=${r.quality}` + (r.track === 'meadow' ? '' : `&track=${r.track}`)
   await page.goto(`${url}/racing/index.html?${q}`)
   try {
-    await page.waitForFunction(() => window.__bench, null, { timeout: (wall + 300) * 1000, polling: 1000 })
+    const done = await Promise.race([
+      page.waitForFunction(() => window.__bench, null, { timeout: (wall + 300) * 1000, polling: 1000 }).then(() => true),
+      brokenSeen.then(() => false),
+    ])
+    if (!done) throw new Error('script error')
     results[r.key] = { ...(await page.evaluate(() => window.__bench)), build, runner, browser_version: b.version(), errors: errors.length, error_lines: errors.slice(0, 5), wall_s: Math.round((Date.now() - t0) / 1000) }
-  } catch {
-    results[r.key] = { failed: 'no result (timed out)', errors: errors.length, error_lines: errors.slice(0, 5) }
+  } catch (e) {
+    results[r.key] = { failed: e.message === 'script error' ? 'a script failed to compile' : 'no result (timed out)', errors: errors.length, error_lines: errors.slice(0, 5) }
   }
   await page.context().close()
 }

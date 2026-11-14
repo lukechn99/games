@@ -6,6 +6,11 @@
   windmill     a little countryside windmill (sails are their own object)
   lantern      a stone garden lantern with a glowing window
   coin         a chunky gold coin with a raised rim and a stamped mark
+  honey        a honey puddle: an irregular glossy pool with a rounded,
+               raised rim, a domed middle and a few bubbles (2 m across)
+  tumbleweed   a tangled ball of dry twigs (1.4 m across)
+  snowball     a lumpy ball of packed snow with clumps stuck on (2 m across;
+               the game scales it as it grows)
   sand_gun     Frosty Pass's sand blaster: a hopper heaped with sand on a
                chunky body, a flared nozzle forward (-z), a grip below
 
@@ -209,6 +214,97 @@ def coin():
 
 
 
+
+def honey():
+    import bmesh
+    gold = c.material("Honey", (1.0, 0.62, 0.08), 0.15)
+    light = c.material("Honey_light", (1.0, 0.82, 0.32), 0.15)
+    rnd = random.Random(5)
+    # An irregular outline: a circle pushed about by a few smooth waves.
+    waves = [(rnd.uniform(0.04, 0.09), k, rnd.uniform(0, math.tau)) for k in (2, 3, 5, 7)]
+    n = 48
+    me = bpy.data.meshes.new("Honey")
+    bm = bmesh.new()
+    rings = [(1.0, 0.0), (0.97, 0.05), (0.9, 0.075), (0.6, 0.085), (0.0, 0.1)]   # (radius fraction, height): rim rolls over, middle domes
+    verts = []
+    for rf, h in rings:
+        row = []
+        for i in range(n):
+            a = math.tau * i / n
+            r = 2.0 * (1.0 + sum(w * math.sin(k * a + ph) for w, k, ph in waves)) * rf
+            row.append(bm.verts.new(s.g(math.cos(a) * r, h, math.sin(a) * r)))
+        verts.append(row)
+    for j in range(len(rings) - 2):
+        for i in range(n):
+            bm.faces.new((verts[j][i], verts[j][(i + 1) % n], verts[j + 1][(i + 1) % n], verts[j + 1][i]))
+    centre = bm.verts.new(s.g(0, rings[-1][1], 0))
+    inner = verts[-2]
+    for i in range(n):
+        bm.faces.new((inner[i], inner[(i + 1) % n], centre))
+    # Face up (Blender +z): seen from above, or the game culls it.
+    bm.normal_update()
+    if sum(f.normal.z for f in bm.faces) < 0:
+        bmesh.ops.reverse_faces(bm, faces=list(bm.faces))
+    bm.to_mesh(me)
+    bm.free()
+    puddle = bpy.data.objects.new("Honey", me)
+    bpy.context.collection.objects.link(puddle)
+    c.subsurf(puddle, 1)
+    c.smooth(puddle)
+    parts = [(puddle, gold)]
+    # Bubbles: little domes sitting in the honey.
+    for i in range(6):
+        a = rnd.uniform(0, math.tau)
+        d = rnd.uniform(0.3, 1.4)
+        r = rnd.uniform(0.07, 0.16)
+        b = blob("Bubble", (math.cos(a) * d, 0.08, math.sin(a) * d), r, squash=0.6, seed=i, detail=2)
+        parts.append((b, light))
+    return finish(parts), (0, 0, 0.1), 4.2
+
+
+def tumbleweed():
+    straw = c.material("Twig", (0.72, 0.52, 0.28), 0.9)
+    dry = c.material("Twig_dry", (0.86, 0.7, 0.42), 0.9)
+    rnd = random.Random(11)
+    parts = []
+    for i in range(20):
+        # A twig curling round the ball: a wobbly arc on a sphere.
+        axis = (rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))
+        L = math.sqrt(sum(v * v for v in axis)) or 1.0
+        ax = [v / L for v in axis]
+        # Two vectors at right angles to the axis.
+        u = [ax[1], -ax[0], 0.0] if abs(ax[2]) < 0.9 else [0.0, ax[2], -ax[1]]
+        Lu = math.sqrt(sum(v * v for v in u))
+        u = [v / Lu for v in u]
+        w = [ax[1] * u[2] - ax[2] * u[1], ax[2] * u[0] - ax[0] * u[2], ax[0] * u[1] - ax[1] * u[0]]
+        start = rnd.uniform(0, math.tau)
+        span = rnd.uniform(2.2, 4.4)
+        pts = []
+        for k in range(7):
+            a = start + span * k / 6
+            r = 0.6 + rnd.uniform(-0.12, 0.08)
+            p = [math.cos(a) * u[j] + math.sin(a) * w[j] for j in range(3)]
+            pts.append((p[0] * r, p[1] * r, p[2] * r))   # centred: it spins as it rolls
+        t = s.tube("Twig", pts, rnd.uniform(0.018, 0.032), 2, along=3)
+        parts.append((t, straw if i % 3 else dry))
+    return finish(parts), (0, 0, 0.0), 3.0
+
+
+def snowball():
+    snow = c.material("Snow", (0.95, 0.97, 1.0), 0.85)
+    shade = c.material("Snow_blue", (0.8, 0.88, 0.98), 0.85)
+    parts = [(blob("Snowball", (0, 0, 0), 1.0, seed=21, detail=3), snow)]   # centred: it spins
+    rnd = random.Random(4)
+    # Clumps it picked up rolling: lumps half sunk into the surface.
+    for i in range(16):
+        # Spread evenly (a spiral over the sphere), each a little off.
+        el = math.asin(-0.9 + 1.8 * (i + 0.5) / 16) + rnd.uniform(-0.12, 0.12)
+        a = i * 2.4 + rnd.uniform(-0.3, 0.3)
+        d = (math.cos(el) * math.cos(a), math.sin(el), math.cos(el) * math.sin(a))
+        r = rnd.uniform(0.13, 0.22)
+        parts.append((blob("Clump", (d[0] * 0.9, d[1] * 0.9, d[2] * 0.9), r, seed=40 + i, detail=1), shade if i % 3 == 0 else snow))
+    return finish(parts), (0, 0, 0.0), 4.0
+
 def sand_gun():
     """Built along +x (lathe axis), then turned so the nozzle points -z."""
     body_c = c.material("Blaster", (1.0, 0.53, 0.24), 0.45)          # the approved frost orange
@@ -329,7 +425,7 @@ def snowman():
     return finish(parts), (0, 0, 1.7), 8.0
 
 
-BUILDERS = {"sand_gun": sand_gun, "tree_puffy": tree_puffy, "lamp_post": lamp_post, "guardrail": guardrail,
+BUILDERS = {"honey": honey, "tumbleweed": tumbleweed, "snowball": snowball, "sand_gun": sand_gun, "tree_puffy": tree_puffy, "lamp_post": lamp_post, "guardrail": guardrail,
             "windmill": windmill, "lantern": lantern, "coin": coin,
             "snowpine_tall": snowpine_tall, "pine_tall": pine_tall, "tree_round": tree_round, "bush": bush, "snowpine_round": snowpine_round, "snowman": snowman}
 

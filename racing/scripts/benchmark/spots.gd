@@ -73,7 +73,13 @@ func _next() -> void:
 	_objects = 0.0
 	if _i >= _spots.size():
 		_done = true
-		var json := JSON.stringify({"track": race.track.layout, "quality": Controls.quality_name().to_lower(), "spots": _out})
+		# Real lights switched on (each one redraws what it touches: design
+		# doc 14.3). Budget: none below High.
+		var lights := 0
+		for n in get_tree().get_nodes_in_group("track_lights"):
+			if (n as Light3D).is_visible_in_tree():
+				lights += 1
+		var json := JSON.stringify({"track": race.track.layout, "quality": Controls.quality_name().to_lower(), "lights": lights, "spots": _out})
 		print("[spots] ", json)
 		if OS.has_feature("web"):
 			JavaScriptBridge.eval("window.__spots = " + json + ";", true)

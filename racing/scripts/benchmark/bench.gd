@@ -356,7 +356,7 @@ static func switches() -> String:
 
 
 ## A "Copy result" button on the page: one line of text to paste into a
-## chat, instead of a screenshot (design doc 14.3).
+## chat, instead of a screenshot (design doc 14.5).
 func _offer_copy(out: Dictionary, wall: Dictionary) -> void:
 	var late := 0
 	for ms in _wall_frames:

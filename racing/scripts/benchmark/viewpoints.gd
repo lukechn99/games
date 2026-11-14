@@ -1,6 +1,6 @@
 class_name Viewpoints
 extends RefCounted
-## Each track's fixed camera spots (design doc 14.3): where the verify
+## Each track's fixed camera spots (design doc 14.5): where the verify
 ## command measures what's drawn and takes its pictures, the same every run.
 ## Every track gets eight spots evenly round the lap, one over the starting
 ## grid, one in the middle of each alternate route, and one from the air. A track adds named spots for
@@ -9,6 +9,7 @@ extends RefCounted
 
 const EVEN := 8
 const EXTRA := {
+	"meadow": [["tunnel", 180.0, 0.0, 2.6, 24.0, ""]],
 	"frost": [["hairpin", 176.0, 0.0, 2.6, 24.0, ""]],
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// One command to check a change (design doc 14.3). Prints about ten lines
+// One command to check a change (design doc 14.5). Prints about ten lines
 // and, only if a picture changed, writes one image to look at.
 //
 //   node racing/tools/verify/verify.mjs            the tracks your change touches
@@ -170,6 +170,7 @@ for (const track of tracks) {
   add(over.length ? 'OVER' : 'ok', `${track} draws`, over.length ? `${over.join(', ')} (budget ${lim.draws}); all ${s.spots.length} viewpoints ${range('draws')}` : `${range('draws')} over ${judged.length} viewpoints, most at ${worst('draws').name} (budget ${lim.draws})`)
   const overT = judged.filter((c) => c.tris_k > lim.tris_k).map((c) => `${c.name} ${c.tris_k}k`)
   add(overT.length ? 'OVER' : 'ok', `${track} tris`, overT.length ? `${overT.join(', ')} (budget ${lim.tris_k}k)` : `most ${worst('tris_k').tris_k}k at ${worst('tris_k').name} (budget ${lim.tris_k}k)`)
+  if (s.lights > (lim.lights ?? 0)) add('OVER', `${track} lights`, `${s.lights} real lights on at ${s.quality} (budget ${lim.lights ?? 0}: each one redraws what it touches)`)
   if (s.errors.length) add('FAIL', `${track} errors`, `${s.errors.length} in the console: ${s.errors[0]}`)
 }
 if (tracks.length) {

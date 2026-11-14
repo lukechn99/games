@@ -719,7 +719,7 @@ func _build_world() -> void:
 ## (and sun shadows with ?shadows=on). Medium: 2x anti-aliasing, glow and
 ## relief. Real lamps are High only: this renderer draws everything a light
 ## touches once more per light, and on an iPhone 15 Pro they cost Medium
-## about 9 fps (design doc 14.3). The lamp surfaces glow at every level. Low: none of those, and the 3D view drawn
+## about 9 fps (design doc 14.5). The lamp surfaces glow at every level. Low: none of those, and the 3D view drawn
 ## at 75% resolution.
 func _apply_quality() -> void:
 	var q := Controls.quality
@@ -743,7 +743,7 @@ func _apply_quality() -> void:
 		var gi := n as GeometryInstance3D
 		gi.visibility_range_end = float(gi.get_meta("far")) * Track.detail_reach
 	# Effect switches (testing): turn one effect off, or set it, on top of the
-	# quality level, to find what a device is paying for (design doc 14.3):
+	# quality level, to find what a device is paying for (design doc 14.5):
 	# ?glow=on|off  ?lights=on|off  ?aa=0|2|4  ?relief=off  ?kartshadows=off  ?px=MILLIONS
 	if Query.has("glow="):
 		_env.glow_enabled = Query.value("glow") == "on"

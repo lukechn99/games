@@ -1,5 +1,5 @@
 extends SceneTree
-## The verify command's fast race (design doc 14.3): eight computer drivers
+## The verify command's fast race (design doc 14.5): eight computer drivers
 ## race each track with nothing drawn, as fast as the machine allows, and one
 ## line per track says how it went: "[race] {json}".
 ##   KW_TRACKS=meadow,mine   which tracks (default all)   KW_LAPS=2

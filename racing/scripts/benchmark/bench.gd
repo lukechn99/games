@@ -126,6 +126,8 @@ func _process(delta: float) -> void:
 		_spots_done += 1
 		_progress.append(_player_progress())
 		_breakdown()
+	if _frames % 20 == 0:
+		_note_route()
 	_label.text = "bench %.0f / %.0f s" % [_t, seconds]
 	if (not external_window and elapsed >= seconds) or wall >= wall_limit:
 		_finish()
@@ -347,7 +349,7 @@ static func frame_stats(values: Array[float]) -> Dictionary:
 ## The effect switches in force (main.gd), for the result line.
 static func switches() -> String:
 	var on: PackedStringArray = []
-	for name in ["glow", "aa", "relief", "kartshadows", "px"]:
+	for name in ["glow", "lights", "aa", "relief", "kartshadows", "px"]:
 		if Query.has(name + "="):
 			on.append("%s=%s" % [name, Query.value(name)])
 	return ",".join(on) if not on.is_empty() else "none"
@@ -366,7 +368,14 @@ func _offer_copy(out: Dictionary, wall: Dictionary) -> void:
 	var we := get_viewport().find_child("WorldEnvironment", true, false) as WorldEnvironment
 	if env == null and we:
 		env = we.environment
-	var effects := "glow=%s aa=%dx" % ["?" if env == null else ("on" if env.glow_enabled else "off"), [1, 2, 4, 8][get_viewport().msaa_3d]]
+	var lights := 0
+	for n in get_tree().get_nodes_in_group("track_lights"):
+		if (n as Light3D).is_visible_in_tree():
+			lights += 1
+	var routes: PackedStringArray = []
+	for r in _routes:
+		routes.append(r)
+	var effects := "glow=%s lights=%d aa=%dx route=%s" % ["?" if env == null else ("on" if env.glow_enabled else "off"), lights, [1, 2, 4, 8][get_viewport().msaa_3d], "+".join(routes) if not routes.is_empty() else "main"]
 	var line := "kw-bench build=%s %s track=%s quality=%s switches=%s fps=%.1f p95=%.0fms p99=%.0fms late=%.1f%% draws=%d tris=%dk physics=%.1fms process=%.1fms laps=%d screen=%dx%d scale=%.2f %s" % [
 		BuildId.ID, effects, out.track, out.quality, switches(), wall.fps, wall.p95, wall.p99,
 		100.0 * late / maxf(1.0, _wall_frames.size()), out.draws, out.tris_k, out.physics_ms, out.process_ms,
@@ -382,3 +391,19 @@ func _offer_copy(out: Dictionary, wall: Dictionary) -> void:
 		};
 		document.body.appendChild(b);
 	})(%s);""" % JSON.stringify(line), true)
+
+
+## Alternate routes the player's kart drove during the run (for the result
+## line: what was on screen depends on the route).
+var _routes := {}
+
+
+func _note_route() -> void:
+	var k: Kart = context.player_kart
+	var track: Track = k.track
+	if track == null:
+		return
+	var off := track.offset_of(k.global_position)
+	var bi := track.branch_at(off)
+	if bi >= 0 and k.global_position.distance_to(track.branch_frame(off, bi).origin) + 4.0 < k.global_position.distance_to(track.transform_at(off).origin):
+		_routes[str(track.branches[bi].get("kind", "route%d" % bi))] = true

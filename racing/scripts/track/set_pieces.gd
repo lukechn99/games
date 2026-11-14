@@ -317,6 +317,8 @@ static func _tunnel(t: Track) -> void:
 			light.omni_range = 11.0
 			light.omni_attenuation = 1.2
 			light.position = f.origin + f.basis.y * (ri * 0.78 - 1.0)
+			light.add_to_group("track_lights")   # High only (main.gd)
+			light.visible = Palette.lamps
 			t.add_child(light)
 		d += 7.0
 	_commit(t, inner_st, _stone_mat(), true, "rock")
@@ -565,6 +567,8 @@ static func _cave(t: Track, d0: float, d1: float) -> void:
 		light.light_energy = 1.8
 		light.omni_range = 12.0
 		light.position = f.origin + Vector3.UP * 3.5
+		light.add_to_group("track_lights")   # High only (main.gd)
+		light.visible = Palette.lamps
 		t.add_child(light)
 	# Crystal pillars near the walls to weave round.
 	var pillars := _new_st()

@@ -53,6 +53,9 @@ const TEX_DIR := "res://assets/textures/"
 ## asks for ?palette=classic. Every approved colour lives here, so the look is
 ## tuned in one place; `theme` picks the track's set.
 static var approved := false
+## Real lamps in the tunnel and cave (High only; main.gd _apply_quality).
+## Lights made later read this when they're created.
+static var lamps := false
 const APPROVED := {
 	"road": Color("45474b"),
 	"road_paint": Color("fff1ce"),

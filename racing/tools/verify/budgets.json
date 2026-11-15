@@ -24,7 +24,8 @@
    "resets": 1,
    "lap_spread": 2.5
   },
-  "starliner": {}
+  "starliner": {},
+  "proving": {}
  },
  "unjudged_views": [
   "air"

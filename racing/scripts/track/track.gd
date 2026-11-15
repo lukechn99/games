@@ -58,6 +58,8 @@ static func kit_of(name: String) -> Variant:
 	match name:
 		"starliner":
 			return StarlinerTrack
+		"proving":
+			return ProvingTrack
 	return null
 
 
@@ -66,6 +68,9 @@ static func has_kit(name: String) -> bool:
 ## A kit's road and kerb colours (empty: the usual asphalt and red/white).
 var road_color := Color(0, 0, 0, 0)
 var kerb_colors: Array = []
+## Launch gaps (LaunchGaps): stretches with no road, [from, to] in metres
+## round the lap, which karts fly across.
+var gaps: Array = []
 var surface_zones: Array = SURFACE_ZONES
 var rail_zones: Array = RAIL_ZONES
 ## Frost: stretches held at a gentle bank for the icy hairpins, [from, to]
@@ -123,6 +128,14 @@ func under_lake(pos: Vector3) -> bool:
 
 
 ## On the rope bridge's deck (see SwayBridge.holds).
+func in_gap(offset: float) -> bool:
+	var o := fposmod(offset, length)
+	for g: Array in gaps:
+		if o >= float(g[0]) and o <= float(g[1]):
+			return true
+	return false
+
+
 func on_bridge(pos: Vector3) -> bool:
 	return bridge != null and bridge.holds(pos)
 var branch_side := 1.0        # which side the second route swings out to
@@ -533,7 +546,7 @@ func _build_road() -> void:
 			_merged_strip(st, d, minf(d + step, length), int(d / step), bi)
 		else:
 			# (Across Frosty Pass's frozen lake the ice is the road.)
-			if not (layout == "frost" and FrostTrack.road_segment_on_ice(a, b)):
+			if not (layout == "frost" and FrostTrack.road_segment_on_ice(a, b)) and not in_gap(d + step * 0.5):
 				_quad_strip(st, a, b, s, int(d / step), d)
 			if shift >= BRANCH_SPLIT and _branch_has_road(bi, d):
 				var bend: float = branches[bi]["to"]

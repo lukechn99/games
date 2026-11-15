@@ -36,6 +36,7 @@ func _run() -> void:
 	await _test_items()
 	await _test_mine()
 	await _test_frost()
+	await _test_launch_gap()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
 
@@ -942,3 +943,66 @@ func _test_frost() -> void:
 	check(on_lake and on_detour, "bots cross the frozen lake, and some take the detour", "lake %s, detour %s" % [on_lake, on_detour])
 	check(respawns.reduce(func(a, x): return a + x, 0) <= 6, "bots rarely need resetting on Frosty Pass", "%s" % [respawns])
 	print("  lap length %.0f m" % track.length)
+
+
+## Launch gaps (design doc 8.4), on the proving ground.
+func _test_launch_gap() -> void:
+	print("Launch gaps")
+	if _world:
+		_world.free()
+	_world = Node3D.new()
+	root.add_child(_world)
+	var track := Track.new()
+	track.layout = "proving"
+	_world.add_child(track)
+	await physics_frame
+	await physics_frame
+	check(track.gaps.size() == 1, "the proving ground has a launch gap")
+	var lip: float = track.gaps[0][0]
+	var landing: float = track.gaps[0][1]
+	check(landing - lip > 30.0, "the gap is a real gap (%.0f m)" % (landing - lip))
+	# Nothing to stand on in the gap; road either side of it.
+	var space := _world.get_world_3d().direct_space_state
+	var probe := func(d: float) -> bool:
+		var p := track.road_frame(d).origin
+		return not space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 4.0, p + Vector3.DOWN * 4.0)).is_empty()
+	check(not probe.call((lip + landing) * 0.5) and not probe.call(lip + 6.0), "there is no road in the gap")
+	check(probe.call(lip - 4.0) and probe.call(landing + 4.0), "and road at the lip and the landing")
+	# Karts arriving fast, slow and off-centre all land beyond it, upright.
+	var cases := [["fast", 32.0, 0.0], ["slow", 6.0, 0.0], ["off-centre", 26.0, 4.5], ["off the other side", 18.0, -4.5]]
+	for c: Array in cases:
+		var k := Kart.new()
+		k.configure("frame", "slicks", "fox")
+		k.track = track
+		_world.add_child(k)
+		var vis := Node3D.new()
+		k.add_child(vis)
+		k.set_meta("visual", vis)
+		var all: Array[Kart] = [k]
+		var launch := LaunchGaps.new()
+		launch.setup(track, all)
+		_world.add_child(launch)
+		var f := track.road_frame(lip - 14.0)
+		k.global_transform = Transform3D(f.basis, f.origin + f.basis.x * float(c[2]) + Vector3.UP * 0.6)
+		k.linear_velocity = -f.basis.z * float(c[1])
+		var flew := false
+		var flipped := 0.0
+		var resets := [0]
+		k.respawned.connect(func(): resets[0] += 1)
+		for i in 60 * 7:
+			k.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+			await physics_frame
+			if launch.flying(k):
+				flew = true
+				flipped = maxf(flipped, absf(vis.transform.basis.get_euler().x) + (PI if vis.transform.basis.y.y < 0.0 else 0.0))
+			elif flew:
+				break
+		await _ticks(40)
+		var off := track.offset_of(k.global_position)
+		var local := track.road_local(k.global_position)
+		check(flew and resets[0] == 0 and off > landing and absf(local.x) < Track.ROAD_WIDTH * 0.5 and absf(local.y) < 1.5,
+			"a %s kart flies the gap and lands on the road" % c[0], "flew %s resets %d off %.0f (landing %.0f) local %s" % [flew, resets[0], off, landing, local])
+		check(k.global_transform.basis.y.dot(Vector3.UP) > 0.9 and vis.transform.is_equal_approx(Transform3D.IDENTITY) and flipped > 2.0,
+			"and comes down wheels-first after a somersault", "up %.2f flipped %.1f" % [k.global_transform.basis.y.dot(Vector3.UP), flipped])
+		launch.free()
+		k.free()

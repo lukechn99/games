@@ -539,8 +539,10 @@ func _check_recovery(delta: float) -> void:
 	_upside_down_time = _upside_down_time + delta if upright < 0.35 else 0.0
 	_on_deck_time = maxf(0.0, _on_deck_time - delta)
 	_off_track_time = _off_track_time + delta if _fallen_off() else 0.0
-	if global_position.y < -12.0 or _upside_down_time > 1.6 or _off_track_time > 0.4:
-		respawn_reason = "low" if global_position.y < -12.0 else ("upside down" if _upside_down_time > 1.6 else "off the road at %s" % track.road_local(global_position) if track else "off")
+	# (Series 2 tracks have no ground: "too low" is far below their roads.)
+	var floor_y: float = track.ground_y + 20.0 if track and Track.has_kit(track.layout) else -12.0
+	if global_position.y < floor_y or _upside_down_time > 1.6 or _off_track_time > 0.4:
+		respawn_reason = "low" if global_position.y < floor_y else ("upside down" if _upside_down_time > 1.6 else "off the road at %s" % track.road_local(global_position) if track else "off")
 		respawn()
 
 

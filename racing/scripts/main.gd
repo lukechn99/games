@@ -71,6 +71,10 @@ func _ready() -> void:
 		var bot := BotDriver.new(k, track, b["level"], i + 3)
 		add_child(bot)
 		bot.set_meta("kart", k)
+	if not track.gaps.is_empty():
+		var launch := LaunchGaps.new()
+		launch.setup(track, karts)
+		add_child(launch)
 	var bumps := KartBumps.new()
 	bumps.karts = karts
 	add_child(bumps)
@@ -240,6 +244,10 @@ func _build_online_karts(seats: Array, picks: Dictionary) -> void:
 		# Watching: follow the first kart.
 		player_kart = karts[0]
 		player = PlayerDriver.new(null)
+	if not track.gaps.is_empty():
+		var launch := LaunchGaps.new()
+		launch.setup(track, karts)
+		add_child(launch)
 	var bumps := KartBumps.new()
 	bumps.karts = karts
 	add_child(bumps)

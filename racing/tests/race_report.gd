@@ -44,8 +44,15 @@ func _race(layout: String, laps: int) -> void:
 		k.set_meta("bot_items", true)
 		world.add_child(k)
 		k.global_transform = track.grid_transform(i)
+		var vis := Node3D.new()      # stands in for the kart's model (flips in a launch gap)
+		k.add_child(vis)
+		k.set_meta("visual", vis)
 		karts.append(k)
 		world.add_child(BotDriver.new(k, track, LEVELS[i], i + 2))
+	if not track.gaps.is_empty():
+		var launch := LaunchGaps.new()
+		launch.setup(track, karts)
+		world.add_child(launch)
 	var bumps := KartBumps.new()
 	bumps.karts = karts
 	world.add_child(bumps)

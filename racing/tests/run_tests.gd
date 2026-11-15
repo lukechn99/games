@@ -37,6 +37,7 @@ func _run() -> void:
 	await _test_mine()
 	await _test_frost()
 	await _test_launch_gap()
+	await _test_track_fx()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
 
@@ -576,18 +577,21 @@ func _test_items() -> void:
 	var items := Items.new()
 	_world.add_child(items)
 	items.setup(track, all, all)
-	# Collection and respawn reuse the original node and shared mesh.
+	# Collection and respawn reuse the coin's slot in its batch, and the
+	# shared mesh. (Coins are drawn in batches: one draw call a line.)
 	var coin: Dictionary = items._coins[0]
-	var coin_node: MeshInstance3D = coin["node"]
+	var coin_node: Items.Slot = coin["node"]
 	var coin_id := coin_node.get_instance_id()
 	a.global_position = coin["pos"]
 	b.global_position = Vector3(1000, 1000, 1000)
 	items._update_coins(0.0)
-	check(not coin_node.visible and a.coins == 1, "collecting a coin hides its existing node")
+	check(not coin_node.visible and a.coins == 1, "collecting a coin hides it")
 	a.global_position += Vector3.RIGHT * 10.0
 	items._update_coins(Items.COIN_RESPAWN + 0.1)
-	check(coin_node.visible and coin_node.get_instance_id() == coin_id, "coin respawn reuses the same node")
-	check(coin_node.mesh == Items.coin_mesh(), "road and HUD share the cached coin mesh")
+	check(coin_node.visible and coin_node.get_instance_id() == coin_id, "coin respawn reuses the same slot")
+	var coin_batch: Items.Batch = items._batches.values().filter(func(b): return (b as Items.Batch).slots.has(coin_node))[0]
+	check(coin_batch.parts[0][0] == Items.coin_mesh(), "road and HUD share the cached coin mesh")
+	check(items._batches.size() < items._coins.size() + items._crates.size(), "coins and boxes share batches (%d batches for %d things)" % [items._batches.size(), items._coins.size() + items._crates.size()])
 	# Park kart A in the first row of crates.
 	var d: float = lerpf(Track.BRANCH[0], Track.BRANCH[1], Items.CRATE_ROWS[0])
 	var f := track.branch_frame(d)
@@ -1006,3 +1010,82 @@ func _test_launch_gap() -> void:
 			"and comes down wheels-first after a somersault", "up %.2f flipped %.1f" % [k.global_transform.basis.y.dot(Vector3.UP), flipped])
 		launch.free()
 		k.free()
+
+
+## Zones and timed hazards (TrackFx), on the proving ground.
+func _test_track_fx() -> void:
+	print("Zones and timed hazards")
+	if _world:
+		_world.free()
+	_world = Node3D.new()
+	root.add_child(_world)
+	var track := Track.new()
+	track.layout = "proving"
+	_world.add_child(track)
+	await physics_frame
+	await physics_frame
+	var k := Kart.new()
+	k.configure("frame", "slicks", "fox")
+	k.track = track
+	_world.add_child(k)
+	var all: Array[Kart] = [k]
+	var fx := TrackFx.new()
+	_world.add_child(fx)
+	fx.setup(track, all)
+	var zone := func(kind: String) -> Dictionary:
+		for z in track.fx_zones:
+			if z["kind"] == kind:
+				return z
+		return {}
+	var park := func(d: float, x := 0.0, speed := 0.0) -> void:
+		var f := track.road_frame(d)
+		k.global_transform = Transform3D(f.basis, f.origin + f.basis.x * x + Vector3.UP * 0.6)
+		k.linear_velocity = -f.basis.z * speed
+		k.angular_velocity = Vector3.ZERO
+	# Gravity.
+	var g: Dictionary = zone.call("gravity")
+	park.call((float(g["from"]) + float(g["to"])) * 0.5)
+	await _ticks(5)
+	check(is_equal_approx(k.gravity_scale, 0.4), "gravity is lighter inside a gravity zone", str(k.gravity_scale))
+	park.call(float(g["to"]) + 12.0)
+	await _ticks(5)
+	check(is_equal_approx(k.gravity_scale, 1.0), "and normal again outside it", str(k.gravity_scale))
+	# Drag: the same roll loses more speed in the water.
+	var dz: Dictionary = zone.call("drag")
+	k.input = {"steer": 0.0, "throttle": 0.0, "brake": 0.0, "drift": false}
+	park.call(float(dz["from"]) + 2.0, 0.0, 18.0)
+	await _ticks(40)
+	var wet := k.linear_velocity.length()
+	park.call(float(g["to"]) + 12.0, 0.0, 18.0)
+	await _ticks(40)
+	var dry := k.linear_velocity.length()
+	check(wet < dry - 2.0, "a drag zone slows a rolling kart", "wet %.1f dry %.1f" % [wet, dry])
+	# Wind: pushed one way, then the other, as the gust swings.
+	var w: Dictionary = zone.call("wind")
+	var pushes := {}
+	for i in 2:
+		fx._elapsed = float(w["period"]) * (0.25 + 0.5 * i)   # full gust each way
+		park.call((float(w["from"]) + float(w["to"])) * 0.5)
+		var right := track.road_frame((float(w["from"]) + float(w["to"])) * 0.5).basis.x
+		await _ticks(20)
+		pushes[i] = k.linear_velocity.dot(right)
+	check(pushes[0] > 0.2 and pushes[1] < -0.2, "wind pushes a kart sideways, swinging both ways", str(pushes))
+	# A timed jet: knocks a kart in its half of the road while live, and
+	# leaves alone a kart in the other half, or one there while it's off.
+	var h: Dictionary = track.fx_hazards[0]
+	var live_h: Dictionary = fx.hazards[0]
+	fx._elapsed = 0.2   # live
+	park.call(float(h["at"]), -3.5)
+	await _ticks(6)
+	check((live_h["hit"] as Dictionary).has(k), "a live jet knocks a kart in it")
+	fx._elapsed = 2.0   # off: its record of who it hit clears
+	await _ticks(3)
+	fx._elapsed = 0.2
+	park.call(float(h["at"]), 4.0)
+	await _ticks(6)
+	check(not (live_h["hit"] as Dictionary).has(k), "but not a kart in the clear half of the road")
+	fx._elapsed = 2.0
+	park.call(float(h["at"]), -3.5)
+	await _ticks(6)
+	check(not (live_h["hit"] as Dictionary).has(k), "nor one passing while it's off")
+	check(TrackFx.live(h, 0.2) and not TrackFx.live(h, 2.0), "the jet follows its timer")

@@ -2,7 +2,7 @@
 // with a lightweight, map-specific still; no extra game loop or WebGL work.
 ;(function () {
   'use strict'
-  var tracks = { meadow: 'Meadow Loop', mine: 'Mining Mountain', frost: 'Frosty Pass' }
+  var tracks = { meadow: 'Meadow Loop', mine: 'Mining Mountain', frost: 'Frosty Pass', funfair: 'Funfair Frenzy', windy: 'Windy City Circuit', starliner: 'Starliner Run' }
   var requested = new URLSearchParams(location.search).get('track')
   var track = Object.prototype.hasOwnProperty.call(tracks, requested) ? requested : 'meadow'
   var image = new URL('../tracks/aerial-' + track + '.jpg', location.href).href

@@ -60,6 +60,10 @@ static func kit_of(name: String) -> Variant:
 			return StarlinerTrack
 		"proving":
 			return ProvingTrack
+		"funfair":
+			return FunfairTrack
+		"windy":
+			return WindyTrack
 	return null
 
 
@@ -71,6 +75,9 @@ var kerb_colors: Array = []
 ## Launch gaps (LaunchGaps): stretches with no road, [from, to] in metres
 ## round the lap, which karts fly across.
 var gaps: Array = []
+## Zones and timed hazards (TrackFx), filled in by a kit's plan().
+var fx_zones: Array[Dictionary] = []
+var fx_hazards: Array[Dictionary] = []
 var surface_zones: Array = SURFACE_ZONES
 var rail_zones: Array = RAIL_ZONES
 ## Frost: stretches held at a gentle bank for the icy hairpins, [from, to]
@@ -343,7 +350,12 @@ func _road_mat(kind := "asphalt") -> ShaderMaterial:
 	m.set_shader_parameter("surf_n", load(Palette.TEX_DIR + "surf_" + surf + "_n.png"))
 	m.set_shader_parameter("ruts", dirt)
 	m.set_shader_parameter("relief", 1.0 if Palette.relief_on else 0.0)
-	Palette.relief_shaders.append(m)
+	# A Series 2 kit's own road surface (and no relief from the asphalt's
+	# bumps: it stays off the list the quality setting switches).
+	if has_kit(layout) and kind == "asphalt":
+		kit_of(layout).road_material(m)
+	else:
+		Palette.relief_shaders.append(m)
 	return m
 
 
@@ -1699,6 +1711,9 @@ func _start_sign(a: Transform3D) -> void:
 	var pillar := Color(0.55, 0.36, 0.2) if mine else Color(0.96, 0.96, 0.96)
 	var trim := Color(0.95, 0.72, 0.15) if mine else (Color(0.25, 0.55, 0.95) if frost else Color(0.92, 0.18, 0.18))
 	var board := Color(0.3, 0.2, 0.13) if mine else (Color(0.1, 0.27, 0.58) if frost else Color(0.12, 0.6, 0.32))
+	if has_kit(layout):
+		trim = kit_of(layout).SIGN_TRIM
+		board = kit_of(layout).SIGN_BOARD
 	for side: float in [-1.0, 1.0]:
 		var foot := a.origin + a.basis.x * side * (ROAD_WIDTH * 0.5 + 2.6)
 		SetPieces._box(st, Transform3D(a.basis, foot + Vector3.UP * 3.7), Vector3(1.1, 8.6, 1.1), pillar)
@@ -1718,6 +1733,11 @@ func _start_sign(a: Transform3D) -> void:
 	label.outline_size = 40 if mine else 48
 	label.modulate = Color(1.0, 0.8, 0.2) if mine else (Color(0.97, 0.99, 1.0) if frost else Color(1.0, 0.98, 0.9))
 	label.outline_modulate = Color(0.2, 0.12, 0.06) if mine else (Color(0.12, 0.3, 0.7) if frost else Color(0.86, 0.16, 0.16))
+	if has_kit(layout):
+		label.text = kit_of(layout).NAME
+		label.font = load(kit_of(layout).SIGN_FONT)
+		label.modulate = kit_of(layout).SIGN_INK
+		label.outline_modulate = kit_of(layout).SIGN_EDGE
 	# As big as fits the board.
 	var text_w := label.font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.font_size).x + label.outline_size
 	var text_h := label.font.get_height(label.font_size)

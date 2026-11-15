@@ -25,7 +25,9 @@
    "lap_spread": 2.5
   },
   "starliner": {},
-  "proving": {}
+  "proving": {},
+  "funfair": {},
+  "windy": {}
  },
  "unjudged_views": [
   "air"

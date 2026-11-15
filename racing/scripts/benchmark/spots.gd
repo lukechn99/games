@@ -57,7 +57,7 @@ func _process(_delta: float) -> void:
 		_objects += Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)
 	if _frame >= SETTLE + SAMPLE:
 		var s: Dictionary = _spots[_i]
-		_out.append({"name": s["name"], "draws": int(round(_draws / SAMPLE)), "tris_k": int(round(_prims / SAMPLE / 1000.0)), "objects": int(round(_objects / SAMPLE))})
+		_out.append({"name": s["name"], "draws": int(round(_draws / SAMPLE)), "tris_k": int(round(_prims / SAMPLE / 1000.0)), "objects": int(round(_objects / SAMPLE)), "sources": _sources()})
 		_waiting = true
 		_wait_frames = 0
 		if OS.has_feature("web"):
@@ -88,3 +88,19 @@ func _next() -> void:
 	var cam: Camera3D = race.camera
 	cam.global_position = s["pos"]
 	cam.look_at(s["target"], Vector3.UP)
+
+
+## What this view draws, by source: the benchmark's own breakdown, the six
+## biggest as [source, draw calls, how many things].
+func _sources() -> Array:
+	var b := Bench.new()
+	b.context = BenchmarkContext.new(race, race.track, race.player_kart, race.karts, func(): return false)
+	b.set_process(false)
+	add_child(b)
+	b._breakdown()
+	var list := []
+	for key in b._sources:
+		list.append([key, int(b._sources[key][0]), int(b._sources[key][1])])
+	list.sort_custom(func(x, y): return x[1] > y[1])
+	b.queue_free()
+	return list.slice(0, 6)

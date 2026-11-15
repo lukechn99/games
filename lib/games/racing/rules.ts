@@ -10,15 +10,32 @@ import type { GameModule, PlayerId, RuleResult } from '@/lib/engine/types'
  * room's relay instead.
  */
 
+/**
+ * Series 2 tracks (funfair, windy, starliner) are about 1.5 times as long,
+ * so they run two laps to the first three's three.
+ */
 export const TRACKS = [
-  { id: 'meadow', name: 'Meadow Loop' },
-  { id: 'mine', name: 'Mining Mountain' },
-  { id: 'frost', name: 'Frosty Pass' },
+  { id: 'meadow', name: 'Meadow Loop', laps: 3 },
+  { id: 'mine', name: 'Mining Mountain', laps: 3 },
+  { id: 'frost', name: 'Frosty Pass', laps: 3 },
+  { id: 'funfair', name: 'Funfair Frenzy', laps: 2 },
+  { id: 'windy', name: 'Windy City Circuit', laps: 2 },
+  { id: 'starliner', name: 'Starliner Run', laps: 2 },
 ] as const
 export type TrackId = (typeof TRACKS)[number]['id']
 
-/** A Grand Prix runs every track in turn, with points for each finish. */
-export const GP_TRACKS: TrackId[] = ['meadow', 'mine', 'frost']
+/** A cup (Grand Prix) runs its tracks in turn, with points for each finish. */
+export const CUPS = [
+  { id: 'gp', name: 'Meadow Cup', tracks: ['meadow', 'mine', 'frost'] },
+  { id: 'gp2', name: 'Skyline Cup', tracks: ['funfair', 'windy', 'starliner'] },
+] as const satisfies readonly { id: string; name: string; tracks: readonly TrackId[] }[]
+export type CupId = (typeof CUPS)[number]['id']
+/** The first cup's tracks (kept for callers that predate the second cup). */
+export const GP_TRACKS: TrackId[] = [...CUPS[0].tracks]
+
+function lapsFor(track: TrackId): number {
+  return TRACKS.find((t) => t.id === track)?.laps ?? 3
+}
 /** Points for 1st, 2nd, 3rd... (as in Mario Kart); nothing for not finishing. */
 export const GP_POINTS = [15, 12, 10, 8, 6, 4, 2, 1]
 
@@ -31,6 +48,9 @@ export interface CupResult {
 }
 
 export interface Cup {
+  /** Which cup ('gp' the Meadow Cup, 'gp2' the Skyline Cup) and its name. */
+  id?: CupId
+  name?: string
   tracks: TrackId[]
   /** Which race of the cup this is (0-based). */
   race: number
@@ -70,7 +90,7 @@ export interface RacingState {
 }
 
 export type RacingAction =
-  | { type: 'track'; id: TrackId | 'gp' }
+  | { type: 'track'; id: TrackId | CupId }
   | { type: 'next' }
   | { type: 'pick'; chassis: string; tires: string; driver: string; bot?: boolean }
   | { type: 'ready' }
@@ -137,13 +157,16 @@ export const racing: GameModule<RacingState, RacingAction, RacingView> = {
         // host; the rules only check it comes from someone in the race.
         if (s.phase !== 'track') return { error: 'The track is already picked.' }
         if (!s.seats.includes(pid)) return { error: 'Only racers can pick the track.' }
-        if (a.id === 'gp') {
+        const chosen = CUPS.find((c) => c.id === a.id)
+        if (chosen) {
           const points: Record<PlayerId, number> = {}
           for (const id of s.seats) points[id] = 0
-          return { state: { ...s, track: GP_TRACKS[0]!, phase: 'pick', cup: { tracks: GP_TRACKS, race: 0, points, last: {}, results: [] } } }
+          const tracks: TrackId[] = [...chosen.tracks]
+          return { state: { ...s, track: tracks[0]!, laps: lapsFor(tracks[0]!), phase: 'pick', cup: { id: chosen.id, name: chosen.name, tracks, race: 0, points, last: {}, results: [] } } }
         }
-        if (!TRACKS.some((t) => t.id === a.id)) return { error: 'Unknown track.' }
-        return { state: { ...s, track: a.id, phase: 'pick', cup: null } }
+        const track = TRACKS.find((t) => t.id === a.id)
+        if (!track) return { error: 'Unknown track.' }
+        return { state: { ...s, track: track.id, laps: track.laps, phase: 'pick', cup: null } }
       }
       case 'next': {
         // The next race of a Grand Prix: back to the kart builder (builds
@@ -154,7 +177,7 @@ export const racing: GameModule<RacingState, RacingAction, RacingView> = {
         const picks: Record<PlayerId, Pick> = {}
         for (const id of s.seats) picks[id] = { ...s.picks[id]!, ready: false }
         return {
-          state: { ...s, phase: 'pick', track: s.cup.tracks[race]!, picks, startAt: null, finish: {}, lapTimes: {}, firstFinishAt: null, cup: { ...s.cup, race, last: {} } },
+          state: { ...s, phase: 'pick', track: s.cup.tracks[race]!, laps: lapsFor(s.cup.tracks[race]!), picks, startAt: null, finish: {}, lapTimes: {}, firstFinishAt: null, cup: { ...s.cup, race, last: {} } },
         }
       }
       case 'pick': {

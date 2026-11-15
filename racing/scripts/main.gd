@@ -75,6 +75,10 @@ func _ready() -> void:
 		var launch := LaunchGaps.new()
 		launch.setup(track, karts)
 		add_child(launch)
+	if not track.fx_zones.is_empty() or not track.fx_hazards.is_empty():
+		var fx := TrackFx.new()
+		add_child(fx)
+		fx.setup(track, karts)
 	var bumps := KartBumps.new()
 	bumps.karts = karts
 	add_child(bumps)
@@ -248,6 +252,10 @@ func _build_online_karts(seats: Array, picks: Dictionary) -> void:
 		var launch := LaunchGaps.new()
 		launch.setup(track, karts)
 		add_child(launch)
+	if not track.fx_zones.is_empty() or not track.fx_hazards.is_empty():
+		var fx := TrackFx.new()
+		add_child(fx)
+		fx.setup(track, karts)
 	var bumps := KartBumps.new()
 	bumps.karts = karts
 	add_child(bumps)

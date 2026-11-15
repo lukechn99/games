@@ -7,7 +7,10 @@ extends Node
 ## the way its model somersaults (the body underneath stays upright).
 ##
 ## A track lists its gaps in Track.gaps as [from, to] in metres round the
-## lap; the road builder leaves those stretches out. The arc leaves along
+## lap, with an optional third entry of options: {"lift": metres over the
+## straight line (else set by the lip's slope), "min_speed": the slowest a
+## kart flies it, "slow": flight speed factor (0.6 floats)}. The road
+## builder leaves those stretches out. The arc leaves along
 ## the road's own slope at the lip, so shape the road for the jump you want.
 
 const MIN_SPEED := 22.0     # a slow kart is thrown at least this fast (m/s)
@@ -34,8 +37,10 @@ func setup(t: Track, all: Array[Kart]) -> void:
 		var slope := fwd.y / maxf(0.05, Vector2(fwd.x, fwd.z).length())
 		# Height over the straight line between lip and landing, set so the
 		# arc leaves along the road's slope at the lip.
-		var lift := maxf(1.5, (slope * flat.length() - (p1.y - p0.y)) / 4.0)
-		_arcs.append({"from": float(g[0]), "to": float(g[1]), "p0": p0, "p1": p1, "span": flat.length(), "lift": lift, "a": a, "b": b})
+		var opt: Dictionary = g[2] if g.size() > 2 else {}
+		var lift: float = opt.get("lift", maxf(1.5, (slope * flat.length() - (p1.y - p0.y)) / 4.0))
+		_arcs.append({"from": float(g[0]), "to": float(g[1]), "p0": p0, "p1": p1, "span": flat.length(), "lift": lift, "a": a, "b": b,
+			"min_speed": float(opt.get("min_speed", MIN_SPEED)), "slow": float(opt.get("slow", 1.0))})
 
 
 ## Where the arc is, `u` of the way across (0 lip, 1 landing).
@@ -74,8 +79,8 @@ func _physics_process(delta: float) -> void:
 			if before < lip and off >= lip and off - before < 12.0:
 				var local := track.road_local(k.global_position)
 				if absf(local.x) < Track.ROAD_WIDTH * 0.5 + 1.5 and absf(local.y) < 3.0:
-					var speed := maxf(MIN_SPEED, Vector2(k.linear_velocity.x, k.linear_velocity.z).length())
-					_flights[k] = {"arc": arc, "t": 0.0, "T": float(arc["span"]) / speed, "side": clampf(local.x, -5.0, 5.0)}
+					var speed := maxf(float(arc["min_speed"]), Vector2(k.linear_velocity.x, k.linear_velocity.z).length())
+					_flights[k] = {"arc": arc, "t": 0.0, "T": float(arc["span"]) / (speed * float(arc["slow"])), "speed": speed, "side": clampf(local.x, -5.0, 5.0)}
 
 
 func _fly(k: Kart, delta: float) -> void:
@@ -113,8 +118,8 @@ func _fly(k: Kart, delta: float) -> void:
 		if vis:
 			vis.transform = Transform3D.IDENTITY
 		if not k.remote:
-			# Set down rolling along the landing road at the speed it flew.
-			k.linear_velocity = -b.basis.z * (float(arc["span"]) / T)
+			# Set down rolling along the landing road at the speed it arrived.
+			k.linear_velocity = -b.basis.z * float(f["speed"])
 			k.angular_velocity = Vector3.ZERO
 		_flights.erase(k)
 		_last[k] = track.offset_of(k.global_position)

@@ -11,6 +11,22 @@
   tumbleweed   a tangled ball of dry twigs (1.4 m across)
   snowball     a lumpy ball of packed snow with clumps stuck on (2 m across;
                the game scales it as it grows)
+  cargo_pod    Series 2: a chunky rounded cargo container with ribs, a
+               colour band and feet (3.4 x 2.4 x 2.4 m)
+  reactor      Starliner Run: a reactor column, a glowing core ("Glow"
+               material) held in three struts between a base and a cap (14 m)
+  dish         Starliner Run: a hull antenna dish on a stubby mast (4 m)
+  big_wheel    Funfair Frenzy: the big wheel's turning part, hub at the
+               origin, axle along z: rim, spokes, twelve gondolas (60 m)
+  big_wheel_stand  ... and the two A-frames and axle it turns on
+  carousel     Funfair Frenzy: a striped canopy over poles and horses on a
+               round deck (18 m across); the game turns it
+  stall        Funfair Frenzy: a midway stall under a striped awning
+  balloons     Funfair Frenzy: a bunch of balloons on strings
+  bumper_car   Funfair Frenzy: a round bumper car with a rubber skirt
+  train_car    Windy City Circuit: one car of the elevated train (14 m)
+  city_car     Windy City Circuit: a parked car, rounded and chunky (4.4 m)
+  street_lamp  Windy City Circuit: a lamp post with a glowing head (7 m)
   sand_gun     Frosty Pass's sand blaster: a hopper heaped with sand on a
                chunky body, a flared nozzle forward (-z), a grip below
 
@@ -214,6 +230,240 @@ def coin():
 
 
 
+
+
+# --- Series 2 (design doc 8.4): rounded and chunky, bevels everywhere --------
+
+def cargo_pod():
+    shell = c.material("Pod", (0.9, 0.925, 0.96), 0.5)
+    band = c.material("Pod_band", (1.0, 0.7, 0.12), 0.45)
+    dark = c.material("Pod_dark", (0.2, 0.24, 0.32), 0.6)
+    parts = [(s.box("Pod", (0, 1.3, 0), (3.4, 2.3, 2.3), bevel=0.32, seg=4), shell)]
+    parts.append((s.box("Band", (0, 1.3, 0), (0.7, 2.36, 2.36), bevel=0.3, seg=4), band))
+    for x in (-1.25, 1.25):
+        parts.append((s.box("Rib", (x, 1.3, 0), (0.16, 2.42, 2.42), bevel=0.07, seg=2), dark))
+    for x in (-1.2, 1.2):
+        for z in (-0.8, 0.8):
+            parts.append((s.box("Foot", (x, 0.1, z), (0.5, 0.24, 0.5), bevel=0.08, seg=2), dark))
+    parts.append((s.box("Hatch", (1.72, 1.3, 0), (0.08, 1.3, 1.3), bevel=0.03, seg=2), dark))
+    return finish(parts), (0, 0, 1.2), 7.0
+
+
+def reactor():
+    metal = c.material("Reactor", (0.36, 0.4, 0.48), 0.45, metal=0.3)
+    trim = c.material("Reactor_trim", (0.9, 0.925, 0.96), 0.5)
+    core = c.material("Glow", (0.21, 0.88, 1.0), 0.3)
+    parts = []
+    base = s.lathe("Base", [(0.0, 0.0), (0.0, 2.6), (0.5, 2.6), (1.1, 2.0), (1.5, 1.9), (1.5, 0.0)], segs=28)
+    cap = s.lathe("Cap", [(12.4, 0.0), (12.4, 1.9), (12.9, 2.0), (13.5, 2.6), (14.0, 2.6), (14.0, 0.0)], segs=28)
+    glow = s.lathe("Core", [(1.4, 0.0), (1.4, 1.15), (4.0, 1.4), (7.0, 1.5), (10.0, 1.4), (12.5, 1.15), (12.5, 0.0)], segs=24)
+    for o, m in ((base, metal), (cap, metal), (glow, core)):
+        o.rotation_euler = (0, math.radians(-90), 0)    # lathe axis (x) up
+        c.smooth(o)
+        parts.append((o, m))
+    for i in range(3):
+        a = math.tau * i / 3
+        x, z = math.cos(a) * 2.1, math.sin(a) * 2.1
+        parts.append((s.tube("Strut", [(x, 1.4, z), (x * 1.12, 7.0, z * 1.12), (x, 12.6, z)], 0.2, 3, along=6), trim))
+    for y in (4.2, 9.8):
+        ring = s.lathe("Ring", [(y - 0.18, 2.1), (y - 0.18, 2.45), (y + 0.18, 2.45), (y + 0.18, 2.1)], segs=24, cap=False)
+        ring.rotation_euler = (0, math.radians(-90), 0)
+        parts.append((ring, trim))
+    return finish(parts), (0, 0, 7.0), 24.0
+
+
+def dish():
+    white = c.material("Dish", (0.9, 0.925, 0.96), 0.5)
+    dark = c.material("Dish_dark", (0.2, 0.24, 0.32), 0.6)
+    lamp = c.material("Glow", (1.0, 0.7, 0.12), 0.3)
+    parts = [(s.cylinder("Mast", (0, 1.0, 0), 0.22, 2.0, axis="y", verts=14, bevel=0.05), dark)]
+    parts.append((s.box("Foot", (0, 0.15, 0), (1.2, 0.3, 1.2), bevel=0.1, seg=2), dark))
+    bowl = s.lathe("Bowl", [(0.0, 0.0), (0.05, 0.6), (0.3, 1.3), (0.75, 1.75), (0.82, 1.78), (0.4, 1.3), (0.16, 0.6), (0.12, 0.0)], segs=28)
+    bowl.rotation_euler = (0, math.radians(-55), 0)     # tipped up at the sky
+    bowl.location = s.g(0, 2.1, 0)
+    c.smooth(bowl)
+    parts.append((bowl, white))
+    parts.append((blob("Tip", (0.75, 3.15, 0), 0.16, seed=2, detail=1), lamp))
+    parts.append((s.tube("Feed", [(0.1, 2.2, 0), (0.75, 3.1, 0)], 0.05, 2, along=3), dark))
+    return finish(parts), (0, 0, 2.0), 8.0
+
+
+RED = (0.91, 0.2, 0.29)
+SUN = (1.0, 0.78, 0.16)
+TEAL = (0.09, 0.65, 0.63)
+CREAM = (1.0, 0.95, 0.85)
+PINK = (1.0, 0.5, 0.71)
+
+
+def big_wheel():
+    rim_m = c.material("Wheel", CREAM, 0.5)
+    spoke_m = c.material("Wheel_spoke", TEAL, 0.5)
+    hub_m = c.material("Wheel_hub", RED, 0.45)
+    pods = [c.material("Pod_%d" % i, col, 0.45) for i, col in enumerate((RED, SUN, TEAL, PINK))]
+    R = 28.0
+    parts = []
+    for zoff in (-1.6, 1.6):
+        ring = [(math.cos(a) * R, math.sin(a) * R, zoff) for a in [math.tau * i / 36 for i in range(37)]]
+        parts.append((s.tube("Rim", ring, 0.55, 3, along=3), rim_m))
+    for i in range(12):
+        a = math.tau * i / 12
+        x, y = math.cos(a), math.sin(a)
+        parts.append((s.tube("Spoke", [(x * 2.0, y * 2.0, 0), (x * R, y * R, 0)], 0.3, 2, along=2), spoke_m))
+        parts.append((s.box("Gondola", (x * (R + 0.2), y * (R + 0.2) - 2.2, 0), (3.2, 2.6, 2.8), bevel=0.6, seg=3), pods[i % 4]))
+        parts.append((s.box("Roof", (x * (R + 0.2), y * (R + 0.2) - 0.7, 0), (3.5, 0.5, 3.1), bevel=0.2, seg=2), rim_m))
+    parts.append((s.cylinder("Hub", (0, 0, 0), 3.0, 4.4, axis="z", verts=20, bevel=0.5), hub_m))
+    return finish(parts), (0, 0, 0), 90.0
+
+
+def big_wheel_stand():
+    leg_m = c.material("Stand", CREAM, 0.5)
+    base_m = c.material("Stand_base", TEAL, 0.5)
+    parts = []
+    H = 33.0
+    for z in (-3.6, 3.6):
+        for x in (-13.0, 13.0):
+            parts.append((s.tube("Leg", [(x, 0.0, z * 1.5), (0.0, H, z)], 0.75, 2, along=2), leg_m))
+            parts.append((s.box("Foot", (x, 0.6, z * 1.5), (4.0, 1.2, 4.0), bevel=0.4, seg=2), base_m))
+    parts.append((s.cylinder("Axle", (0, H, 0), 1.3, 9.0, axis="z", verts=16, bevel=0.3), base_m))
+    return finish(parts), (0, 0, 16.0), 80.0
+
+
+def carousel():
+    deck_m = c.material("Deck", CREAM, 0.5)
+    red = c.material("Canopy_red", RED, 0.45)
+    sun = c.material("Canopy_sun", SUN, 0.45)
+    pole_m = c.material("Pole", SUN, 0.35, metal=0.5)
+    horse_ms = [c.material("Horse_%d" % i, col, 0.45) for i, col in enumerate((PINK, TEAL, CREAM, RED))]
+    parts = []
+    deck = s.lathe("Deck", [(0.0, 0.0), (0.0, 9.0), (0.5, 9.0), (0.7, 8.6), (0.7, 0.0)], segs=36)
+    deck.rotation_euler = (0, math.radians(-90), 0)
+    parts.append((deck, deck_m))
+    # The canopy: a shallow cone in alternating slices, with a scalloped edge.
+    n = 12
+    for i in range(n):
+        a0, a1 = math.tau * i / n, math.tau * (i + 1) / n
+        import bmesh
+        me = bpy.data.meshes.new("Slice")
+        bm = bmesh.new()
+        top = bm.verts.new(s.g(0, 8.4, 0))
+        e0 = bm.verts.new(s.g(math.cos(a0) * 9.6, 5.6, math.sin(a0) * 9.6))
+        e1 = bm.verts.new(s.g(math.cos(a1) * 9.6, 5.6, math.sin(a1) * 9.6))
+        am = (a0 + a1) / 2
+        lip = bm.verts.new(s.g(math.cos(am) * 9.9, 4.9, math.sin(am) * 9.9))
+        bm.faces.new((top, e1, e0))
+        bm.faces.new((e0, e1, lip))
+        bm.normal_update()
+        if sum(f.normal.z for f in bm.faces) < 0:
+            bmesh.ops.reverse_faces(bm, faces=list(bm.faces))
+        bm.to_mesh(me)
+        bm.free()
+        o = bpy.data.objects.new("Slice", me)
+        bpy.context.collection.objects.link(o)
+        parts.append((o, red if i % 2 == 0 else sun))
+    parts.append((s.cylinder("Mast", (0, 4.4, 0), 0.9, 8.0, axis="y", verts=14, bevel=0.2), red))
+    parts.append((blob("Finial", (0, 8.9, 0), 0.7, seed=1, detail=2), pole_m))
+    for i in range(8):
+        a = math.tau * i / 8
+        x, z = math.cos(a) * 6.6, math.sin(a) * 6.6
+        parts.append((s.cylinder("Pole", (x, 3.2, z), 0.12, 5.2, axis="y", verts=8), pole_m))
+        up = 1.9 + 0.5 * (i % 2)
+        parts.append((s.box("Horse", (x, up, z), (0.8, 1.0, 2.0), bevel=0.35, seg=3), horse_ms[i % 4]))
+        parts.append((s.box("Head", (x - math.sin(a) * 0.9, up + 0.75, z + math.cos(a) * 0.9), (0.55, 0.9, 0.6), bevel=0.22, seg=2), horse_ms[i % 4]))
+    return finish(parts), (0, 0, 4.0), 30.0
+
+
+def stall():
+    wood = c.material("Stall", CREAM, 0.6)
+    red = c.material("Awning_red", RED, 0.5)
+    white = c.material("Awning_white", (1, 1, 1), 0.5)
+    teal = c.material("Stall_trim", TEAL, 0.5)
+    parts = [(s.box("Counter", (0, 0.7, 0), (5.0, 1.4, 2.6), bevel=0.2, seg=2), wood)]
+    parts.append((s.box("Back", (0, 2.4, -1.1), (5.0, 2.2, 0.3), bevel=0.1, seg=2), teal))
+    for x in (-2.35, 2.35):
+        parts.append((s.cylinder("Post", (x, 2.2, 1.1), 0.12, 3.0, axis="y", verts=8), teal))
+    for i in range(6):
+        x = -2.5 + 5.0 * (i + 0.5) / 6
+        slat = s.box("Slat", (x, 3.9, 0.2), (0.84, 0.16, 3.4), bevel=0.06, seg=2)
+        slat.rotation_euler = (math.radians(-14), 0, 0)
+        parts.append((slat, red if i % 2 == 0 else white))
+    return finish(parts), (0, 0, 2.0), 11.0
+
+
+def balloons():
+    cols = (RED, SUN, TEAL, PINK, CREAM)
+    string = c.material("String", (0.3, 0.3, 0.35), 0.8)
+    parts = []
+    rnd = random.Random(8)
+    for i in range(6):
+        a = math.tau * i / 6 + rnd.uniform(-0.3, 0.3)
+        r = rnd.uniform(0.5, 1.0)
+        top = (math.cos(a) * r, rnd.uniform(4.6, 6.2), math.sin(a) * r)
+        b = blob("Balloon", top, 0.62, squash=1.18, seed=i, detail=2)
+        parts.append((b, c.material("Balloon_%d" % i, cols[i % 5], 0.3)))
+        parts.append((s.tube("String", [(0, 0.0, 0), (top[0] * 0.5, top[1] * 0.5, top[2] * 0.5), (top[0], top[1] - 0.7, top[2])], 0.025, 2, along=3), string))
+    parts.append((s.box("Weight", (0, 0.2, 0), (0.6, 0.4, 0.6), bevel=0.12, seg=2), string))
+    return finish(parts), (0, 0, 3.4), 12.0
+
+
+def bumper_car():
+    body = c.material("Car", RED, 0.35)
+    skirt = c.material("Skirt", (0.14, 0.15, 0.2), 0.7)
+    seat = c.material("Seat", CREAM, 0.5)
+    pole = c.material("Car_pole", SUN, 0.4, metal=0.4)
+    parts = []
+    sk = s.lathe("Skirt", [(0.0, 0.0), (0.0, 1.5), (0.35, 1.62), (0.6, 1.5), (0.6, 0.0)], segs=28)
+    sk.rotation_euler = (0, math.radians(-90), 0)
+    sk.scale = (1.0, 1.25, 1.0)      # longer than it is wide
+    c.smooth(sk)
+    parts.append((sk, skirt))
+    parts.append((s.box("Body", (0, 0.85, 0), (2.3, 0.9, 2.9), bevel=0.42, seg=4), body))
+    parts.append((s.box("Seat", (0, 1.25, 0.5), (1.5, 0.7, 0.9), bevel=0.25, seg=3), seat))
+    parts.append((s.cylinder("Pole", (0, 2.6, 1.2), 0.07, 3.4, axis="y", verts=8), pole))
+    parts.append((blob("Lamp", (0, 1.25, -1.2), 0.22, seed=3, detail=1), c.material("Glow", SUN, 0.3)))
+    return finish(parts), (0, 0, 1.2), 8.0
+
+
+STEEL = (0.3, 0.42, 0.54)
+STONE = (0.86, 0.84, 0.78)
+ORANGE = (1.0, 0.6, 0.24)
+
+
+def train_car():
+    body = c.material("Train", (0.82, 0.85, 0.88), 0.4, metal=0.3)
+    stripe = c.material("Train_stripe", (0.18, 0.65, 0.72), 0.45)
+    glass = c.material("Train_glass", (0.12, 0.16, 0.24), 0.2)
+    under = c.material("Train_under", (0.16, 0.18, 0.22), 0.7)
+    parts = [(s.box("Body", (0, 2.3, 0), (3.0, 3.0, 14.0), bevel=0.55, seg=4), body)]
+    parts.append((s.box("Stripe", (0, 1.45, 0), (3.06, 0.5, 14.05), bevel=0.2, seg=2), stripe))
+    for z in (-4.6, -1.55, 1.55, 4.6):
+        parts.append((s.box("Window", (0, 2.75, z), (3.08, 1.0, 2.3), bevel=0.25, seg=2), glass))
+    parts.append((s.box("Front", (0, 2.6, -6.95), (2.2, 1.2, 0.2), bevel=0.08, seg=2), glass))
+    parts.append((s.box("Under", (0, 0.5, 0), (2.4, 0.7, 12.0), bevel=0.2, seg=2), under))
+    for x in (-0.8, 0.8):
+        parts.append((blob("Lamp", (x, 1.5, -7.05), 0.2, seed=1, detail=1), c.material("Glow", (1.0, 0.92, 0.6), 0.3)))
+    return finish(parts), (0, 0, 2.0), 22.0
+
+
+def city_car():
+    paint = c.material("Car_paint", (0.18, 0.65, 0.72), 0.3)
+    glass = c.material("Car_glass", (0.12, 0.16, 0.24), 0.2)
+    tyre = c.material("Car_tyre", (0.1, 0.1, 0.12), 0.8)
+    parts = [(s.box("Body", (0, 0.75, 0), (1.9, 0.8, 4.4), bevel=0.36, seg=4), paint)]
+    parts.append((s.box("Cabin", (0, 1.35, 0.2), (1.7, 0.75, 2.3), bevel=0.34, seg=4), paint))
+    parts.append((s.box("Glass", (0, 1.38, 0.2), (1.74, 0.5, 1.9), bevel=0.2, seg=2), glass))
+    for x in (-0.9, 0.9):
+        for z in (-1.4, 1.4):
+            parts.append((s.cylinder("Tyre", (x, 0.4, z), 0.4, 0.36, axis="x", verts=16, bevel=0.1), tyre))
+    return finish(parts), (0, 0, 0.9), 8.0
+
+
+def street_lamp():
+    post = c.material("Lamp_post", (0.16, 0.2, 0.26), 0.5)
+    parts = [(s.cylinder("Base", (0, 0.4, 0), 0.32, 0.8, axis="y", verts=12, bevel=0.08), post)]
+    parts.append((s.tube("Post", [(0, 0.8, 0), (0, 5.8, 0), (0.25, 6.6, 0), (1.3, 6.9, 0)], 0.1, 3, along=6), post))
+    parts.append((s.box("Head", (1.6, 6.82, 0), (0.9, 0.22, 0.5), bevel=0.1, seg=2), post))
+    parts.append((s.box("Light", (1.6, 6.68, 0), (0.7, 0.1, 0.36), bevel=0.04, seg=2), c.material("Glow", (1.0, 0.9, 0.62), 0.3)))
+    return finish(parts), (0, 0, 3.5), 11.0
 
 def honey():
     import bmesh
@@ -425,7 +675,11 @@ def snowman():
     return finish(parts), (0, 0, 1.7), 8.0
 
 
-BUILDERS = {"honey": honey, "tumbleweed": tumbleweed, "snowball": snowball, "sand_gun": sand_gun, "tree_puffy": tree_puffy, "lamp_post": lamp_post, "guardrail": guardrail,
+# Models other scripts make (kart.py, drivers.py, ...): a prop must never
+# take one of their names. ("wheel" once did, and every kart drove on Ferris
+# wheels.)
+RESERVED = {"wheel", "item_box", "kart", "frame", "soapbox", "hauler", "racer"}
+BUILDERS = {"train_car": train_car, "city_car": city_car, "street_lamp": street_lamp, "big_wheel": big_wheel, "big_wheel_stand": big_wheel_stand, "carousel": carousel, "stall": stall, "balloons": balloons, "bumper_car": bumper_car, "cargo_pod": cargo_pod, "reactor": reactor, "dish": dish, "honey": honey, "tumbleweed": tumbleweed, "snowball": snowball, "sand_gun": sand_gun, "tree_puffy": tree_puffy, "lamp_post": lamp_post, "guardrail": guardrail,
             "windmill": windmill, "lantern": lantern, "coin": coin,
             "snowpine_tall": snowpine_tall, "pine_tall": pine_tall, "tree_round": tree_round, "bush": bush, "snowpine_round": snowpine_round, "snowman": snowman}
 
@@ -464,6 +718,7 @@ if __name__ == "__main__":
     outdir = sys.argv[1]
     names = [n for n in sys.argv[2:] if n != "--no-preview"] or list(BUILDERS)
     for name in names:
+        assert name not in RESERVED, "'%s' is another script's model: pick a different name" % name
         c.reset()
         objs, target, dist = BUILDERS[name]()
         # One mesh per prop (one surface per material), so the game can draw

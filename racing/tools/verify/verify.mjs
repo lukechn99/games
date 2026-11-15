@@ -167,6 +167,11 @@ for (const track of tracks) {
   const worst = (k) => judged.reduce((a, c) => (c[k] > a[k] ? c : a))
   const range = (k) => `${Math.min(...judged.map((c) => c[k]))} to ${Math.max(...judged.map((c) => c[k]))}`
   const over = judged.filter((c) => c.draws > lim.draws).map((c) => `${c.name} ${c.draws}`)
+  // Over budget: say what the worst view is drawing.
+  if (over.length) {
+    const w = worst('draws')
+    lines.push(`      ${w.name} draws most from: ` + (w.sources || []).slice(0, 5).map(([k, d, n]) => `${k} ${d} (${n})`).join(', '))
+  }
   add(over.length ? 'OVER' : 'ok', `${track} draws`, over.length ? `${over.join(', ')} (budget ${lim.draws}); all ${s.spots.length} viewpoints ${range('draws')}` : `${range('draws')} over ${judged.length} viewpoints, most at ${worst('draws').name} (budget ${lim.draws})`)
   const overT = judged.filter((c) => c.tris_k > lim.tris_k).map((c) => `${c.name} ${c.tris_k}k`)
   add(overT.length ? 'OVER' : 'ok', `${track} tris`, overT.length ? `${overT.join(', ')} (budget ${lim.tris_k}k)` : `most ${worst('tris_k').tris_k}k at ${worst('tris_k').name} (budget ${lim.tris_k}k)`)

@@ -7,7 +7,9 @@ await ensureExport()
 const server = await serve()
 const b = await browser()
 try {
-  for (const track of ['meadow', 'mine', 'frost']) {
+  // Usage: aerials.mjs [track…]   (no tracks: all of them)
+  const all = ['meadow', 'mine', 'frost', 'funfair', 'windy', 'starliner']
+  for (const track of process.argv.length > 2 ? process.argv.slice(2) : all) {
     const page = await b.newPage({ viewport: { width: 1280, height: 720 } })
     const errors = []
     page.on('console', m => { if (isError(m.text())) errors.push(m.text()) })

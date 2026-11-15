@@ -89,6 +89,30 @@ The web build uses Godot's Compatibility renderer (WebGL 2).
   340 draw calls, 200k triangles, under 2 ms physics, 8 to 10 ms of script.
   Low runs at 60; the extra work of Medium is pixels and effects.
 
+## Building tracks (Series 2)
+
+- **A model's file name can overwrite another's.** (2026-11-14) A Ferris
+  wheel prop named `wheel` replaced the karts' wheel model: karts drove on
+  Ferris wheels, every test passed, and verify showed it as a triangle drop
+  and changed grid pictures. *Rule:* the Blender builder refuses reserved
+  names (`RESERVED` in `tools/blender/props.py`); add to it when the game
+  gains a model built elsewhere.
+- **A thin wall is not a wall.** A kart at speed crossed a single-sheet
+  barrier between two physics steps and fell out of Windy City. *Rule:* kit
+  walls are two collision sheets 0.8 m apart (`KitTools.rooms`); anything
+  new a kart can hit at speed needs thickness.
+- **Coins and item boxes were a third of the draw calls.** At Windy City's
+  grid they were 80 and 48 of 254 draws, one per coin and per box part.
+  They are now batched by area (`Items.Batch`). *Rule:* when a view is over
+  budget, read verify's "draws most from" line before guessing.
+- **A jump that must always land is not left to physics.** Launch gaps fly
+  every kart along one planned arc, whatever speed it arrives at, and only
+  the model somersaults. Hazards that need timing (jets, barriers, sweepers)
+  read the shared race clock, so every player sees the same gap.
+- **Don't build models while verify runs.** A Blender build alongside a
+  verify made one viewpoint tour time out. One heavy job at a time, and no
+  edits to game files during a verify.
+
 ## Godot and the export
 
 - **New `class_name` scripts need an import.** A pull that adds classes fails

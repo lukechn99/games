@@ -83,6 +83,20 @@ describe('racing rules', () => {
     expect(racing.bot!(racing.view(s, 'bot'), ctx(), 'easy', 0)).toEqual({ type: 'ready' })
   })
 
+  it('gives Series 2 tracks two laps and runs them as the Skyline Cup', () => {
+    const start = racing.setup(['a', 'b'], ctx())
+    expect(ok(racing.action(start, 'a', { type: 'track', id: 'windy' }, ctx()))).toMatchObject({ track: 'windy', laps: 2, cup: null })
+    expect(ok(racing.action(start, 'a', { type: 'track', id: 'mine' }, ctx()))).toMatchObject({ track: 'mine', laps: 3 })
+    let s = ok(racing.action(start, 'a', { type: 'track', id: 'gp2' }, ctx()))
+    expect(s).toMatchObject({ phase: 'pick', track: 'funfair', laps: 2, cup: { id: 'gp2', name: 'Skyline Cup', race: 0 } })
+    for (const id of ['a', 'b']) s = ok(racing.action(s, id, { type: 'ready' }, ctx()))
+    expect('error' in racing.action(s, 'a', { type: 'finish', time: 90, laps: [30, 30, 30] }, ctx(5000))).toBe(true)
+    for (const id of ['a', 'b']) s = ok(racing.action(s, id, { type: 'finish', time: 180, laps: [90, 90] }, ctx(5000)))
+    expect(s.phase).toBe('done')
+    s = ok(racing.action(s, 'a', { type: 'next' }, ctx()))
+    expect(s).toMatchObject({ track: 'windy', laps: 2, cup: { race: 1 } })
+  })
+
   it('runs a Grand Prix: every track in turn, with points carried over', () => {
     let s = ok(racing.action(racing.setup(['a', 'b', 'c'], ctx()), 'a', { type: 'track', id: 'gp' }, ctx()))
     expect(s).toMatchObject({ phase: 'pick', track: 'meadow', cup: { race: 0, points: { a: 0, b: 0, c: 0 } } })

@@ -66,19 +66,13 @@ func setup(t: Track, all: Array[Kart], mine: Array[Kart]) -> void:
 	for f in track.crate_frames():
 		for x in CRATE_LANES:
 			var p: Vector3 = f.origin + f.basis.x * x + Vector3.UP * 1.0
-			var n := _crate_mesh()
-			n.position = p
-			add_child(n)
-			_crates.append({"node": n, "pos": p, "away": 0.0})
+			_crates.append({"node": _crate_at(p), "pos": p, "away": 0.0})
 	_spawn_coins()
 	# Crates on moving things (the mine's rope bridge) follow them.
 	for m in track.moving_crates:
-		var n := _crate_mesh()
 		var host: Node3D = m["node"]
 		var p: Vector3 = host.global_transform * (m["local"] as Vector3) if host.is_inside_tree() else Vector3.ZERO
-		n.position = p
-		add_child(n)
-		_crates.append({"node": n, "pos": p, "away": 0.0, "host": host, "local": m["local"]})
+		_crates.append({"node": _crate_at(p), "pos": p, "away": 0.0, "host": host, "local": m["local"]})
 
 
 # --- Looks ---------------------------------------------------------------
@@ -88,10 +82,26 @@ static var _mark_mat: ShaderMaterial
 static var _box_parts: Array = []   # [mesh, material, transform]
 
 
-func _crate_mesh() -> Node3D:
-	# The item box is a model built in Blender (tools/blender/item_box.py): a
-	# pink jelly cube with a yellow question mark inside, rimmed in orange.
-	var root := Node3D.new()
+## Boxes and coins are drawn in batches (Batch): each row of boxes or line
+## of coins is one draw call per part, not one per box (they were 80 and 48
+## draw calls in a single view; design doc 14.5).
+var _batches := {}
+
+
+func _batch(kind: String, parts: Array, p: Vector3, base: Basis) -> Slot:
+	var key := "%s|%d|%d" % [kind, int(floorf(p.x / 36.0)), int(floorf(p.z / 36.0))]
+	if not _batches.has(key):
+		var b := Batch.new()
+		b.parts = parts
+		b.base = base
+		add_child(b)
+		_batches[key] = b
+	return (_batches[key] as Batch).add(p)
+
+
+## The item box is a model built in Blender (tools/blender/item_box.py): a
+## pink jelly cube with a yellow question mark inside, rimmed in orange.
+func _crate_at(p: Vector3) -> Slot:
 	if _box_parts.is_empty():
 		var scene: PackedScene = load("res://assets/models/item_box.glb")
 		var inst := scene.instantiate()
@@ -114,18 +124,55 @@ func _crate_mesh() -> Node3D:
 				mat = _mark_mat
 			_box_parts.append([m.mesh, mat, m.transform])
 		inst.free()
-	var spin := Node3D.new()
-	spin.rotation = Vector3(0.0, 0.0, 0.25)
-	spin.scale = Vector3.ONE * 1.2
-	root.add_child(spin)
-	for p in _box_parts:
-		var mi := MeshInstance3D.new()
-		mi.mesh = p[0]
-		mi.material_override = p[1]
-		mi.transform = p[2]
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		spin.add_child(mi)
-	return root
+	# (Tipped a little, and a touch bigger than modelled.)
+	return _batch("box", _box_parts, p, Basis(Vector3.BACK, 0.25).scaled(Vector3.ONE * 1.2))
+
+
+## One of a batch: what the code moves, spins and hides, as it did a node.
+class Slot extends RefCounted:
+	var position := Vector3.ZERO
+	var rotation := Vector3.ZERO
+	var visible := true
+
+
+## Many copies of a model (given as parts: [mesh, material, transform]) in
+## one draw call per part.
+class Batch extends Node3D:
+	var parts: Array = []
+	var base := Basis()
+	var slots: Array[Slot] = []
+	var _meshes: Array[MultiMesh] = []
+
+	func add(p: Vector3) -> Slot:
+		var s := Slot.new()
+		s.position = p
+		slots.append(s)
+		return s
+
+	func _process(_delta: float) -> void:
+		if _meshes.is_empty():
+			for part: Array in parts:
+				var mm := MultiMesh.new()
+				mm.transform_format = MultiMesh.TRANSFORM_3D
+				mm.mesh = part[0]
+				var mi := MultiMeshInstance3D.new()
+				mi.multimesh = mm
+				if part[1] != null:
+					mi.material_override = part[1]
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				add_child(mi)
+				_meshes.append(mm)
+		for i in _meshes.size():
+			var mm := _meshes[i]
+			if mm.instance_count != slots.size():
+				mm.instance_count = slots.size()
+			var local: Transform3D = parts[i][2]
+			for j in slots.size():
+				var s := slots[j]
+				if s.visible:
+					mm.set_instance_transform(j, Transform3D(Basis(Vector3.UP, s.rotation.y) * base, s.position) * local)
+				else:
+					mm.set_instance_transform(j, Transform3D(Basis().scaled(Vector3.ZERO), s.position))
 
 
 ## Item models, built in Blender (tools/blender/props.py: honey, tumbleweed,
@@ -179,7 +226,7 @@ func _physics_process(delta: float) -> void:
 
 func _crate_pickups(delta: float) -> void:
 	for c in _crates:
-		var node: Node3D = c["node"]
+		var node: Slot = c["node"]
 		if c["away"] > 0.0:
 			c["away"] -= delta
 			node.visible = c["away"] <= 0.0
@@ -579,21 +626,15 @@ static func coin_mesh() -> Mesh:
 func _spawn_coins() -> void:
 	if track.coin_spots.is_empty():
 		return
-	var mesh := coin_mesh()
+	var parts := [[coin_mesh(), null, Transform3D.IDENTITY]]
 	for p in track.coin_spots:
-		var n := MeshInstance3D.new()
-		n.mesh = mesh
-		n.position = p
-		n.scale = Vector3.ONE * 1.3
-		n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(n)
-		_coins.append({"node": n, "pos": p, "away": 0.0})
+		_coins.append({"node": _batch("coin", parts, p, Basis().scaled(Vector3.ONE * 1.3)), "pos": p, "away": 0.0})
 
 
 func _update_coins(delta: float) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	for c in _coins:
-		var node: Node3D = c["node"]
+		var node: Slot = c["node"]
 		if c["away"] > 0.0:
 			c["away"] -= delta
 			node.visible = c["away"] <= 0.0

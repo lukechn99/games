@@ -53,6 +53,10 @@ func _race(layout: String, laps: int) -> void:
 		var launch := LaunchGaps.new()
 		launch.setup(track, karts)
 		world.add_child(launch)
+	if not track.fx_zones.is_empty() or not track.fx_hazards.is_empty():
+		var fx := TrackFx.new()
+		world.add_child(fx)
+		fx.setup(track, karts)
 	var bumps := KartBumps.new()
 	bumps.karts = karts
 	world.add_child(bumps)
@@ -79,7 +83,7 @@ func _race(layout: String, laps: int) -> void:
 		k.respawned.connect(func():
 			count["resets"] += 1
 			if reasons.size() < 5:
-				reasons["%s@%.0fs" % [k.display_name, t[0]]] = k.respawn_reason)
+				reasons["%s@%.0fs" % [k.display_name, t[0]]] = "%s (%.0f%% round the lap, at %s)" % [k.respawn_reason, 100.0 * track.offset_of(k.global_position) / track.length, k.global_position.round()])
 	items.used.connect(func(kind: String, _p, _d, _s): used[kind] = int(used.get(kind, 0)) + 1)
 
 	var stuck_now := {}

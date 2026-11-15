@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import type { GameViewProps } from '@/lib/games/ui'
 import { useSession } from '@/lib/session'
-import { TRACKS, type RacingAction, type RacingView as View } from './rules'
+import { CUPS, TRACKS, type RacingAction, type RacingView as View } from './rules'
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
@@ -33,7 +33,7 @@ function TrackPicker({ view, snapshot, me, isHost, act }: GameViewProps<View, Ra
       <img src={`${BASE}/branding/animal-karts.svg`} alt="Animal Karts" className="mx-auto w-80 max-w-full" />
       <h2 className="text-2xl font-semibold">{canPick ? 'Pick a track' : `${host} is picking the track`}</h2>
       <div className="grid grid-cols-2 gap-3">
-        {[...TRACKS, { id: 'gp', name: 'Grand Prix' } as const].map((t) => (
+        {[...TRACKS, ...CUPS].map((t) => (
           <button
             key={t.id}
             type="button"
@@ -107,7 +107,7 @@ function Race({ view, snapshot, me, isHost, act, hostNow, playAgain }: GameViewP
       key={snapshot.game?.round ?? 0}
       ref={frame}
       title="Animal Karts"
-      src={`${BASE}/racing/index.html?room=1&track=${view.track}`}
+      src={`${BASE}/racing/index.html?room=1&track=${view.track}&laps=${view.laps}`}
       className="block w-full border-0 bg-[#88c6f2]"
       style={{ height: 'calc(100dvh - var(--shell-head, 0px))' }}
       allow="fullscreen; accelerometer; gyroscope; autoplay"

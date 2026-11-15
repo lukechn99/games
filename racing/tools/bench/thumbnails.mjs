@@ -4,7 +4,13 @@ import { mkdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { serve, browser, ensureExport, isError, REPO } from './lib.mjs'
 
+// Usage: thumbnails.mjs [OUTDIR] [track…]   (no tracks: all of them)
 const out = resolve(process.argv[2] || join(REPO, 'public/tracks'))
+const only = process.argv.slice(3)
+const CUPS = [
+  ['gp', [['meadow', 'Meadow'], ['mine', 'Mine'], ['frost', 'Frost']]],
+  ['gp2', [['funfair', 'Funfair'], ['windy', 'Windy City'], ['starliner', 'Starliner']]],
+]
 await mkdir(out, { recursive: true })
 await ensureExport()
 const server = await serve()
@@ -14,7 +20,11 @@ try {
     ['meadow', 'cam=140,-18,8,22'],
     ['mine', 'track=mine&cam=100,28,14,40'],
     ['frost', 'track=frost&autodrive&intro&introt=0&introtrace'],
+    ['funfair', 'track=funfair&autodrive&intro&introt=0&introtrace'],
+    ['windy', 'track=windy&autodrive&intro&introt=0&introtrace'],
+    ['starliner', 'track=starliner&autodrive&intro&introt=0&introtrace'],
   ]) {
+    if (only.length && !only.includes(name)) continue
     const page = await b.newPage({ viewport: { width: 960, height: 540 } })
     const errors = []
     let ready
@@ -40,13 +50,17 @@ try {
       console.log(`${name}.jpg: actual Web capture, no script/browser errors`)
     } finally { clearTimeout(timer); await page.close() }
   }
+  for (const [cup, tracks] of CUPS) {
+  if (only.length && !tracks.some(([name]) => only.includes(name))) continue
   const page = await b.newPage({ viewport: { width: 960, height: 540 } })
   const panels = []
-  for (const [name, label] of [['meadow', 'Meadow'], ['mine', 'Mine'], ['frost', 'Frost']]) {
+  for (const [name, label] of tracks) {
     const data = (await readFile(join(out, `${name}.jpg`))).toString('base64')
     panels.push(`<div style="position:relative"><img src="data:image/jpeg;base64,${data}" style="width:320px;height:540px;object-fit:cover;display:block"><span style="position:absolute;bottom:0;left:0;right:0;padding:16px;background:#101820b8;color:white;font:600 24px sans-serif;text-align:center">${label}</span></div>`)
   }
   await page.setContent(`<body style="margin:0;display:flex;background:#101820">${panels.join('')}</body>`)
-  await page.screenshot({ path: join(out, 'gp.jpg'), type: 'jpeg', quality: 88 })
-  console.log('gp.jpg: composite of the three current track captures')
+  await page.screenshot({ path: join(out, `${cup}.jpg`), type: 'jpeg', quality: 88 })
+  console.log(`${cup}.jpg: composite of its three track captures`)
+  await page.close()
+  }
 } finally { await b.close(); server.close() }

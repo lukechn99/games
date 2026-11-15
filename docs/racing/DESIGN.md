@@ -325,8 +325,8 @@ Every track has three layers:
 
 **Scenery rule (Decided):** the scenery must be complete wherever the camera can be, including the fly-in from high above: no holes in a mountain, no flat ground ending short of the backdrop, no sky showing through anything.
 
-### 8.4 Series 2: three longer tracks and the Skyline Cup (Decided 2026-11-14; building)
-The first three tracks were the proof of concept. Series 2 adds three, each about 1.5 times as long (about 2,000 m; a computer driver laps in 70 to 95 s), and a second Grand Prix, the **Skyline Cup**, running them in this order. Two or three laps a race is still open.
+### 8.4 Series 2: three longer tracks and the Skyline Cup (Decided 2026-11-14; first versions built)
+The first three tracks were the proof of concept. Series 2 adds three, each about 1.5 times as long (about 2,000 m; a computer driver laps in 70 to 95 s), and a second Grand Prix, the **Skyline Cup**, running them in this order. Series 2 races are two laps (Proposed; the first three stay at three).
 
 | Track | Theme | The lap | Track item (Proposed) | Colours |
 |---|---|---|---|---|
@@ -341,7 +341,16 @@ The first three tracks were the proof of concept. Series 2 adds three, each abou
 - **Budgets** (14.5): 250 draw calls and 150k triangles at every viewpoint, no resets, on Low. The target device is an iPhone 15 Pro at Medium, 60 fps.
 - **How a Series 2 track is made:** a *kit*, a class with `configure`, `plan`, `build`, `world` (its sky and light) and `crate_frames` (`Track.kit_of`). It gets the shared road, kerbs, start line, coins, racing rules and computer drivers, and none of the meadow's ground, grass banks, rails or scenery. Road and kerb colours come from the kit (`road_color`, `kerb_colors`).
 - **Each track is built in four steps,** verified after each: grey-box lap, fast race report clean, set pieces and mechanics, art and colour.
-- **Starliner Run, step 1 (built 2026-11-14):** the grey-box (`scripts/track/starliner_track.gd`, `?track=starliner`): the full lap with corridor walls and roof, the open hull walk, stars, a planet and the ship's bulk below. Eight computer drivers lap it in 72 to 93 s with no resets; at most 170 draw calls and 135k triangles (nearly all of that is the eight karts on the grid). Not yet in the track picker.
+- **Built 2026-11-14 (first playable versions of all three):** each is a full lap with its mechanics, colours and first props, in the track picker with two laps a race (the first three keep three), and the second cup runs them in order. Eight computer drivers finish every race with no resets. Costs on Low: at most 173 draw calls and 134k triangles (budget 250 and 150k), nearly all of it the eight karts on the grid.
+
+| Track | Length, computer lap | Built | Not yet |
+|---|---|---|---|
+| **Funfair Frenzy** (`?track=funfair`) | about 1,900 m, 71 to 92 s | Coaster lift hill with a launch gap (kart somersaults), boost strip, big wheel, a carousel that pushes karts round, haunted house with pop-ups, flume with slow water either side of a dry plank, bumper cars sweeping the arena, stalls and balloons | A jump ramp on the flume, a busier trackside, the Balloons item |
+| **Windy City Circuit** (`?track=windy`) | about 2,200 m, 84 to 112 s | Lakefront, ramp down to a dark lower street and garage with timed barrier arms, river bridge with gusts, an elevated train running overhead, a wind canyon between towers, fountain | The garage as a separate shortcut, a two-deck bridge choice, the Gust item |
+| **Starliner Run** (`?track=starliner`) | about 2,000 m, 74 to 99 s | Hangar, glass corridor, engine room with four plasma jets on a clock, a low-gravity hall with a floating launch gap, two alternating airlock barriers, open hull walk, cargo deck, reactors, pods and dishes | The airlock as a separate shortcut, cargo lifts, the Tractor beam item |
+
+- **Shared mechanics (built):** `LaunchGaps` (planned arcs), `TrackFx` (gravity, wind, drag and turning zones; timed jets and barriers; sweepers), all on the shared race clock so every player sees the same timing; `KitTools` (rooms with solid, glass, rail or open walls, props, buildings). Each is tested on the proving ground (`?track=proving`, not in the picker). A kart well below a Series 2 road is put back on it: their roads are raised over floors a kart can't climb from.
+- **Not built:** moving platforms, branching shortcuts on kit tracks, drawing only the section in view (not needed at these costs), named viewpoints for set pieces, and the three track items.
 
 ## 9. Characters and art style
 

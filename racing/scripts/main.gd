@@ -43,6 +43,7 @@ func _ready() -> void:
 		track.layout = "frost"
 	elif Track.has_kit(Query.value("track")):
 		track.layout = Query.value("track")
+		track.laps = Track.KIT_LAPS
 	if q0.contains("laps="):   # for checking the finish quickly
 		track.laps = clampi(int(Query.value("laps")), 1, 9)
 	add_child(track)

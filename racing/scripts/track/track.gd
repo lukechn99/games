@@ -36,6 +36,7 @@ const SURFACE_ZONES := [
 const RAIL_ZONES := [[0.0, 0.17], [0.93, 1.0], [0.52, 0.62]]
 const JUMP_AT := 0.59
 const LAPS := 3
+const KIT_LAPS := 2    # Series 2 tracks are about 1.5 times as long
 ## Set pieces (design doc 9.4), as lap offsets in metres.
 const LEDGE := [255.0, 350.0]     # high ledge: cliff down to a lake outside, rock wall inside
 const TUNNEL := [172.0, 214.0]    # rock tunnel on the climb

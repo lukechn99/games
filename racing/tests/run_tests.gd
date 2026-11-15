@@ -972,6 +972,17 @@ func _test_launch_gap() -> void:
 		return not space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 4.0, p + Vector3.DOWN * 4.0)).is_empty()
 	check(not probe.call((lip + landing) * 0.5) and not probe.call(lip + 6.0), "there is no road in the gap")
 	check(probe.call(lip - 4.0) and probe.call(landing + 4.0), "and road at the lip and the landing")
+	# A kart on the floor beside a raised road is off it (it can't climb back).
+	var beside := Kart.new()
+	beside.configure("frame", "slicks", "fox")
+	beside.track = track
+	_world.add_child(beside)
+	var near := track.road_frame(lip - 20.0)
+	beside.global_position = near.origin + near.basis.x * 15.0 + Vector3.DOWN * 4.0
+	check(beside._fallen_off(), "a kart well below a Series 2 road counts as off it")
+	beside.global_position = near.origin + Vector3.UP * 0.5
+	check(not beside._fallen_off(), "and one on the road doesn't")
+	beside.free()
 	# Karts arriving fast, slow and off-centre all land beyond it, upright.
 	var cases := [["fast", 32.0, 0.0], ["slow", 6.0, 0.0], ["off-centre", 26.0, 4.5], ["off the other side", 18.0, -4.5]]
 	for c: Array in cases:

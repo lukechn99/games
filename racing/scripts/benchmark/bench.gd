@@ -355,43 +355,22 @@ static func switches() -> String:
 	return ",".join(on) if not on.is_empty() else "none"
 
 
-## A "Copy result" button on the page: one line of text to paste into a
-## chat, instead of a screenshot (design doc 14.5).
+## The one-line result for the Copy result button (BenchCopy).
 func _offer_copy(out: Dictionary, wall: Dictionary) -> void:
 	var late := 0
 	for ms in _wall_frames:
 		if ms > 25.0:
 			late += 1
-	var vp := get_viewport()
-	# What actually ran: the build, and the effects really in use.
-	var env: Environment = get_viewport().world_3d.environment if get_viewport().world_3d and get_viewport().world_3d.environment else null
-	var we := get_viewport().find_child("WorldEnvironment", true, false) as WorldEnvironment
-	if env == null and we:
-		env = we.environment
-	var lights := 0
-	for n in get_tree().get_nodes_in_group("track_lights"):
-		if (n as Light3D).is_visible_in_tree():
-			lights += 1
 	var routes: PackedStringArray = []
 	for r in _routes:
 		routes.append(r)
-	var effects := "glow=%s lights=%d aa=%dx route=%s" % ["?" if env == null else ("on" if env.glow_enabled else "off"), lights, [1, 2, 4, 8][get_viewport().msaa_3d], "+".join(routes) if not routes.is_empty() else "main"]
-	var line := "kw-bench build=%s %s track=%s quality=%s switches=%s fps=%.1f p95=%.0fms p99=%.0fms late=%.1f%% draws=%d tris=%dk physics=%.1fms process=%.1fms laps=%d screen=%dx%d scale=%.2f %s" % [
-		BuildId.ID, effects, out.track, out.quality, switches(), wall.fps, wall.p95, wall.p99,
-		100.0 * late / maxf(1.0, _wall_frames.size()), out.draws, out.tris_k, out.physics_ms, out.process_ms,
-		out.player_completed_laps, vp.size.x, vp.size.y, vp.scaling_3d_scale,
-		"INVALID" if not out.valid else "partial" if out.partial else "complete"]
+	var line := "kw-bench %s route=%s track=%s quality=%s fps=%.1f p95=%.0fms p99=%.0fms late=%.1f%% draws=%d tris=%dk objects=%d physics=%.1fms process=%.1fms laps=%d %s" % [
+		BenchCopy.header(get_viewport()), "+".join(routes) if not routes.is_empty() else "main",
+		out.track, out.quality, wall.fps, wall.p95, wall.p99,
+		100.0 * late / maxf(1.0, _wall_frames.size()), out.draws, out.tris_k, out.objects, out.physics_ms, out.process_ms,
+		out.player_completed_laps, "INVALID" if not out.valid else "partial" if out.partial else "complete"]
 	JavaScriptBridge.eval("window.__bench_line = %s;" % JSON.stringify(line), true)
-	JavaScriptBridge.eval("""(function(t){
-		var b=document.createElement('button');b.textContent='Copy result';
-		b.style.cssText='position:fixed;left:50%%;bottom:24px;transform:translateX(-50%%);z-index:99;font:600 18px system-ui;padding:14px 22px;border-radius:12px;border:0;background:#ffd23f;color:#111';
-		b.onclick=function(){
-			var shown=function(){var a=document.createElement('textarea');a.value=t;a.readOnly=true;a.style.cssText='position:fixed;left:5%%;right:5%%;bottom:84px;width:90%%;height:90px;z-index:99;font:13px monospace';document.body.appendChild(a);a.focus();a.select();};
-			if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){b.textContent='Copied'},shown)}else{shown()}
-		};
-		document.body.appendChild(b);
-	})(%s);""" % JSON.stringify(line), true)
-
+	BenchCopy.offer(line)
 
 ## Alternate routes the player's kart drove during the run (for the result
 ## line: what was on screen depends on the route).

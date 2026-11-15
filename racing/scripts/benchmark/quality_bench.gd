@@ -18,6 +18,7 @@ var route: BenchmarkRoute
 var _interruptions_start := 0
 var _viewport_start := Vector2i.ZERO
 var _errors: Array[String] = []
+var _race_ms := 0         # when the race started (green light)
 
 
 static func phase_at(lap: int, offset: float, length: float) -> int:
@@ -43,6 +44,8 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if _done or not context.is_running():
 		return
+	if _race_ms == 0:
+		_race_ms = Time.get_ticks_msec()
 	_label.size.x = minf(850.0, get_viewport().size.x - 24.0)
 	var offset: float = context.track.offset_of(context.player_kart.global_position)
 	var next := phase_at(context.player_kart.lap, offset, context.track.length)
@@ -101,6 +104,7 @@ func _on_sample_completed(result: Dictionary) -> void:
 	result["lap"] = _phase / 2 + 1
 	result["half"] = _phase % 2 + 1
 	result["phase"] = _phase + 1
+	result["race_s"] = snappedf((Time.get_ticks_msec() - _race_ms) / 1000.0, 1.0)   # when this half ended
 	result["segment_from_m"] = (_phase % 2) * context.track.length * 0.5
 	result["segment_to_m"] = (_phase % 2 + 1) * context.track.length * 0.5
 	result["measured_from_m"] = result.segment_from_m + settle_distance_m
@@ -138,7 +142,22 @@ func _finish() -> void:
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.__bench = " + json + ";", true)
 	_label.text = _summary() + "\n" + ("Complete: fixed route on all three laps" if valid else "INVALID: " + "; ".join(out.errors))
+	_offer_copy(out)
 	completed.emit(out)
+
+
+## Plain text for the Copy result button: the context, then one line per
+## half. Draw calls and objects per half tell warming up (flat) from
+## something building up during the race (rising).
+func _offer_copy(out: Dictionary) -> void:
+	var text := "kw-bench %s %s track=%s route=%s %s" % [_mode(), BenchCopy.header(get_viewport()), out.track, out.route, "complete" if out.valid else "INVALID: " + "; ".join(out.errors)]
+	for r in _results:
+		var w: Dictionary = r.wall_frame_stats
+		var frames := maxf(1.0, float(w.get("frames", 0)) if w.has("frames") else 1.0)
+		text += "\nL%dH%d %s t=%ds fps=%.1f p95=%.0f p99=%.0f over33=%d draws=%d tris=%dk objects=%d physics=%.1f process=%.1f aa=%d" % [
+			r.lap, r.half, r.feature_profile if _mode() == "medium_ablation" else r.quality, int(r.get("race_s", 0)),
+			w.fps, w.p95, w.p99, int(w.over_33ms), r.draws, r.tris_k, r.objects, r.physics_ms, r.process_ms, int(r.get("msaa_samples", 0))]
+	BenchCopy.offer(text)
 
 
 func _summary() -> String:

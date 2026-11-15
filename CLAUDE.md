@@ -22,7 +22,7 @@ Read before working on the racer:
 - Frame rate only means something on a real device. Phone links:
   `…/games/racing/index.html?autodrive&bench&quality=medium` (one setting)
   or `?autodrive&benchmedium` (settings compared inside one race). Results
-  come back as one pasted line (the Copy result button).
+  come back as pasted text (every benchmark ends with a Copy result button).
 
 ## Rules
 

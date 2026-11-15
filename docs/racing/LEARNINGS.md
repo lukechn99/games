@@ -58,6 +58,13 @@ actually in use (`glow=`, `lights=`, `aa=`), the screen size, the 3D scale
 and the route. A screenshot of numbers costs far more to read than a line of
 text: phones use the Copy result button.
 
+**Warming up looks like a slow setting.** (2026-11-14) In one Medium
+comparison race every setting ran about 60 fps for the first minute, then
+all of them slowed (45.8, 47.4, 40.4) in the order they ran, not by
+setting. *Rule:* read a comparison in time order first; flat draw calls and
+objects with a falling frame rate mean the phone is warming up, rising ones
+mean something builds up during the race.
+
 **Phone checklist:** landscape, off the charger, not in Low Power Mode,
 nothing else open, runs back to back. Discard any line marked INVALID.
 

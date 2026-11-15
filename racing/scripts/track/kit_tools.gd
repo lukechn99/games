@@ -18,7 +18,10 @@ static func model(name: String) -> Mesh:
 		for i in m.get_surface_count():
 			var sm := m.surface_get_material(i) as BaseMaterial3D
 			var c: Color = sm.albedo_color if sm else Color(0.8, 0.8, 0.8)
-			if sm and sm.resource_name.begins_with("Glow"):
+			if sm and sm.resource_name == "TreeVertex":
+				# Packed props: one surface, colours painted on the corners.
+				m.surface_set_material(i, Palette.toon(Color.WHITE, true, 0.0, Palette.Finish.PAINT))
+			elif sm and sm.resource_name.begins_with("Glow"):
 				m.surface_set_material(i, glow(c))
 			else:
 				m.surface_set_material(i, Palette.kart(Palette.Finish.PAINT, c))
@@ -133,6 +136,10 @@ static func rooms(t: Track, list: Array, wall: Color, pillar: Color) -> void:
 		while d < d1 - 0.1:
 			var a := t.road_frame(d)
 			var b := t.road_frame(minf(d + 4.0, d1))
+			if open and t.in_gap(fposmod(d + 2.0, t.length)):
+				d += 4.0      # no barrier across a launch gap
+				index += 1
+				continue
 			for side: float in [-1.0, 1.0]:
 				var a0: Vector3 = a.origin + a.basis.x * side * half
 				var b0: Vector3 = b.origin + b.basis.x * side * half

@@ -27,6 +27,10 @@
   train_car    Windy City Circuit: one car of the elevated train (14 m)
   city_car     Windy City Circuit: a parked car, rounded and chunky (4.4 m)
   street_lamp  Windy City Circuit: a lamp post with a glowing head (7 m)
+  fan, palm, big_top, coaster_car, hot_air_balloon, umbrella, boat,
+  tree_planter, traffic_light, water_tank, box_truck, shuttle, asteroid,
+  antenna      Series 2 trackside dressing (design doc 8.5), each packed to
+               one vertex-coloured surface so a kind is one draw call
   sand_gun     Frosty Pass's sand blaster: a hopper heaped with sand on a
                chunky body, a flared nozzle forward (-z), a grip below
 
@@ -679,12 +683,212 @@ def snowman():
 # take one of their names. ("wheel" once did, and every kart drove on Ferris
 # wheels.)
 RESERVED = {"wheel", "item_box", "kart", "frame", "soapbox", "hauler", "racer"}
+
+# --- Series 2 trackside dressing: packed to one vertex-coloured surface
+# (see TREE_BUDGETS), so each kind is one draw call however many there are.
+
+def fan():
+    """A spectator: a round little creature with its arms up (1.5 m). White
+    body so the game can tint each one; dark eyes."""
+    body = c.material("Fan", (1, 1, 1), 0.6)
+    dark = c.material("Fan_dark", (0.12, 0.12, 0.16), 0.6)
+    parts = [(blob("Body", (0, 0.55, 0), 0.5, squash=1.15, seed=2, detail=1), body)]
+    parts.append((blob("Head", (0, 1.2, 0), 0.36, seed=5, detail=1), body))
+    for x in (-1, 1):
+        parts.append((s.tube("Arm", [(x * 0.38, 0.8, 0), (x * 0.7, 1.25, 0), (x * 0.62, 1.7, 0)], 0.1, 1, along=2), body))
+        parts.append((blob("Eye", (x * 0.14, 1.26, -0.31), 0.07, seed=1, detail=1), dark))
+        parts.append((blob("Ear", (x * 0.26, 1.52, 0), 0.13, seed=3, detail=1), body))
+    return finish(parts), (0, 0, 0.9), 4.5
+
+
+def palm():
+    trunk = c.material("Palm_trunk", (0.62, 0.45, 0.28), 0.8)
+    leaf = c.material("Palm_leaf", (0.2, 0.68, 0.36), 0.6)
+    nut = c.material("Palm_nut", (0.45, 0.3, 0.16), 0.7)
+    parts = [(s.tube("Trunk", [(0, 0, 0), (0.5, 3.0, 0), (0.3, 6.0, 0), (-0.4, 8.6, 0)], 0.36, 2, along=5), trunk)]
+    for i in range(7):
+        a = math.tau * i / 7
+        x, z = math.cos(a), math.sin(a)
+        f = s.box("Frond", (-0.4 + x * 2.0, 8.5, z * 2.0), (4.2, 0.14, 1.2), bevel=0.05, seg=1)
+        f.rotation_euler = (0, math.radians(22), -a)
+        parts.append((f, leaf))
+    for i in range(3):
+        a = math.tau * i / 3
+        parts.append((blob("Nut", (-0.4 + math.cos(a) * 0.4, 8.3, math.sin(a) * 0.4), 0.26, seed=i, detail=1), nut))
+    return finish(parts), (0, 0, 5.0), 18.0
+
+
+def big_top():
+    """A striped circus tent (22 m across, 16 m to the flag)."""
+    parts = []
+    N = 16
+    for i in range(N):
+        a0 = math.tau * i / N
+        a1 = math.tau * (i + 1) / N
+        am = (a0 + a1) / 2
+        col = c.material("Tent_%d" % (i % 2), RED if i % 2 == 0 else CREAM, 0.6)
+        w = 2 * 11.0 * math.sin(math.pi / N) * 1.02
+        wall = s.box("Wall", (math.cos(am) * 10.8, 2.5, math.sin(am) * 10.8), (0.3, 5.0, w), bevel=0.02, seg=1)
+        wall.rotation_euler = (0, 0, -am)
+        parts.append((wall, col))
+        roof = s.box("Roof", (math.cos(am) * 5.6, 8.2, math.sin(am) * 5.6), (12.4, 0.3, w), bevel=0.02, seg=1)
+        roof.scale = (1.0, 1.0, 1.0)
+        roof.rotation_euler = (0, math.radians(32), -am)
+        parts.append((roof, col))
+    parts.append((s.cylinder("Pole", (0, 13.0, 0), 0.25, 6.0, axis="y", verts=8), c.material("Tent_pole", SUN, 0.5)))
+    parts.append((s.box("Flag", (0.9, 15.4, 0), (1.8, 1.0, 0.08), bevel=0.02, seg=1), c.material("Tent_flag", TEAL, 0.5)))
+    return finish(parts), (0, 0, 7.0), 36.0
+
+
+def coaster_car():
+    """One car of a coaster train (3 m), nose along -z."""
+    parts = [(s.box("Body", (0, 0.8, 0), (1.7, 0.9, 2.8), bevel=0.35, seg=2), c.material("Coaster", RED, 0.4))]
+    parts.append((s.box("Nose", (0, 0.75, -1.5), (1.3, 0.6, 0.8), bevel=0.28, seg=2), c.material("Coaster_nose", SUN, 0.4)))
+    parts.append((s.box("Seat", (0, 1.3, 0.5), (1.3, 0.7, 0.5), bevel=0.15, seg=1), c.material("Coaster_seat", CREAM, 0.5)))
+    for x in (-0.4, 0.4):
+        parts.append((blob("Rider", (x, 1.55, -0.2), 0.3, seed=int(x * 10) + 7, detail=1), c.material("Rider_%d" % (x > 0), TEAL if x > 0 else PINK, 0.6)))
+    return finish(parts), (0, 0, 1.0), 7.0
+
+
+def hot_air_balloon():
+    """A hot-air balloon with a coloured band and a basket (16 m tall)."""
+    parts = [(blob("Envelope", (0, 10.4, 0), 5.6, squash=1.12, seed=11, detail=2), c.material("Hab", RED, 0.5))]
+    parts.append((s.cylinder("Band", (0, 10.6, 0), 5.75, 2.2, axis="y", verts=16), c.material("Hab_band", SUN, 0.5)))
+    parts.append((s.cylinder("Band2", (0, 13.6, 0), 4.5, 0.9, axis="y", verts=16), c.material("Hab_band2", CREAM, 0.5)))
+    parts.append((s.cylinder("Neck", (0, 4.6, 0), 1.5, 1.4, axis="y", verts=10), c.material("Hab_neck", TEAL, 0.5)))
+    parts.append((s.box("Basket", (0, 1.4, 0), (2.2, 1.6, 2.2), bevel=0.2, seg=1), c.material("Basket", (0.6, 0.42, 0.24), 0.8)))
+    for x in (-1, 1):
+        for z in (-1, 1):
+            parts.append((s.tube("Rope", [(x * 1.0, 2.2, z * 1.0), (x * 1.3, 4.2, z * 1.3)], 0.06, 1, along=1), c.material("Rope", (0.3, 0.3, 0.3), 0.8)))
+    return finish(parts), (0, 0, 8.0), 28.0
+
+
+def umbrella():
+    """A beach umbrella over a towel (3 m)."""
+    parts = [(s.cylinder("Pole", (0, 1.3, 0), 0.06, 2.6, axis="y", verts=6), c.material("Umb_pole", CREAM, 0.5))]
+    for i in range(8):
+        a = math.tau * (i + 0.5) / 8
+        seg = s.box("Seg", (math.cos(a) * 0.85, 2.45, math.sin(a) * 0.85), (1.75, 0.07, 1.4), bevel=0.0, seg=1)
+        seg.rotation_euler = (0, math.radians(18), -a)
+        parts.append((seg, c.material("Umb_%d" % (i % 2), PINK if i % 2 else CREAM, 0.5)))
+    parts.append((s.box("Towel", (1.2, 0.04, 0.4), (1.0, 0.06, 2.0), bevel=0.0, seg=1), c.material("Towel", TEAL, 0.7)))
+    return finish(parts), (0, 0, 1.4), 7.0
+
+
+def boat():
+    """A little sailing boat (7 m)."""
+    hull = s.loft("Hull", [(-3.4, 0.05, 0.6, 1.0), (-2.0, 0.9, 0.0, 1.1), (0.5, 1.2, 0.0, 1.1), (3.2, 0.9, 0.2, 1.1)], around=10, power=3.0)
+    parts = [(hull, c.material("Boat", (1, 1, 1), 0.4))]
+    parts.append((s.box("Band", (0, 1.0, 0.3), (2.5, 0.2, 5.6), bevel=0.05, seg=1), c.material("Boat_band", RED, 0.5)))
+    parts.append((s.cylinder("Mast", (0, 4.6, 0), 0.09, 7.4, axis="y", verts=6), c.material("Mast", (0.5, 0.36, 0.22), 0.7)))
+    sail = s.box("Sail", (0, 4.9, 1.3), (0.06, 5.6, 2.6), bevel=0.0, seg=1)
+    parts.append((sail, c.material("Sail", SUN, 0.6)))
+    jib = s.box("Jib", (0, 4.0, -1.4), (0.06, 4.0, 1.8), bevel=0.0, seg=1)
+    parts.append((jib, c.material("Jib", CREAM, 0.6)))
+    return finish(parts), (0, 0, 3.5), 14.0
+
+
+def tree_planter():
+    """A street tree in a stone planter (7 m)."""
+    parts = [(s.box("Planter", (0, 0.45, 0), (2.4, 0.9, 2.4), bevel=0.15, seg=1), c.material("Planter", STONE, 0.8))]
+    parts.append((s.tube("Trunk", [(0, 0.8, 0), (0.1, 2.6, 0), (0, 4.2, 0)], 0.2, 1, along=3), c.material("Bark", (0.42, 0.3, 0.22), 0.8)))
+    for i, (x, y, z, r) in enumerate([(0, 5.2, 0, 1.9), (1.0, 4.6, 0.4, 1.2), (-0.9, 4.7, -0.5, 1.3), (0.2, 6.3, -0.2, 1.2)]):
+        parts.append((blob("Leaves", (x, y, z), r, seed=i + 20, detail=1), c.material("Leaves_%d" % (i % 2), (0.3, 0.7, 0.34) if i % 2 == 0 else (0.42, 0.78, 0.36), 0.7)))
+    return finish(parts), (0, 0, 3.6), 13.0
+
+
+def traffic_light():
+    """A signal on a mast arm over the road (7 m tall, arm 6 m along +x)."""
+    post = c.material("Signal_post", (0.16, 0.2, 0.26), 0.5)
+    parts = [(s.cylinder("Post", (0, 3.4, 0), 0.16, 6.8, axis="y", verts=8), post)]
+    parts.append((s.cylinder("Arm", (3.0, 6.5, 0), 0.1, 6.0, axis="x", verts=6), post))
+    for x in (3.2, 5.6):
+        parts.append((s.box("Head", (x, 5.8, 0), (0.55, 1.5, 0.5), bevel=0.08, seg=1), c.material("Signal_head", SUN, 0.5)))
+        for k, col in enumerate(((0.95, 0.2, 0.2), (1.0, 0.75, 0.15), (0.25, 0.9, 0.4))):
+            parts.append((blob("Lens", (x, 6.25 - k * 0.45, -0.27), 0.15, seed=k, detail=1), c.material("Lens_%d" % k, col, 0.3)))
+    return finish(parts), (2.5, 0, 4.0), 13.0
+
+
+def water_tank():
+    """A rooftop water tank on legs (6 m)."""
+    wood = c.material("Tank", (0.6, 0.4, 0.26), 0.8)
+    steel = c.material("Tank_steel", (0.3, 0.33, 0.38), 0.6)
+    parts = [(s.cylinder("Tank", (0, 3.8, 0), 1.7, 3.0, axis="y", verts=12), wood)]
+    cone = s.lathe("Cap", [(0.0, 1.9), (1.1, 0.05)], segs=12)
+    cone.rotation_euler = (0, math.radians(-90), 0)
+    cone.location = s.g(0, 5.3, 0)
+    parts.append((cone, steel))
+    for x in (-1.1, 1.1):
+        for z in (-1.1, 1.1):
+            parts.append((s.box("Leg", (x, 1.15, z), (0.2, 2.3, 0.2), bevel=0.0, seg=1), steel))
+    return finish(parts), (0, 0, 3.2), 11.0
+
+
+def shuttle():
+    """A chunky little spaceship (9 m), nose along -z."""
+    body = s.loft("Body", [(-4.5, 0.25, -0.2, 0.4), (-2.5, 1.1, -0.7, 0.9), (1.0, 1.4, -0.8, 1.2), (4.0, 1.1, -0.6, 1.0)], around=12, power=3.0)
+    parts = [(body, c.material("Ship", (0.9, 0.93, 0.97), 0.4))]
+    parts.append((s.box("Canopy", (0, 0.85, -2.0), (1.3, 0.7, 2.0), bevel=0.3, seg=2), c.material("Ship_glass", (0.15, 0.6, 0.85), 0.2)))
+    for x in (-1, 1):
+        w = s.box("Wing", (x * 2.4, 0.0, 1.6), (3.2, 0.22, 2.6), bevel=0.08, seg=1)
+        w.rotation_euler = (0, 0, x * math.radians(-18))
+        parts.append((w, c.material("Ship_wing", (1.0, 0.7, 0.12), 0.45)))
+        parts.append((s.cylinder("Engine", (x * 1.0, 0.2, 4.1), 0.55, 1.0, axis="z", verts=10), c.material("Ship_engine", (0.3, 0.34, 0.42), 0.5)))
+        parts.append((blob("Flame", (x * 1.0, 0.2, 4.75), 0.42, seed=4, detail=1), c.material("Ship_flame", (0.3, 0.95, 1.0), 0.3)))
+    parts.append((s.box("Fin", (0, 1.7, 3.0), (0.2, 1.6, 1.8), bevel=0.06, seg=1), c.material("Ship_fin", (0.69, 0.29, 0.88), 0.45)))
+    return finish(parts), (0, 0, 0.5), 15.0
+
+
+def asteroid():
+    """A lumpy rock (about 6 m): the game scales and turns each one."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=3.0, location=s.g(0, 0, 0))
+    o = bpy.context.object
+    o.name = "Rock"
+    rnd = random.Random(31)
+    for v in o.data.vertices:
+        v.co *= 1.0 + rnd.uniform(-0.28, 0.22)
+    o.scale = (1.0, 0.8, 0.7)
+    return finish([(o, c.material("Rock", (0.5, 0.46, 0.56), 0.9))]), (0, 0, 0), 12.0
+
+
+def antenna():
+    """A hull antenna mast with a blinking-light top (9 m)."""
+    steel = c.material("Mast_steel", (0.75, 0.8, 0.88), 0.5)
+    parts = [(s.box("Base", (0, 0.4, 0), (1.6, 0.8, 1.6), bevel=0.15, seg=1), c.material("Mast_base", (0.36, 0.4, 0.48), 0.6))]
+    parts.append((s.cylinder("Mast", (0, 4.4, 0), 0.14, 7.4, axis="y", verts=6), steel))
+    for y, w in ((3.0, 2.2), (5.0, 1.6), (6.6, 1.0)):
+        parts.append((s.box("Bar", (0, y, 0), (w, 0.12, 0.12), bevel=0.0, seg=1), steel))
+    parts.append((blob("Tip", (0, 8.3, 0), 0.32, seed=2, detail=1), c.material("Mast_tip", (1.0, 0.7, 0.12), 0.3)))
+    return finish(parts), (0, 0, 4.5), 14.0
+
+
+def box_truck():
+    """A delivery truck backed up to a loading dock (8 m), cab along -z."""
+    parts = [(s.box("Box", (0, 2.2, 1.2), (2.6, 3.0, 5.6), bevel=0.12, seg=1), c.material("Truck_box", (0.92, 0.92, 0.88), 0.6))]
+    parts.append((s.box("Band", (0, 2.2, 1.2), (2.66, 0.7, 5.0), bevel=0.02, seg=1), c.material("Truck_band", ORANGE, 0.5)))
+    parts.append((s.box("Cab", (0, 1.6, -2.7), (2.4, 2.0, 2.0), bevel=0.3, seg=2), c.material("Truck_cab", (0.18, 0.65, 0.72), 0.4)))
+    parts.append((s.box("Glass", (0, 2.0, -3.3), (2.1, 0.8, 0.9), bevel=0.1, seg=1), c.material("Truck_glass", (0.12, 0.16, 0.24), 0.2)))
+    for x in (-1.15, 1.15):
+        for z in (-2.6, 0.6, 2.9):
+            parts.append((s.cylinder("Tyre", (x, 0.5, z), 0.5, 0.4, axis="x", verts=8), c.material("Truck_tyre", (0.1, 0.1, 0.12), 0.8)))
+    return finish(parts), (0, 0, 1.8), 13.0
+
 BUILDERS = {"train_car": train_car, "city_car": city_car, "street_lamp": street_lamp, "big_wheel": big_wheel, "big_wheel_stand": big_wheel_stand, "carousel": carousel, "stall": stall, "balloons": balloons, "bumper_car": bumper_car, "cargo_pod": cargo_pod, "reactor": reactor, "dish": dish, "honey": honey, "tumbleweed": tumbleweed, "snowball": snowball, "sand_gun": sand_gun, "tree_puffy": tree_puffy, "lamp_post": lamp_post, "guardrail": guardrail,
             "windmill": windmill, "lantern": lantern, "coin": coin,
             "snowpine_tall": snowpine_tall, "pine_tall": pine_tall, "tree_round": tree_round, "bush": bush, "snowpine_round": snowpine_round, "snowman": snowman}
 
+# Packed to one vertex-coloured surface, with a triangle budget each: trees,
+# and Series 2 trackside dressing.
 TREE_BUDGETS = {"tree_puffy": 900, "pine_tall": 750, "tree_round": 750,
-                "snowpine_tall": 750, "snowpine_round": 650}
+                "snowpine_tall": 750, "snowpine_round": 650,
+                "fan": 110, "palm": 300, "big_top": 500, "coaster_car": 420,
+                "hot_air_balloon": 900, "umbrella": 160, "boat": 360,
+                "tree_planter": 420, "traffic_light": 420, "water_tank": 260,
+                "shuttle": 700, "asteroid": 180, "antenna": 220, "box_truck": 320}
+BUILDERS.update({"fan": fan, "palm": palm, "big_top": big_top, "coaster_car": coaster_car,
+                 "hot_air_balloon": hot_air_balloon, "umbrella": umbrella, "boat": boat,
+                 "tree_planter": tree_planter, "traffic_light": traffic_light, "water_tank": water_tank,
+                 "shuttle": shuttle, "asteroid": asteroid, "antenna": antenna, "box_truck": box_truck})
 
 
 def pack_tree(obj, budget):

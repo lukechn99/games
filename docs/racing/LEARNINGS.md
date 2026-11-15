@@ -109,6 +109,22 @@ The web build uses Godot's Compatibility renderer (WebGL 2).
   every kart along one planned arc, whatever speed it arrives at, and only
   the model somersaults. Hazards that need timing (jets, barriers, sweepers)
   read the shared race clock, so every player sees the same gap.
+- **Research the place before dressing it.** (2026-11-15) The first Series
+  2 tracks were judged to lack detail. Asking "what is really in a starship,
+  under Chicago, at a funfair, and what does each let a kart do?" gave both
+  the scenery and the set pieces (loading docks and steam vents, a
+  drawbridge to jump, a garden deck). Generic props did not.
+- **A boost ramp on a road with no walls throws computer drivers off.** One
+  on Starliner's hull walk cost a reset a race. *Rule:* ramps go where
+  there are walls or wide ground; open stretches get boost strips.
+- **One model drawn everywhere is drawn everywhere.** A MultiMesh is one
+  object: if any copy is in view, every copy is drawn and counted. Props
+  spread over a track go through `KitDress.scatter`, which splits them into
+  squares so only the near ones draw; crowds are split ahead of and behind
+  the grid for the same reason.
+- **A test can't read a MultiMesh back without a renderer.** Headless Godot
+  stores nothing in it. Test the code that computes the transforms
+  (`Mover.where`), not the MultiMesh.
 - **Don't build models while verify runs.** A Blender build alongside a
   verify made one viewpoint tour time out. One heavy job at a time, and no
   edits to game files during a verify.

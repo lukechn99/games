@@ -37,6 +37,7 @@ func _run() -> void:
 	await _test_mine()
 	await _test_frost()
 	await _test_launch_gap()
+	await _test_kit_dress()
 	await _test_track_fx()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
@@ -1100,3 +1101,44 @@ func _test_track_fx() -> void:
 	await _ticks(6)
 	check(not (live_h["hit"] as Dictionary).has(k), "nor one passing while it's off")
 	check(TrackFx.live(h, 0.2) and not TrackFx.live(h, 2.0), "the jet follows its timer")
+
+
+## Trackside dressing for Series 2 (design doc 8.5).
+func _test_kit_dress() -> void:
+	print("Trackside dressing")
+	if _world:
+		_world.free()
+	_world = Node3D.new()
+	root.add_child(_world)
+	var track := Track.new()
+	track.layout = "proving"
+	_world.add_child(track)
+	await physics_frame
+	# Variety comes from where a thing stands, so it's the same in every game.
+	var here := Transform3D(Basis(), Vector3(12.5, 0, -40.25))
+	check(KitDress.varied(here, 1.0, 0.3).is_equal_approx(KitDress.varied(here, 1.0, 0.3)), "a prop's size and turn depend only on its place")
+	check(not KitDress.varied(here).basis.is_equal_approx(KitDress.varied(Transform3D(Basis(), Vector3(80, 0, 3))).basis), "and differ from place to place")
+	# Spots beside the road face it, clear of the kerb, and skip launch gaps.
+	var lip: float = track.gaps[0][0]
+	var landing: float = track.gaps[0][1]
+	var spots := KitDress.beside(track, lip - 30.0, landing + 30.0, 5.0, 3.0)
+	var ok := not spots.is_empty()
+	for x in spots:
+		var local := track.road_local(x.origin)
+		var to_road := (track.road_frame(track.offset_of(x.origin)).origin - x.origin).normalized()
+		if absf(local.x) < Track.ROAD_WIDTH * 0.5 + 2.0 or (-x.basis.z).dot(to_road) < 0.8 or track.in_gap(track.offset_of(x.origin)):
+			ok = false
+	check(ok, "spots beside the road face it from beyond the kerb, none in a gap", "%d spots" % spots.size())
+	check(KitDress.off_road(track, track.road_frame(50.0).origin + Vector3(0, 0, 0), 5.0) == false and KitDress.off_road(track, Vector3(5000, 0, 5000), 30.0), "scenery can tell road from open ground")
+	# A mover carries its copies round its loop, evenly spaced.
+	var loop := PackedVector3Array([Vector3(0, 5, 0), Vector3(40, 5, 0), Vector3(40, 5, 40), Vector3(0, 5, 40)])
+	var m := KitDress.mover(_world, "boat", loop, 10.0, 4, {"level": true})
+	var before := m.where(0).origin
+	for i in 30:
+		await process_frame
+	var after := m.where(0).origin
+	check(after.distance_to(before) > 0.5, "things on a path move by themselves", "%.1f m" % after.distance_to(before))
+	check(m.where(0).origin.distance_to(m.where(2).origin) > 20.0, "and keep apart round the loop")
+	check(absf(m.where(1).basis.y.y - 1.0) < 0.01, "level ones stay upright")
+	# The three tracks have their research-led set pieces.
+	check(Track.kit_of("funfair") != null and Track.kit_of("windy") != null, "kits are registered")

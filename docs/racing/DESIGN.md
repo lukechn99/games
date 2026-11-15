@@ -352,6 +352,29 @@ The first three tracks were the proof of concept. Series 2 adds three, each abou
 - **Shared mechanics (built):** `LaunchGaps` (planned arcs), `TrackFx` (gravity, wind, drag and turning zones; timed jets and barriers; sweepers), all on the shared race clock so every player sees the same timing; `KitTools` (rooms with solid, glass, rail or open walls, props, buildings). Each is tested on the proving ground (`?track=proving`, not in the picker). A kart well below a Series 2 road is put back on it: their roads are raised over floors a kart can't climb from.
 - **Not built:** moving platforms, branching shortcuts on kit tracks, drawing only the section in view (not needed at these costs), named viewpoints for set pieces, and the three track items.
 
+### 8.5 What makes a track fun, and what each place really holds (Decided 2026-11-15, from research)
+The first versions of the Series 2 tracks were roads with a few props. This is what the research says a kart track needs, and what each setting offers.
+
+**Rules for every track** (from analyses of Mario Kart courses, the SuperTuxKart track guidelines and theme-park wayfinding):
+1. **A lap in three acts,** each a change of scene, divided by a jump or ramp. Easy and flowing first, the hardest part in the middle, a short sharp finish.
+2. **Hazards that belong to the place** and can be seen well before you reach them; reacting properly costs little time.
+3. **A choice every lap:** a boost that asks you to line up for it, a faster line past a hazard. Paths that differ by under two seconds.
+4. **One landmark you steer by** (theme parks call it a weenie): tall, bright, moving, in contrast with what is round it, glimpsed early and revealed in stages. Then gateways marking each new area, then small draws inside it.
+5. **Things that move by themselves:** a train, a coaster, boats, ships. A place with nothing moving reads as a model.
+6. **The road always reads:** arrows on the outside of every sharp bend, lit edges where there are no walls, nothing drawn where it hides the way ahead.
+7. **Easy stretches are where boosts go;** not every stretch has one.
+
+**What each place holds, and what that lets a kart do:**
+
+| Place | What is really there | Built | Gameplay it opens (built / later) |
+|---|---|---|---|
+| **A starship** (after film and game ships: bridge, crew corridors with lit padded walls, a dirty engine deck of open pipes and steam, a garage, cargo holds) | Decks with one job each, joined by corridors and locks; windows onto space; machinery everywhere; signs and coloured light telling you which deck you are on | Hangar bays with parked shuttles and crew at the rail; hoops of light down a glass promenade; a garden deck with lawn, trees and violet grow-lights; an engine hall with reactors and pipes; cargo adrift in the low-gravity hall; hull walk with aerials, solar panels, landing lights, the ship's lit windows far below, shuttles flying by, tumbling rocks and a ringed planet | Built: low gravity and a floating jump, plasma vents on a clock, airlock barriers, boost strips, a boost ramp. Later: the airlock as a shortcut, cargo lifts, conveyor floors, driving on a wall |
+| **Chicago's lower level** (the service streets under the riverside drive) | Rows of concrete columns, loading docks with trucks backed in, pipes and ducts on the ceiling, hazard stripes, green-tinted lamps, steam from grates, ramps up to daylight; above it bascule bridges over the river and the steel elevated railway | Lower street with columns, dock doors with lit plates, ceiling pipes, striped column feet, green light and steam bursting from grates; garage with cars and delivery trucks; a raised drawbridge to jump; street trees, traffic lights, shop awnings, rooftop water tanks, plazas under the towers; crowds, flags, boats on the lake and under the bridge | Built: the drawbridge jump, steam vents, barrier arms, gusts, boost strips and ramps. Later: the garage as a shortcut, a two-deck bridge, the train as a hazard at a crossing |
+| **A seaside funfair** | A midway of stalls, a big wheel seen from everywhere, rides that move, gateways into each area, bunting and lights, crowds, a beach | Boardwalk beside the road, striped gateways, bunting, cheering crowds, palms, beach umbrellas, big tops, a second coaster with a train always running, hot-air balloons, sailing boats, a haunted house with lit windows and crooked spires, a splash pool | Built: the coaster jump, a hop over the flume's splash pool, carousel push, pop-ups, bumper cars, boost strips and ramps. Later: a swinging-ship hazard, riding the big wheel's rim |
+
+- **How it is built:** `KitDress` (`scripts/track/kit_dress.gd`): corner arrows, gateways, bunting, edge lights, aprons, crowds that hop (one draw call a group), scattered props drawn only near the camera, and `Mover` for anything travelling a loop. Trackside props are packed to one vertex-coloured surface in Blender, so each kind is one draw call.
+- **Cost after the pass** (Low, the fixed viewpoints): at most 197 draw calls and 143k triangles, against 250 and 150k. The grid is the tightest view because eight karts are about 110k triangles by themselves; lowering that (14.1) is what would buy more scenery.
+
 ## 9. Characters and art style
 
 ### 9.1 Look and performance

@@ -325,6 +325,24 @@ Every track has three layers:
 
 **Scenery rule (Decided):** the scenery must be complete wherever the camera can be, including the fly-in from high above: no holes in a mountain, no flat ground ending short of the backdrop, no sky showing through anything.
 
+### 8.4 Series 2: three longer tracks and the Skyline Cup (Decided 2026-11-14; building)
+The first three tracks were the proof of concept. Series 2 adds three, each about 1.5 times as long (about 2,000 m; a computer driver laps in 70 to 95 s), and a second Grand Prix, the **Skyline Cup**, running them in this order. Two or three laps a race is still open.
+
+| Track | Theme | The lap | Track item (Proposed) | Colours |
+|---|---|---|---|---|
+| **Funfair Frenzy** | A daytime seaside funfair | Midway start, coaster hill and drop, a spiral round the big wheel, a turning carousel, a dark haunted house, a log flume with a jump shortcut, a bumper-car arena | Balloons: float over hazards for 3 s | Candy red E8334A, sunshine FFC629, tent teal 17A7A0, cream FFF3D9, bubblegum FF7FB4, sky 58B8F0 |
+| **Windy City Circuit** | Chicago streets by day, dark underground | Lakefront start, a ramp down to the lower street (columns, loading docks), a parking-garage shortcut one level further down (spiral ramp, timed barrier arms), a two-deck river bridge, under the elevated train, gusts between towers, riverwalk hairpins, a fountain | Gust: shoves karts ahead sideways | City sky 6FC3F2, limestone DCD6C8, steel blue 4C6A8A, lake teal 2FA7B8, tunnel orange FF9A3D, underground 161B26 |
+| **Starliner Run** | A starship, inside and out | Hangar start, glass corridor, engine room (plasma vents on a clock), an airlock shortcut (timed door), a low-gravity hall, the hull walk (no walls), a cargo deck (lifts) | Tractor beam: reels you towards the kart ahead | Hull navy 141B33, panel white E6ECF5, reactor cyan 35E0FF, warning amber FFB21E, nebula violet B04AE0, deck grey 5B657A |
+
+- **Windy City's levels are real:** downtown Chicago stacks streets (a lower level for through traffic and deliveries, and under Wacker Drive, Columbus Drive and Randolph Street a third service level), and its river bridges are double-decked. Buildings, signs and sculptures stay generic: no real logos, artworks or named landmarks.
+- **Art direction:** Series 2 has its own look and need not match the first three. The reference is recent Mario Kart, with everything original: rounded, chunky shapes with bevelled edges; smooth shading and baked shadows; saturated colour; a busy trackside with moving things; one or two oversized landmarks a track.
+- **Shared mechanics to build** (each on a test stretch with tests, before a track uses it): timed gates (doors, barriers, vents, pop-ups), moving platforms (carousel, cargo lifts), push zones (wind, water drag), gravity zones, roads stacked on levels, and drawing each section only when it can be seen.
+- **Launch gaps (Proposed 2026-11-14, the user's idea):** the road ends at a lip, there is an empty drop, and it picks up again further on; karts fly the gap. First on Funfair Frenzy, where the road climbs the coaster's lift hill and the track breaks away. To land every time, the lip is a launch pad: whatever speed a kart arrives at, it leaves on the one planned arc that ends on the landing ramp, held level and on line in the air. The kart's model can somersault on the way (the body underneath stays upright), finishing wheels-down. Too slow to reach the lip at all is the only way to miss.
+- **Budgets** (14.5): 250 draw calls and 150k triangles at every viewpoint, no resets, on Low. The target device is an iPhone 15 Pro at Medium, 60 fps.
+- **How a Series 2 track is made:** a *kit*, a class with `configure`, `plan`, `build`, `world` (its sky and light) and `crate_frames` (`Track.kit_of`). It gets the shared road, kerbs, start line, coins, racing rules and computer drivers, and none of the meadow's ground, grass banks, rails or scenery. Road and kerb colours come from the kit (`road_color`, `kerb_colors`).
+- **Each track is built in four steps,** verified after each: grey-box lap, fast race report clean, set pieces and mechanics, art and colour.
+- **Starliner Run, step 1 (built 2026-11-14):** the grey-box (`scripts/track/starliner_track.gd`, `?track=starliner`): the full lap with corridor walls and roof, the open hull walk, stars, a planet and the ship's bulk below. Eight computer drivers lap it in 72 to 93 s with no resets; at most 170 draw calls and 135k triangles (nearly all of that is the eight karts on the grid). Not yet in the track picker.
+
 ## 9. Characters and art style
 
 ### 9.1 Look and performance
@@ -916,6 +934,7 @@ Where the code lives: `racing/` (Godot 4.4.1 project), tests in `racing/tests/ru
 - Crates give items, items get used up, honey sticks, and a tumbleweed hit shoves without spinning.
 
 ## 17. Open questions
+- **iPhone 15 Pro at Medium (parked 2026-11-14):** runs come out at either 60 or about 51 fps whatever the setting; in one race every setting slowed as it went on, and the second half of each Meadow lap was slower than the first. Next: per-half draw calls and objects (warming up, or something building up?). Also: the Copy result button did not appear after `benchmedium` on the phone, and the scene drew wrongly at the end of that run (black clouds, trees and icons, no panel background).
 1. **Music (11.1):** style, which pieces, and where it comes from.
 2. **Sound effects (11):** not built yet.
 3. The balancing rules for parts (5.1), later.
@@ -1007,6 +1026,7 @@ Settled since the first list: the launch drivers (fox, frog, rhino, deer), showi
 | 2026-11-13 | Frosty Pass ice in short patches (three 10 m patches per hairpin), not 77 m sheets | The user: long ice was very hard to drive over |
 | 2026-11-13 | Sand gun (Frosty Pass item): 5 s weaving spray, sand cancels ice for 8 s, for everyone | The user's idea, and its S shape and 5 to 10 s life |
 | 2026-11-14 | Honey, tumbleweed and snowball rebuilt in Blender, one mesh each, shaded like the karts | Matching the new style; the tumbleweed was 6 draw calls, now 1 |
+| 2026-11-14 | Series 2: Funfair Frenzy, Windy City Circuit (daytime, dark underground levels), Starliner Run; the Skyline Cup; own art direction; iPhone 15 Pro at Medium as the target | The user: the first three were a proof of concept; longer tracks, new themes, performance first |
 
 Frost lake exit: banking and its centre-line lift ease back in over 60 m after
 the flat merge zone, preventing a step where the bank previously switched on.

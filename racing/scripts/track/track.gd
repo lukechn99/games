@@ -50,6 +50,22 @@ const SURFACE_TEX := {"asphalt": ["asphalt", 1.0], "boost": ["asphalt", 1.0], "d
 ## Which track this is: "meadow" (Meadow Loop) or "mine" (Mining Mountain).
 var layout := "meadow"
 var points: Array = POINTS
+## Series 2 tracks (design doc 8.4) bring their own world as a kit: a class
+## with configure, plan, build, world and crate_frames. They get the shared
+## road, start line and racing rules, and none of the meadow's ground,
+## rails or scenery.
+static func kit_of(name: String) -> Variant:
+	match name:
+		"starliner":
+			return StarlinerTrack
+	return null
+
+
+static func has_kit(name: String) -> bool:
+	return kit_of(name) != null
+## A kit's road and kerb colours (empty: the usual asphalt and red/white).
+var road_color := Color(0, 0, 0, 0)
+var kerb_colors: Array = []
 var surface_zones: Array = SURFACE_ZONES
 var rail_zones: Array = RAIL_ZONES
 ## Frost: stretches held at a gentle bank for the icy hairpins, [from, to]
@@ -119,6 +135,15 @@ var _flat_to := 0.0
 
 func _ready() -> void:
 	_rng.seed = 42
+	if has_kit(layout):
+		kit_of(layout).configure(self)
+		_build_curve()
+		kit_of(layout).plan(self)
+		_build_road()
+		_build_start(false)
+		kit_of(layout).build(self)
+		Dressing.build(self)
+		return
 	if layout == "mine":
 		MineTrack.configure(self)
 		_build_curve()
@@ -525,7 +550,9 @@ func _build_road() -> void:
 		var no_bank := 0.0
 		if shift > 0.3 and shift < BRANCH_SPLIT:
 			no_bank = signf(branch_offset(d, bi))
-		if not junction:
+		# (Series 2 tracks have no ground to slope down to: the road's edge is
+		# an edge.)
+		if not junction and not has_kit(layout):
 			_embankment(_group(groups, "grass"), _group(groups, "rock"), a, b, int(d / step), d, no_bank)
 		d += step
 	if not junctions.is_empty():
@@ -581,6 +608,8 @@ func _merged_strip(st: SurfaceTool, da: float, db: float, index: int, bi := 0) -
 	far_b.y = lerpf((mb.origin + mb.basis.x * (branch_offset(db, bi) + side * half)).y, far_b.y, clampf(absf(branch_offset(db, bi)) / BRANCH_SPLIT, 0.0, 1.0))
 	var base: Color = Palette.APPROVED["road"] if Palette.approved else Parts.surface("asphalt")["color"]
 	var kerb := Color(0.92, 0.22, 0.2) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
+	if kerb_colors.size() == 2:
+		kerb = kerb_colors[index % 2]
 	if layout == "frost":
 		kerb = Color(0.2, 0.45, 0.92) if index % 2 == 0 else Color(0.97, 0.97, 0.97)
 	if layout == "mine":
@@ -817,6 +846,11 @@ func _quad_strip(st: SurfaceTool, a: Transform3D, b: Transform3D, s: String, ind
 			base = MINE_ROAD
 		elif s == "dirt" and tint.a == 0.0:
 			base = Color(0.6, 0.4, 0.25)   # loose ochre gravel, darker than the packed road's orange
+	# A Series 2 kit's own road and kerb colours.
+	if road_color.a > 0.0 and tint.a == 0.0 and s == "asphalt":
+		base = road_color
+	if kerb_colors.size() == 2:
+		kerb = kerb_colors[index % 2]
 	var bands := [[-half, half, base]]
 	if skip_kerb >= 0.0:
 		bands.append([-half - 1.1, -half, kerb])
@@ -1351,6 +1385,8 @@ func road_local(pos: Vector3) -> Vector3:
 ## Rows of item crates: a frame for each row, across the road it's on.
 func crate_frames() -> Array[Transform3D]:
 	var out: Array[Transform3D] = []
+	if has_kit(layout):
+		return kit_of(layout).crate_frames(self)
 	if layout == "mine":
 		return MineTrack.crate_frames(self)
 	if layout == "frost":

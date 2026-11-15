@@ -125,6 +125,11 @@ The web build uses Godot's Compatibility renderer (WebGL 2).
   several views in one small image. Picking frames from a filmed race by
   colour didn't work (items are behind the kart, or out of view); fixed
   viewpoints and test views (`?showroom&items`, `?drop=`, `?give=`) do.
+- **The picture check catches what tests don't.** Adding kit colours to the
+  shared road builder landed two lines inside Mining Mountain's own colour
+  block; every test passed, and verify showed 18 Mine pictures changed by
+  23 to 32%. *Rule:* after touching shared track code, run verify on all
+  tracks; "pictures changed" on a track you didn't mean to touch is a bug.
 - **Fail fast.** A test or bench that can't load waits forever unless it has
   a time limit or watches for script errors; both now do.
 - **Testing views:** `?showroom&items` (item models), `?give=ITEM` (start

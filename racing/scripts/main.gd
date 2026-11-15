@@ -41,6 +41,8 @@ func _ready() -> void:
 		track.layout = "mine"
 	elif q0.contains("track=frost"):
 		track.layout = "frost"
+	elif Track.has_kit(Query.value("track")):
+		track.layout = Query.value("track")
 	if q0.contains("laps="):   # for checking the finish quickly
 		track.laps = clampi(int(Query.value("laps")), 1, 9)
 	add_child(track)
@@ -709,6 +711,9 @@ func _build_world() -> void:
 	sun.shadow_opacity = 0.55
 	sun.shadow_blur = 1.5
 	add_child(sun)
+	# A Series 2 track sets its own sky and light (its kit).
+	if Track.has_kit(Query.value("track")):
+		Track.kit_of(Query.value("track")).world(env, sun)
 	_apply_quality()
 	Controls.quality_changed.connect(_apply_quality)
 	get_viewport().size_changed.connect(_fit_resolution)

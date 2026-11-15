@@ -27,6 +27,7 @@ extends Node3D
 
 const WARN := 0.7        # seconds a hazard glows before it fires
 const JET_H := 4.5
+const GRACE := 4.0       # seconds a kart just knocked is let through hazards
 
 var track: Track
 var karts: Array[Kart] = []
@@ -34,6 +35,7 @@ var zones: Array[Dictionary] = []
 var hazards: Array[Dictionary] = []
 var _elapsed := 0.0
 var _in_gravity := {}
+var _knocked := {}       # kart -> when a hazard last knocked it (race clock)
 
 
 func setup(t: Track, all: Array[Kart]) -> void:
@@ -161,12 +163,20 @@ func _physics_process(delta: float) -> void:
 		if not is_equal_approx(k.gravity_scale, light):
 			k.gravity_scale = light
 		for h in hazards:
-			if h.has("sweep") or not (h["jet"] as MeshInstance3D).visible or (h["hit"] as Dictionary).has(k):
+			if h.has("sweep") or not (h["jet"] as MeshInstance3D).visible or (h["hit"] as Dictionary).has(k) or spared(k, t):
 				continue
 			var local: Vector3 = (h["frame"] as Transform3D).affine_inverse() * k.global_position
 			if local.x > minf(h["from_x"], h["to_x"]) - 0.8 and local.x < maxf(h["from_x"], h["to_x"]) + 0.8 and absf(local.z) < 1.6 and local.y > -1.0 and local.y < JET_H:
 				h["hit"][k] = true
+				_knocked[k] = t
 				k.knock((h["frame"] as Transform3D).origin + (h["frame"] as Transform3D).basis.x * (float(h["from_x"]) + float(h["to_x"])) * 0.5 - (h["frame"] as Transform3D).basis.z * 2.0)
+
+
+## A kart a hazard has just knocked is let through for a moment. Without
+## this, a kart thrown back from a timed jet can arrive again exactly as it
+## next fires, over and over (one sat in the haunted house for 30 s).
+func spared(k: Kart, t: float) -> bool:
+	return _knocked.has(k) and t - float(_knocked[k]) < GRACE and t >= float(_knocked[k])
 
 
 func _within(off: float, z: Dictionary) -> bool:
@@ -192,8 +202,9 @@ func _sweep(h: Dictionary, t: float) -> void:
 			continue
 		var gap := k.global_position - p
 		var near := Vector2(gap.x, gap.z).length() < 2.6 and absf(gap.y) < 2.0
-		if near and not (h["hit"] as Dictionary).has(k):
+		if near and not (h["hit"] as Dictionary).has(k) and not spared(k, t):
 			h["hit"][k] = true
+			_knocked[k] = t
 			k.knock(p)
 		elif not near and Vector2(gap.x, gap.z).length() > 5.0:
 			(h["hit"] as Dictionary).erase(k)

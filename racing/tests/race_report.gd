@@ -88,6 +88,7 @@ func _race(layout: String, laps: int) -> void:
 
 	var stuck_now := {}
 	var stuck := 0.0
+	var stuck_at := ""    # where the longest stall was (for finding it)
 	var on_route := {}        # kart -> {route kind: true} this lap
 	var last_lap := {}
 	var routes := {"main": 0}
@@ -123,6 +124,8 @@ func _race(layout: String, laps: int) -> void:
 			if done.has(k):
 				continue
 			stuck_now[k] = float(stuck_now.get(k, 0.0)) + 1.0 / 60.0 if k.linear_velocity.length() < 2.0 and t[0] > 5.0 else 0.0
+			if stuck_now[k] > stuck:
+				stuck_at = "%s, %.0f%% round the lap at %s, road-local %s" % [k.display_name, 100.0 * track.offset_of(k.global_position) / track.length, k.global_position.round(), track.road_local(k.global_position).snappedf(0.1)]
 			stuck = maxf(stuck, stuck_now[k])
 			if frame % 6 != 0:
 				continue
@@ -143,7 +146,7 @@ func _race(layout: String, laps: int) -> void:
 		"track": layout, "laps": laps, "karts": karts.size(), "finished": done.size(),
 		"lap_min": snappedf(lap_times[0], 0.1) if not lap_times.is_empty() else 0.0,
 		"lap_max": snappedf(lap_times[-1], 0.1) if not lap_times.is_empty() else 0.0,
-		"resets": count["resets"], "reset_reasons": reasons, "stuck_s": snappedf(stuck, 0.1),
+		"resets": count["resets"], "reset_reasons": reasons, "stuck_s": snappedf(stuck, 0.1), "stuck_at": stuck_at if stuck > 2.0 else "",
 		"routes": routes, "items": used,
 		"step_ms": snappedf(typical, 0.01), "step_max_ms": snappedf(worst, 0.1), "step_max_at_s": snappedf(worst_at, 0.1),
 		"sim_s": snappedf(t[0], 0.1), "wall_s": snappedf((Time.get_ticks_msec() - wall0) / 1000.0, 0.1),

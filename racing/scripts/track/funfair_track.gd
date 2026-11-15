@@ -66,8 +66,7 @@ static func plan(t: Track) -> void:
 	t.gaps = [[_at(t, 4.0), _at(t, 5.0), {"lift": 9.0, "min_speed": 27.0}],
 		[_at(t, 22.5), _at(t, 22.88), {"lift": 4.5, "min_speed": 22.0}]]
 	t.surface_zones = [{"from": _at(t, 5.25) / L, "to": _at(t, 5.6) / L, "surface": "boost"},
-		{"from": _at(t, 18.25) / L, "to": _at(t, 18.55) / L, "surface": "boost"},
-		{"from": _at(t, 26.3) / L, "to": _at(t, 26.6) / L, "surface": "boost"}]
+		{"from": _at(t, 18.25) / L, "to": _at(t, 18.55) / L, "surface": "boost"}]
 	# The carousel carries karts the way they're going round it.
 	var mid := t.road_frame(_at(t, 16.0))
 	var r := mid.origin - CAROUSEL_AT

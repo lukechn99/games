@@ -1101,6 +1101,9 @@ func _test_track_fx() -> void:
 	await _ticks(6)
 	check(not (live_h["hit"] as Dictionary).has(k), "nor one passing while it's off")
 	check(TrackFx.live(h, 0.2) and not TrackFx.live(h, 2.0), "the jet follows its timer")
+	# A kart just knocked is let through for a moment, then hazards count again.
+	fx._knocked[k] = 10.0
+	check(fx.spared(k, 12.0) and not fx.spared(k, 10.0 + TrackFx.GRACE + 0.5), "a knocked kart gets a few seconds' grace from hazards")
 
 
 ## Trackside dressing for Series 2 (design doc 8.5).

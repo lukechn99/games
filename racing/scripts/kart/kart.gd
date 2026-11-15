@@ -561,7 +561,9 @@ func _fallen_off() -> bool:
 	var under_road: bool = local.y < -2.0 and absf(local.x) < Track.ROAD_WIDTH * 0.5 + 2.0
 	# Series 2 roads are often raised over a floor a kart can't climb back
 	# from: anywhere well below the road is off it.
-	if Track.has_kit(track.layout) and local.y < -2.5:
+	# (Height below the road itself, not below its banked plane: on a flat
+	# run-off beside a banked bend that plane is metres overhead.)
+	if Track.has_kit(track.layout) and global_position.y - track.road_frame(track.offset_of(global_position)).origin.y < -2.5:
 		return true
 	return under_road or local.y < -6.0 or absf(local.x) > 45.0 or track.in_water(global_position)
 

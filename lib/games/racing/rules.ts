@@ -26,7 +26,7 @@ export type TrackId = (typeof TRACKS)[number]['id']
 
 /** A cup (Grand Prix) runs its tracks in turn, with points for each finish. */
 export const CUPS = [
-  { id: 'gp', name: 'Meadow Cup', tracks: ['meadow', 'mine', 'frost'] },
+  { id: 'gp', name: 'Wildlands Cup', tracks: ['meadow', 'mine', 'frost'] },
   { id: 'gp2', name: 'Skyline Cup', tracks: ['funfair', 'windy', 'starliner'] },
 ] as const satisfies readonly { id: string; name: string; tracks: readonly TrackId[] }[]
 export type CupId = (typeof CUPS)[number]['id']
@@ -48,7 +48,7 @@ export interface CupResult {
 }
 
 export interface Cup {
-  /** Which cup ('gp' the Meadow Cup, 'gp2' the Skyline Cup) and its name. */
+  /** Which cup ('gp' the Wildlands Cup, 'gp2' the Skyline Cup) and its name. */
   id?: CupId
   name?: string
   tracks: TrackId[]

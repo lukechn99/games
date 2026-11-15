@@ -326,7 +326,7 @@ Every track has three layers:
 **Scenery rule (Decided):** the scenery must be complete wherever the camera can be, including the fly-in from high above: no holes in a mountain, no flat ground ending short of the backdrop, no sky showing through anything.
 
 ### 8.4 Series 2: three longer tracks and the Skyline Cup (Decided 2026-11-14; first versions built)
-The first three tracks were the proof of concept. Series 2 adds three, each about 1.5 times as long (about 2,000 m; a computer driver laps in 70 to 95 s), and a second Grand Prix, the **Skyline Cup**, running them in this order. Series 2 races are two laps (Proposed; the first three stay at three).
+The first three tracks were the proof of concept. Series 2 adds three, each about 1.5 times as long (about 2,000 m; a computer driver laps in 70 to 95 s), and a second Grand Prix, the **Skyline Cup**, running them in this order. The first three tracks' cup is the **Wildlands Cup** (names decided 2026-11-14). Series 2 races are two laps (Proposed; the first three stay at three).
 
 | Track | Theme | The lap | Track item (Proposed) | Colours |
 |---|---|---|---|---|

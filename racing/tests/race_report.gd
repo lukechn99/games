@@ -99,6 +99,9 @@ func _race(layout: String, laps: int) -> void:
 	var frame := 0
 	while done.size() < karts.size() and t[0] < laps * 150.0:
 		await physics_frame
+		if OS.has_environment("KW_TRACE") and int(t[0] * 60.0) % 10 == 0 and t[0] >= float(OS.get_environment("KW_TRACE_FROM")) and t[0] < float(OS.get_environment("KW_TRACE_TO")):
+			var k0: Kart = karts[int(OS.get_environment("KW_TRACE"))]
+			print("[trace] %.1f %s v=%s local=%s" % [t[0], k0.global_position.round(), k0.linear_velocity.round(), track.road_local(k0.global_position).snappedf(0.1)])
 		t[0] += 1.0 / 60.0
 		frame += 1
 		var now := Time.get_ticks_usec()

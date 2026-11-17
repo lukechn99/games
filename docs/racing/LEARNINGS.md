@@ -129,6 +129,30 @@ The web build uses Godot's Compatibility renderer (WebGL 2).
   verify made one viewpoint tour time out. One heavy job at a time, and no
   edits to game files during a verify.
 
+## Jumps and craters (2026-11-17)
+
+- **A planned flight must not touch the world.** A kart's arc into a crater
+  clipped the rim rail; the hold kept pulling it toward the arc, through
+  the bowl, and it fell out of the world. *Rule:* while a jump carries a
+  kart its collisions are off (LaunchGaps), and any reset ends the flight.
+- **Don't judge "off the road" in the air.** Side craters are 70 m from
+  the racing line, so karts flying to them were reset mid-flight. Karts
+  carried by a jump or a vent are marked `airborne` and skipped.
+- **A bowl curves up across a flat road.** Inside a crater the ground at
+  the road's edges is higher than at its middle, so it poked through the
+  road and stopped karts. *Rule:* ground under a road is kept under it
+  (`SpaceWorlds._under_road`) and rises to meet its edge, with no step.
+- **A raised strip's edge is a wall to a kart.** Ramp strips standing
+  0.44 m proud of a bowl wedged a computer kart for 100 seconds. Strips on
+  drivable ground sit flush.
+- **"Below the road" depends on the bank.** On a banked bend's low side a
+  kart on the shoulder is more than 2.5 m below the road's centre. Measure
+  from the road's surface at that point.
+- **Tracing one kart beats guessing.** `KW_TRACE=<kart> KW_TRACE_FROM=<s>
+  KW_TRACE_TO=<s>` with `tests/race_report.gd` prints a kart's position,
+  speed and road position every 1/6 s; the reset list gives where it was
+  put back, not where it was.
+
 ## Godot and the export
 
 - **New `class_name` scripts need an import.** A pull that adds classes fails

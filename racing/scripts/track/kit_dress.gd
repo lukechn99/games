@@ -9,10 +9,10 @@ extends RefCounted
 
 ## Arrow boards on the outside of every sharp bend, pointing the way round.
 ## `skip`: [from, to] stretches (metres) to leave alone.
-static func chevrons(t: Track, board: Color, arrow: Color, skip: Array = []) -> void:
+static func chevrons(t: Track, board: Color, arrow: Color, skip: Array = [], beyond := 0.7) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var out := Track.ROAD_WIDTH * 0.5 + 0.7
+	var out := Track.ROAD_WIDTH * 0.5 + beyond
 	var d := 0.0
 	while d < t.length:
 		var a := -t.road_frame(d).basis.z

@@ -41,6 +41,8 @@ func follow(kart: Kart) -> void:
 		target.crashed.disconnect(_on_crash)
 		target.landed.disconnect(_on_land)
 	target = kart
+	if kart.track and kart.track.get("view_far") != null:
+		far = float(kart.track.get("view_far"))   # the space track sees whole worlds away
 	target.crashed.connect(_on_crash)
 	target.landed.connect(_on_land)
 	_pos = _desired_position()

@@ -873,6 +873,56 @@ def box_truck():
             parts.append((s.cylinder("Tyre", (x, 0.5, z), 0.5, 0.4, axis="x", verts=8), c.material("Truck_tyre", (0.1, 0.1, 0.12), 0.8)))
     return finish(parts), (0, 0, 1.8), 13.0
 
+
+# --- The space track (design doc 8.6): a glider for the jumps between
+# worlds, and the red planet's dust devils and rocks.
+
+def glider():
+    """A kart's glider: a curved two-colour wing on struts, 4 m across. Sits
+    above the kart (origin at the kart's seat), nose along -z."""
+    a = c.material("Glider_a", RED, 0.5)
+    b = c.material("Glider_b", CREAM, 0.5)
+    strut = c.material("Glider_strut", (0.25, 0.27, 0.32), 0.5)
+    parts = []
+    n = 6
+    for i in range(n):
+        u = (i + 0.5) / n - 0.5
+        x = u * 4.2
+        y = 2.25 - (u * u) * 2.2
+        p = s.box("Panel", (x, y, 0.1), (4.2 / n + 0.04, 0.12, 1.5), bevel=0.04, seg=1)
+        p.rotation_euler = (math.radians(8), u * 1.1, 0)
+        parts.append((p, a if i % 2 == 0 else b))
+    for x in (-0.55, 0.55):
+        parts.append((s.tube("Strut", [(x, 0.6, 0.15), (x * 1.6, 1.4, 0.15), (x * 2.2, 2.1, 0.15)], 0.05, 1, along=2), strut))
+    return finish(parts), (0, 0, 1.4), 7.0
+
+
+def dust_devil():
+    """A whirl of red dust, 9 m tall: rings widening upwards."""
+    parts = []
+    for i in range(7):
+        y = 0.6 + i * 1.25
+        r = 0.7 + i * 0.42
+        ring = s.lathe("Ring", [(0.0, r * 0.75), (0.35, r), (0.7, r * 0.9)], segs=12, cap=False)
+        ring.location = s.g(math.sin(i * 1.3) * 0.35, y, math.cos(i * 1.3) * 0.35)
+        ring.rotation_euler = (math.radians(6 * math.sin(i)), math.radians(90), 0)
+        shade = (0.78, 0.42, 0.26) if i % 2 == 0 else (0.88, 0.55, 0.36)
+        parts.append((ring, c.material("Devil_%d" % (i % 2), shade, 0.9)))
+    return finish(parts), (0, 0, 4.5), 16.0
+
+
+def mars_rock():
+    """A rust-red boulder (about 5 m): the game scales and turns each one."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=2.5, location=s.g(0, 1.2, 0))
+    o = bpy.context.object
+    o.name = "Rock"
+    rnd = random.Random(53)
+    for v in o.data.vertices:
+        v.co *= 1.0 + rnd.uniform(-0.3, 0.2)
+    o.scale = (1.0, 0.65, 0.85)
+    top = blob("Dust", (0.3, 2.3, 0.2), 1.2, squash=0.5, seed=4, detail=1)
+    return finish([(o, c.material("Mars_rock", (0.62, 0.3, 0.19), 0.9)), (top, c.material("Mars_dust", (0.8, 0.46, 0.3), 0.9))]), (0, 0, 1.2), 10.0
+
 BUILDERS = {"train_car": train_car, "city_car": city_car, "street_lamp": street_lamp, "big_wheel": big_wheel, "big_wheel_stand": big_wheel_stand, "carousel": carousel, "stall": stall, "balloons": balloons, "bumper_car": bumper_car, "cargo_pod": cargo_pod, "reactor": reactor, "dish": dish, "honey": honey, "tumbleweed": tumbleweed, "snowball": snowball, "sand_gun": sand_gun, "tree_puffy": tree_puffy, "lamp_post": lamp_post, "guardrail": guardrail,
             "windmill": windmill, "lantern": lantern, "coin": coin,
             "snowpine_tall": snowpine_tall, "pine_tall": pine_tall, "tree_round": tree_round, "bush": bush, "snowpine_round": snowpine_round, "snowman": snowman}
@@ -884,11 +934,13 @@ TREE_BUDGETS = {"tree_puffy": 900, "pine_tall": 750, "tree_round": 750,
                 "fan": 110, "palm": 300, "big_top": 500, "coaster_car": 420,
                 "hot_air_balloon": 900, "umbrella": 160, "boat": 360,
                 "tree_planter": 420, "traffic_light": 420, "water_tank": 260,
-                "shuttle": 700, "asteroid": 180, "antenna": 220, "box_truck": 320}
+                "shuttle": 700, "asteroid": 180, "antenna": 220, "box_truck": 320,
+                "glider": 260, "dust_devil": 420, "mars_rock": 200}
 BUILDERS.update({"fan": fan, "palm": palm, "big_top": big_top, "coaster_car": coaster_car,
                  "hot_air_balloon": hot_air_balloon, "umbrella": umbrella, "boat": boat,
                  "tree_planter": tree_planter, "traffic_light": traffic_light, "water_tank": water_tank,
-                 "shuttle": shuttle, "asteroid": asteroid, "antenna": antenna, "box_truck": box_truck})
+                 "shuttle": shuttle, "asteroid": asteroid, "antenna": antenna, "box_truck": box_truck,
+                 "glider": glider, "dust_devil": dust_devil, "mars_rock": mars_rock})
 
 
 def pack_tree(obj, budget):

@@ -347,7 +347,7 @@ The first three tracks were the proof of concept. Series 2 adds three, each abou
 |---|---|---|---|
 | **Funfair Frenzy** (`?track=funfair`) | about 1,900 m, 71 to 92 s | Coaster lift hill with a launch gap (kart somersaults), boost strip, big wheel, a carousel that pushes karts round, haunted house with pop-ups, flume with slow water either side of a dry plank, bumper cars sweeping the arena, stalls and balloons | A jump ramp on the flume, a busier trackside, the Balloons item |
 | **Windy City Circuit** (`?track=windy`) | about 2,200 m, 84 to 112 s | Lakefront, ramp down to a dark lower street and garage with timed barrier arms, river bridge with gusts, an elevated train running overhead, a wind canyon between towers, fountain | The garage as a separate shortcut, a two-deck bridge choice, the Gust item |
-| **Starliner Run** (`?track=starliner`) | about 2,000 m, 74 to 99 s | Hangar, glass corridor, engine room with four plasma jets on a clock, a low-gravity hall with a floating launch gap, two alternating airlock barriers, open hull walk, cargo deck, reactors, pods and dishes | The airlock as a separate shortcut, cargo lifts, the Tractor beam item |
+| **Starliner Run** (`?track=starliner`) | rebuilt 2026-11-17: see 8.6 | The moon's craters, the red planet, the flying saucer | See 8.6 |
 
 - **Shared mechanics (built):** `LaunchGaps` (planned arcs), `TrackFx` (gravity, wind, drag and turning zones; timed jets and barriers; sweepers), all on the shared race clock so every player sees the same timing; `KitTools` (rooms with solid, glass, rail or open walls, props, buildings). Each is tested on the proving ground (`?track=proving`, not in the picker). A kart well below a Series 2 road is put back on it: their roads are raised over floors a kart can't climb from.
 - **Not built:** moving platforms, branching shortcuts on kit tracks, drawing only the section in view (not needed at these costs), named viewpoints for set pieces, and the three track items.
@@ -374,6 +374,27 @@ The first versions of the Series 2 tracks were roads with a few props. This is w
 
 - **How it is built:** `KitDress` (`scripts/track/kit_dress.gd`): corner arrows, gateways, bunting, edge lights, aprons, crowds that hop (one draw call a group), scattered props drawn only near the camera, and `Mover` for anything travelling a loop. Trackside props are packed to one vertex-coloured surface in Blender, so each kind is one draw call.
 - **Cost after the pass** (Low, the fixed viewpoints): at most 197 draw calls and 143k triangles, against 250 and 150k. The grid is the tightest view because eight karts are about 110k triangles by themselves; lowering that (14.1) is what would buy more scenery.
+
+### 8.6 Starliner Run rebuilt: two worlds and a flying saucer (Decided 2026-11-17)
+The first Starliner Run (a starship's decks, flat with boxy details) was judged boring. The owner's brief: the lap runs across two planets and a flying saucer arranged in a triangle, joined by jumps through space, with jumps on Mario Kart's rules.
+
+**Jump rules (all jumps on every track):**
+- **No skill needed.** Driving off a lip at any speed flies the one planned arc to the landing (LaunchGaps), with wide landings. Long jumps open a glider.
+- **Tricks are optional.** Press drift just before or just after leaving a lip: a somersault and a short boost on landing. Missing it costs nothing.
+- **You only fall if hit in the air.** An item hit mid-flight drops the kart; it is put back before the lip. (Guardrails stop you steering off a ramp's side.) While a jump carries a kart, nothing in the world can snag it.
+
+**The lap (about 2,720 m, two laps, computer laps 79 to 105 s):**
+| Part | What it is |
+|---|---|
+| **The moon** (grey, squashed ball) | A base with the start, then a diamond of five craters, each about 60 m across. Every crater's far rim launches you into the next. Out of the first you choose by steering: straight to the middle crater, or over a left or right lip (amber posts, ramps up to them) into a side crater with item boxes and a boost pad. All three ways meet in the last crater, which fires you across space to the red planet. You can drive anywhere in a crater's bowl. |
+| **The red planet** (rust) | A winding road over rust dust, with two dust devils crossing it, boost strips, rocks and dust devils roaming beside it. A lip at its edge launches you to the saucer. |
+| **The flying saucer** | A ring road round its rim with a glass dome in the middle, lights round the edge and aliens cheering. Five vents, each across half the road, take turns: they sputter for 1.5 s as a warning, then blow anyone on them up into space, and you're put back on the road just behind. The last vent always blows and carries you back to the moon. |
+
+- **Roads:** a raised slab with no markings, dust shoulders either side that slow you (moon dust, rust dust, saucer grating), then guardrails.
+- **Why squashed balls:** gravity points down on every track. Each world is a ball half as tall as it is wide, so the road keeps to its gentle top; a true ball the size of the crater field would put the jumps between worlds 600 m apart or more. The jumps are 270 to 385 m, flown at about 60 to 70 m/s: four to six seconds under a glider.
+- **Built:** `scripts/track/starliner_track.gd` (layout, jumps, lips, vents), `scripts/track/space_worlds.gd` (worlds, craters, ramps, shoulders, saucer, scenery), LaunchGaps pads (lips on a bowl's rim), Track `free_zones` (craters) and `view_far` (the camera sees 2,600 m here), TrackFx `blow` hazards. Models: glider, dust devil, rust rocks.
+- **Cost:** at most 133 draw calls and 147k triangles at the fixed views (budgets 250 and 150k). Not yet measured on a phone.
+- **Not built:** the Tractor beam item; the name still says Starliner (owner to choose).
 
 ## 9. Characters and art style
 
@@ -1058,6 +1079,7 @@ Settled since the first list: the launch drivers (fox, frog, rhino, deer), showi
 | 2026-11-13 | Frosty Pass ice in short patches (three 10 m patches per hairpin), not 77 m sheets | The user: long ice was very hard to drive over |
 | 2026-11-13 | Sand gun (Frosty Pass item): 5 s weaving spray, sand cancels ice for 8 s, for everyone | The user's idea, and its S shape and 5 to 10 s life |
 | 2026-11-14 | Honey, tumbleweed and snowball rebuilt in Blender, one mesh each, shaded like the karts | Matching the new style; the tumbleweed was 6 draw calls, now 1 |
+| 2026-11-17 | Starliner Run rebuilt as a moon, a red planet and a flying saucer joined by jumps; Mario Kart jump rules on every track (no skill needed, optional trick boost, fall only if hit in the air) | The owner: the starship was boring (8.6) |
 | 2026-11-14 | Series 2: Funfair Frenzy, Windy City Circuit (daytime, dark underground levels), Starliner Run; the Skyline Cup; own art direction; iPhone 15 Pro at Medium as the target | The user: the first three were a proof of concept; longer tracks, new themes, performance first |
 
 Frost lake exit: banking and its centre-line lift ease back in over 60 m after

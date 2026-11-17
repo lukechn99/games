@@ -1,108 +1,289 @@
 class_name StarlinerTrack
 extends RefCounted
-## Starliner Run (design doc 8.4): a lap of a giant starship, inside and out.
-## Launch from the hangar, a long glass corridor, the engine room, up to the
-## low-gravity hall, out along the hull with no walls, and down through the
-## cargo deck. About 2,000 m. A Series 2 track: it brings its own world
-## (Track.kit_of), with no ground, grass or mountains.
+## Starliner Run (design doc 8.6): a lap across two little worlds and a
+## flying saucer, on Mario Kart's rules for jumps (no skill needed to make
+## one; a trick off the lip for a boost; you only fall if hit in the air).
 ##
-## The lap, by point number: hangar 0-1.5, glass corridor 1.5-4.6, engine
-## room 4.6-10.6 (plasma jets), the climb 10.6-13.6, the low-gravity hall
-## 13.6-16 (a floating launch gap), the airlock at 16 (alternating energy
-## barriers), the hull walk 16-21.4 (open: no walls), the cargo deck 21.4-24.
+## The moon: from the base, into a diamond of five craters. Each crater's
+## far rim launches you into the next; out of the first you choose by
+## steering: straight on to the middle crater, or left or right into a side
+## crater. The last crater launches you across space to the red planet.
+## The red planet: a winding road over rust dust, with dust devils. Then a
+## jump to the saucer: round its rim past vents that warn, then blow karts
+## off into space; the last vent always blows, and carries you back to the
+## moon.
+##
+## Roads are raised slabs with dust shoulders that slow you, and guardrails
+## beyond. Gravity points down everywhere (like every other track), so each
+## world is a squashed ball and the road keeps to its gentle top.
 
-const POINTS := [
-	# Hangar: the grid, launching along the ship's length.
-	Vector3(0, 0, 60), Vector3(0, 0, -40),
-	# Glass corridor: long and fast, with one gentle sweep.
-	Vector3(-10, 0, -150), Vector3(-6, 0, -260), Vector3(8, 0, -360),
-	# Round into the engine room.
-	Vector3(40, 0, -432), Vector3(105, 0, -462), Vector3(180, 0, -450),
-	# Engine room: S-bends between the reactors.
-	Vector3(240, 0, -408), Vector3(300, 0, -430), Vector3(362, 0, -398),
-	# The climb to the low-gravity hall.
-	Vector3(402, 4, -338), Vector3(412, 8, -250), Vector3(384, 10, -172),
-	# Low-gravity hall.
-	Vector3(352, 10, -100), Vector3(372, 10, -20),
-	# Out through the lock and up onto the hull.
-	Vector3(402, 15, 62), Vector3(384, 20, 150), Vector3(304, 22, 204),
-	# Hull walk: a long open sweep with nothing either side.
-	Vector3(200, 22, 218), Vector3(100, 20, 196), Vector3(-28, 14, 206),
-	# Cargo deck: down a chicane and back to the hangar.
-	Vector3(-58, 8, 160), Vector3(-30, 3, 112),
-]
 const NAME := "Starliner Run"
 const SIGN_FONT := "res://assets/fonts/black_ops_one.woff2"
-const DECK := Color(0.9, 0.925, 0.96)        # panel white
-const WALL := Color(0.36, 0.4, 0.48)         # deck grey
-const NAVY := Color(0.078, 0.106, 0.2)       # hull navy
-const CYAN := Color(0.21, 0.88, 1.0)         # reactor cyan
-const AMBER := Color(1.0, 0.7, 0.12)         # warning amber
-const VIOLET := Color(0.69, 0.29, 0.88)      # nebula violet
-const SIGN_INK := DECK
+const NAVY := Color(0.078, 0.106, 0.2)       # space
+const CYAN := Color(0.21, 0.88, 1.0)         # saucer lights
+const AMBER := Color(1.0, 0.7, 0.12)         # warnings
+const VIOLET := Color(0.69, 0.29, 0.88)      # nebula
+const MOON_C := Color(0.74, 0.74, 0.78)      # moon dust
+const MOON_DARK := Color(0.46, 0.46, 0.53)   # crater floors, maria
+const RUST := Color(0.7, 0.3, 0.16)          # the red planet
+const RUST_LIGHT := Color(0.88, 0.52, 0.3)
+const RUST_DARK := Color(0.44, 0.17, 0.1)
+const HULL := Color(0.8, 0.84, 0.9)          # the saucer
+const ROAD := Color(0.6, 0.62, 0.68)         # the raised road everywhere
+const SIGN_INK := Color(0.95, 0.96, 1.0)
 const SIGN_EDGE := NAVY
 const SIGN_BOARD := Color(0.14, 0.19, 0.34)
 const SIGN_TRIM := CYAN
-## The inside of the ship, by point number: [from, to, wall height, style,
-## light colour]. "glass" walls are a low rail with pillars, so you see out;
-## "rail" is a low lit rail under a high roof, open to the hall around it.
-const ROOMS := [
-	[0.0, 1.5, 14.0, "rail", AMBER],       # hangar: open to the bays
-	[1.5, 4.6, 7.5, "glass", CYAN],        # glass corridor
-	[4.6, 10.6, 17.0, "rail", CYAN],       # engine room: open to the reactors
-	[10.6, 13.6, 7.0, "solid", VIOLET],    # the climb
-	[13.6, 16.0, 12.0, "solid", VIOLET],   # low-gravity hall
-	[21.4, 24.0, 13.0, "rail", AMBER],     # cargo deck: open to the stacks
-]
+
+## The worlds: squashed balls, by the centre of their top (x, z), the height
+## of the top, and their radii across (a) and up (b).
+const MOON := {"x": 0.0, "z": 0.0, "top": 200.0, "a": 320.0, "b": 160.0}
+const MARS := {"x": 0.0, "z": -690.0, "top": 150.0, "a": 300.0, "b": 150.0}
+const SAUCER := Vector3(300, 140, -360)   # centre of its deck
+const SAUCER_R := 130.0
+const RING := 105.0                       # the road's radius round the deck
+const LAND_AT := 160.0                    # degrees round the ring: the jump from Mars lands here
+const VENT_AT := -160.0                   # and the last vent (the angle falls as you drive)
+const RIDE := 0.5                         # the road's height above the ground
+const SHOULDER := 6.5                     # dust either side, before the guardrail
+const CR := 30.0                          # crater radius (to the rim crest)
+const CRATERS := {"T": Vector2(-30, 50), "M": Vector2(-30, -40), "B": Vector2(-30, -130),
+	"L": Vector2(-100, -40), "R": Vector2(40, -40)}
+## The roads, as points across the ground (x, z), sampled into the lap.
+const START := [Vector2(20, 125), Vector2(-12, 118), Vector2(-28, 104), Vector2(-30, 90), Vector2(-30, 80)]
+const MOON_IN := [Vector2(137, -131), Vector2(130, -50), Vector2(122, 30), Vector2(108, 96), Vector2(76, 124), Vector2(46, 126)]
+const MARS_ROAD := [Vector2(-30, -545), Vector2(-52, -615), Vector2(-38, -695), Vector2(15, -745),
+	Vector2(85, -748), Vector2(130, -705), Vector2(120, -660), Vector2(130, -600)]
+const POINTS := []   # built in configure (_points)
+
+static var _marks := {}   # name -> a point on the lap
 
 
 static func configure(t: Track) -> void:
-	t.points = POINTS
+	t.points = _points()
 	t.surface_zones = []
 	t.rail_zones = []
-	t.ground_y = -60.0
-	t.road_color = Color(0.62, 0.66, 0.74)
-	t.kerb_colors = [CYAN.darkened(0.1), DECK]
+	t.ground_y = -260.0
+	t.view_far = 2600.0
+	t.road_color = ROAD
+	t.kerb_colors = [ROAD.darkened(0.12), ROAD.lightened(0.12)]
+
+
+## The lap as points: the moon's craters, the jump to Mars, its road, the
+## jump to the saucer, round its rim, the jump home and the moon's road to
+## the start. Through jumps the points follow the flight, so lap distance
+## keeps counting in the air.
+static func _points() -> Array:
+	_marks = {}
+	var pts: Array[Vector3] = []
+	_marks["start"] = _ground(START[0], "moon")
+	pts.append_array(_road(START, "moon", 3.0))
+	var t: Vector2 = CRATERS["T"]
+	var m: Vector2 = CRATERS["M"]
+	var b: Vector2 = CRATERS["B"]
+	_line(pts, Vector2(t.x, t.y + CR - 2.0), Vector2(t.x, t.y - CR), "moon", 2.0)
+	_marks["t_lip"] = pts[pts.size() - 1]
+	_marks["m_land"] = _ground(Vector2(m.x, m.y + CR * 0.55), "moon")
+	_flight(pts, _marks["t_lip"], _marks["m_land"], 11.0, 10.0)
+	_line(pts, Vector2(m.x, m.y + CR * 0.55), Vector2(m.x, m.y - CR), "moon", 2.0)
+	_marks["m_lip"] = pts[pts.size() - 1]
+	_marks["b_land"] = _ground(Vector2(b.x, b.y + CR * 0.55), "moon")
+	_flight(pts, _marks["m_lip"], _marks["b_land"], 11.0, 10.0)
+	_line(pts, Vector2(b.x, b.y + CR * 0.55), Vector2(b.x, b.y - CR), "moon", 2.0)
+	_marks["b_lip"] = pts[pts.size() - 1]
+	_marks["mars_land"] = _ground(MARS_ROAD[0], "mars")
+	_flight(pts, _marks["b_lip"], _marks["mars_land"], 45.0, 25.0)
+	pts.append_array(_road(MARS_ROAD, "mars", 5.0))
+	_marks["mars_lip"] = pts[pts.size() - 1]
+	_marks["saucer_land"] = _ring_point(LAND_AT)
+	_flight(pts, _marks["mars_lip"], _marks["saucer_land"], 30.0, 25.0)
+	var a := LAND_AT
+	while a > VENT_AT + 0.01:
+		pts.append(_ring_point(a))
+		a -= 2.5
+	pts.append(_ring_point(VENT_AT))
+	_marks["vent"] = pts[pts.size() - 1]
+	_marks["moon_land"] = _ground(MOON_IN[0], "moon")
+	_flight(pts, _marks["vent"], _marks["moon_land"], 40.0, 25.0)
+	var home := _road(MOON_IN, "moon", 5.0)
+	pts.append_array(home)
+	return pts
+
+
+## The ground's height at (x, z) on a world.
+static func ground(p: Vector2, world: String) -> float:
+	if world == "saucer":
+		return SAUCER.y
+	if world == "mars":
+		return body_h(MARS, p)
+	var h := body_h(MOON, p)
+	for c: Vector2 in CRATERS.values():
+		h += crater_off(p.distance_to(c))
+	return h
+
+
+static func body_h(b: Dictionary, p: Vector2) -> float:
+	var d := Vector2(p.x - float(b["x"]), p.y - float(b["z"])).length()
+	return float(b["top"]) - float(b["b"]) * (1.0 - sqrt(maxf(0.0, 1.0 - pow(d / float(b["a"]), 2.0))))
+
+
+## A crater's shape by distance from its centre: a bowl 5.5 m deep, a rim
+## 2.5 m high (so a slow kart can still climb out), an apron back down to
+## the plain.
+static func crater_off(r: float) -> float:
+	if r < CR:
+		return -5.5 + 8.0 * pow(r / CR, 2.0)
+	if r < CR + 16.0:
+		var u := (r - CR) / 16.0
+		return 2.5 * (1.0 - u) * (1.0 - u)
+	return 0.0
+
+
+static func _ground(p: Vector2, world: String) -> Vector3:
+	return Vector3(p.x, ground(p, world) + RIDE, p.y)
+
+
+static func _ring_point(deg: float) -> Vector3:
+	var r := deg_to_rad(deg)
+	return Vector3(SAUCER.x + cos(r) * RING, SAUCER.y + RIDE, SAUCER.z + sin(r) * RING)
+
+
+## A smooth road through `path`, every `step` metres, on the ground.
+static func _road(path: Array, world: String, step: float) -> Array[Vector3]:
+	var c := Curve2D.new()
+	var n := path.size()
+	for i in n:
+		var prev: Vector2 = path[maxi(i - 1, 0)]
+		var next: Vector2 = path[mini(i + 1, n - 1)]
+		var h := (next - prev) / 6.0
+		c.add_point(path[i], -h, h)
+	c.bake_interval = 1.0
+	var out: Array[Vector3] = []
+	var length := c.get_baked_length()
+	var d := 0.0
+	while d < length - step * 0.5:
+		out.append(_ground(c.sample_baked(d), world))
+		d += step
+	out.append(_ground(path[n - 1], world))
+	return out
+
+
+static func _line(pts: Array[Vector3], from: Vector2, to: Vector2, world: String, step: float) -> void:
+	var n := maxi(1, int(from.distance_to(to) / step))
+	for i in n + 1:
+		pts.append(_ground(from.lerp(to, float(i) / n), world))
+
+
+## Points along a jump's flight (not the ends), so the lap follows it.
+static func _flight(pts: Array[Vector3], from: Vector3, to: Vector3, lift: float, step: float) -> void:
+	var n := maxi(2, int(Vector2(to.x - from.x, to.z - from.z).length() / step))
+	for i in range(1, n):
+		var u := float(i) / n
+		var p := from.lerp(to, u)
+		p.y += 4.0 * lift * u * (1.0 - u)
+		pts.append(p)
+
+
+## Lap distance of a named point.
+static func _at(t: Track, name: String) -> float:
+	return t.offset_of(_marks[name])
+
+
+## Which world a place is on.
+static func world_of(p: Vector3) -> String:
+	if Vector2(p.x - SAUCER.x, p.z - SAUCER.z).length() < SAUCER_R + 20.0:
+		return "saucer"
+	if Vector2(p.x - float(MARS["x"]), p.z - float(MARS["z"])).length() < float(MARS["a"]) + 20.0:
+		return "mars"
+	return "moon"
 
 
 static func plan(t: Track) -> void:
-	# The low-gravity hall: everything floats, and a gap in the floor to
-	# drift across.
-	t.fx_zones = [{"kind": "gravity", "from": _at(t, 13.8), "to": _at(t, 15.9), "scale": 0.4}]
-	t.surface_zones = [{"from": _at(t, 3.4) / t.length, "to": _at(t, 3.7) / t.length, "surface": "boost"},
-		{"from": _at(t, 18.2) / t.length, "to": _at(t, 18.5) / t.length, "surface": "boost"}]
-	t.gaps = [[_at(t, 14.25), _at(t, 14.8), {"lift": 5.5, "min_speed": 18.0, "slow": 0.62}]]
-	# Engine room: plasma jets across half the road, one after another.
+	var L := t.length
+	# The craters: drive anywhere in them, and out over a lip on the rim.
+	t.free_zones = []
+	for c: Vector2 in CRATERS.values():
+		t.free_zones.append([Vector3(c.x, ground(c, "moon"), c.y), CR + 16.0])   # out to the apron
+	var T: Vector2 = CRATERS["T"]
+	var M: Vector2 = CRATERS["M"]
+	var B: Vector2 = CRATERS["B"]
+	var Lc: Vector2 = CRATERS["L"]
+	var Rc: Vector2 = CRATERS["R"]
+	t.pads = [
+		_pad(T, M, {"lift": 11.0, "half": 8.5}), _pad(T, Lc, {"lift": 15.0}), _pad(T, Rc, {"lift": 15.0}),
+		_pad(M, B, {"lift": 11.0, "half": 8.5}), _pad(Lc, B, {"lift": 15.0}), _pad(Rc, B, {"lift": 15.0}),
+	]
+	# The last crater fires you across space to the red planet.
+	var mars := _pad(B, B + Vector2(0, -100), {"lift": 45.0, "fly_speed": 72.0, "glide": true, "half": 8.5})
+	mars["to"] = t.road_frame(_at(t, "mars_land"))
+	t.pads.append(mars)
+	t.gaps = [
+		[_at(t, "t_lip"), _at(t, "m_land"), {"pads": true}],
+		[_at(t, "m_lip"), _at(t, "b_land"), {"pads": true}],
+		[_at(t, "b_lip"), _at(t, "mars_land"), {"pads": true}],
+		[_at(t, "mars_lip"), _at(t, "saucer_land"), {"lift": 30.0, "fly_speed": 62.0, "glide": true}],
+		[_at(t, "vent"), _at(t, "moon_land"), {"lift": 40.0, "fly_speed": 62.0, "glide": true}],
+	]
+	# Boosts: down the base straight, and two on the red planet.
+	var mars0 := _at(t, "mars_land")
+	t.surface_zones = [
+		{"from": (mars0 + 150.0) / L, "to": (mars0 + 162.0) / L, "surface": "boost"},
+		{"from": (mars0 + 330.0) / L, "to": (mars0 + 342.0) / L, "surface": "boost"},
+	]
+	# The saucer's vents: each covers half the road, sputters as a warning,
+	# then blows whoever is on it off into space. They take turns.
 	t.fx_hazards = []
+	var ring0 := _at(t, "saucer_land")
+	var ring1 := _at(t, "vent")
+	var span := fposmod(ring1 - ring0, L)
 	var i := 0
-	for at in [7.7, 8.5, 9.3, 10.1]:
+	for u: float in [0.14, 0.3, 0.46, 0.62, 0.78]:
 		var left := i % 2 == 0
-		t.fx_hazards.append({"at": _at(t, at), "from_x": -7.0 if left else 0.5, "to_x": -0.5 if left else 7.0, "period": 4.0, "on": 1.3, "phase": i * 1.1, "color": CYAN})
+		t.fx_hazards.append({"at": fposmod(ring0 + span * u, L), "from_x": -7.0 if left else 0.4, "to_x": -0.4 if left else 7.0,
+			"period": 5.2, "on": 1.6, "warn": 1.5, "phase": i * 1.3, "blow": true, "height": 16.0, "depth": 3.0,
+			"color": Color(0.75, 1.0, 0.85)})
 		i += 1
-	# The airlock onto the hull: two energy barriers that take turns, so one
-	# side is always open.
-	var lock := _at(t, 16.15)
-	t.fx_hazards.append({"at": lock, "from_x": -7.0, "to_x": -0.3, "period": 5.0, "on": 2.3, "phase": 0.0, "color": AMBER})
-	t.fx_hazards.append({"at": lock, "from_x": 0.3, "to_x": 7.0, "period": 5.0, "on": 2.3, "phase": 2.5, "color": AMBER})
+	# Dust devils crossing the red planet's road.
+	for u: float in [0.3, 0.62]:
+		t.fx_hazards.append({"at": mars0 + _mars_len(t) * u, "sweep": 3.2 + u, "model": "dust_devil", "phase": u})
 
 
-## The sky and light for this track (main.gd, when the world is made).
+static func _mars_len(t: Track) -> float:
+	return fposmod(_at(t, "mars_lip") - _at(t, "mars_land"), t.length)
+
+
+## A lip on crater `from`'s rim towards `to` (a crater: you land on its
+## near side, facing on).
+static func _pad(from: Vector2, to: Vector2, opt: Dictionary) -> Dictionary:
+	var dir2 := (to - from).normalized()
+	var dir := Vector3(dir2.x, 0.0, dir2.y)
+	var lip := from + dir2 * CR
+	var land := to - dir2 * CR * 0.55
+	var p := opt.duplicate()
+	p["centre"] = Vector3(from.x, ground(from, "moon"), from.y)
+	p["dir"] = dir
+	p["r"] = CR
+	p["half"] = opt.get("half", 6.5)
+	p["rim_y"] = ground(lip, "moon")
+	p["to"] = Transform3D(Basis.looking_at(dir, Vector3.UP), _ground(land, "moon"))
+	return p
+
+
+## Space, and a warm sun low over the worlds.
 static func world(env: Environment, sun: DirectionalLight3D) -> void:
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = NAVY.darkened(0.55)
+	env.background_color = Color(0.02, 0.025, 0.06)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.72, 0.78, 0.95)
-	env.ambient_light_energy = 0.6
+	env.ambient_light_color = Color(0.7, 0.74, 0.92)
+	env.ambient_light_energy = 0.55
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	env.fog_enabled = false
-	sun.light_color = Color(0.95, 0.97, 1.0)
-	sun.light_energy = 0.85
+	sun.light_color = Color(1.0, 0.95, 0.88)
+	sun.light_energy = 1.05
 
 
-## Deck plating in place of asphalt, with no centre line.
+## A plain raised slab: no lines, no texture.
 static func road_material(m: ShaderMaterial) -> void:
-	m.set_shader_parameter("detail", KitTools.plate_texture())
-	m.set_shader_parameter("surf", KitTools.plate_texture())
 	m.set_shader_parameter("relief", 0.0)
 	m.set_shader_parameter("paint", false)
 	m.set_shader_parameter("wear", 0.0)
@@ -110,279 +291,17 @@ static func road_material(m: ShaderMaterial) -> void:
 
 static func crate_frames(t: Track) -> Array[Transform3D]:
 	var out: Array[Transform3D] = []
-	for at in [3.0, 12.2, 19.5]:
-		out.append(t.transform_at(_at(t, at)))
+	out.append(t.transform_at(_at(t, "start") + 40.0))
+	out.append(t.transform_at(_at(t, "mars_land") + 240.0))
+	out.append(t.transform_at(fposmod(_at(t, "saucer_land") + 60.0, t.length)))
+	# A reward for taking a side crater: boxes on its floor.
+	for k: String in ["L", "R"]:
+		var c: Vector2 = CRATERS[k]
+		var to: Vector2 = CRATERS["B"]
+		var dir := (to - c).normalized()
+		out.append(Transform3D(Basis.looking_at(Vector3(dir.x, 0, dir.y), Vector3.UP), _ground(c, "moon")))
 	return out
 
 
 static func build(t: Track) -> void:
-	_rooms(t)
-	_props(t)
-	_space(t)
-	_dress(t)
-	t._build_boost_ramp(_at(t, 2.5), 1.0)
-	t._build_boost_ramp(_at(t, 11.7), -1.0)
-
-
-## Lap distance of point number `i` (fractions fall between points).
-static func _at(t: Track, i: float) -> float:
-	var n := POINTS.size()
-	var a := t.offset_of(POINTS[int(floorf(i)) % n])
-	var b := t.offset_of(POINTS[int(ceilf(i)) % n])
-	if b < a:
-		b += t.length
-	return fposmod(lerpf(a, b, i - floorf(i)), t.length) if i < float(n) else t.length - 0.01
-
-
-## Walls, roof and lights for every room, then the airlock frame.
-static func _rooms(t: Track) -> void:
-	var half := Track.ROAD_WIDTH * 0.5 + 1.0
-	var list := []
-	for room: Array in ROOMS:
-		list.append([_at(t, room[0]), _at(t, room[1]), room[2], room[3], room[4]])
-	KitTools.rooms(t, list, WALL, DECK.darkened(0.15))
-	# The airlock frame, where the ship ends and the hull walk begins.
-	var frame := SurfaceTool.new()
-	frame.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var f := t.road_frame(_at(t, 16.0))
-	for side: float in [-1.0, 1.0]:
-		KitTools.box(frame, Transform3D(f.basis, f.origin + f.basis.x * side * (half + 0.6) + Vector3.UP * 6.0), Vector3(1.6, 12.0, 2.4), DECK)
-	KitTools.box(frame, Transform3D(f.basis, f.origin + Vector3.UP * 12.4), Vector3(half * 2.0 + 2.8, 1.6, 2.4), AMBER)
-	KitTools.commit(t, frame, Palette.toon(Color.WHITE, true))
-
-
-## Reactors towering over the engine room, cargo stacked beside the cargo
-## deck, and dishes along the hull.
-static func _props(t: Track) -> void:
-	var out := Track.ROAD_WIDTH * 0.5 + 5.5
-	var reactors: Array[Transform3D] = []
-	var at := 5.2
-	var i := 0
-	while at < 10.4:
-		var f := t.road_frame(_at(t, at))
-		var side := 1.0 if i % 2 == 0 else -1.0
-		reactors.append(Transform3D(Basis().scaled(Vector3.ONE * 1.25), f.origin + f.basis.x * side * out - Vector3.UP * 1.0))
-		at += 0.62
-		i += 1
-	KitTools.place(t, "reactor", reactors, 420.0)
-	var pods: Array[Transform3D] = []
-	at = 21.7
-	i = 0
-	while at < 23.6:
-		var f := t.road_frame(_at(t, at))
-		var side := 1.0 if i % 2 == 0 else -1.0
-		for level in 3 + i % 2:
-			pods.append(Transform3D(f.basis.rotated(Vector3.UP, 0.12 * (level % 2)), f.origin + f.basis.x * side * (out - 1.8) + Vector3.UP * (2.45 * level)))
-		at += 0.36
-		i += 1
-	KitTools.place(t, "cargo_pod", pods, 320.0)
-	var dishes: Array[Transform3D] = []
-	at = 16.8
-	i = 0
-	while at < 21.2:
-		var f := t.road_frame(_at(t, at))
-		var side := 1.0 if i % 2 == 0 else -1.0
-		dishes.append(Transform3D(Basis(Vector3.UP, i * 1.3).scaled(Vector3.ONE * 1.5), f.origin + f.basis.x * side * (out + 6.0) - Vector3.UP * 3.0))
-		at += 0.75
-		i += 1
-	KitTools.place(t, "dish", dishes, 380.0)
-
-
-## A hall round the road: floor out to `width` either side and a far wall
-## with a line of light, so a "rail" room is a place and not a bridge.
-static func _hall(t: Track, st: SurfaceTool, glow: SurfaceTool, from: float, to: float, width: float, height: float, lamp: Color) -> void:
-	var half := Track.ROAD_WIDTH * 0.5 + 1.0
-	var d := _at(t, from)
-	var end := _at(t, to)
-	if end < d:
-		end += t.length
-	var index := 0
-	while d < end:
-		var a := t.road_frame(fposmod(d, t.length))
-		var b := t.road_frame(fposmod(minf(d + 6.0, end), t.length))
-		var plate := WALL.lightened(0.18) if index % 2 == 0 else WALL.lightened(0.1)
-		for side: float in [-1.0, 1.0]:
-			var a0 := a.origin + a.basis.x * side * half - Vector3.UP * 0.05
-			var b0 := b.origin + b.basis.x * side * half - Vector3.UP * 0.05
-			var a1 := a.origin + a.basis.x * side * (half + width) - Vector3.UP * 0.05
-			var b1 := b.origin + b.basis.x * side * (half + width) - Vector3.UP * 0.05
-			KitTools.quad(st, a0, b0, b1, a1, plate, side > 0.0)
-			KitTools.quad(st, a1, b1, b1 + Vector3.UP * height, a1 + Vector3.UP * height, WALL.darkened(0.1 if index % 2 == 0 else 0.2), side < 0.0)
-			KitTools.quad(st, a0 + Vector3.UP * height, b0 + Vector3.UP * height, b1 + Vector3.UP * height, a1 + Vector3.UP * height, WALL.darkened(0.35), side < 0.0)
-			var up := Vector3.UP * 3.0
-			var inset := a.basis.x * side * 0.08
-			KitTools.quad(glow, a1 - inset + up, b1 - inset + up, b1 - inset + up + Vector3.UP * 0.5, a1 - inset + up + Vector3.UP * 0.5, lamp, side < 0.0)
-		d += 6.0
-		index += 1
-
-
-## What a starship has inside, deck by deck: a hangar with parked shuttles
-## and crew cheering at the rail, hoops of light down the promenade, a
-## garden deck under grow-lights, an engine hall with pipes overhead, cargo
-## adrift in the low-gravity hall, and on the hull aerials, solar panels,
-## landing lights, the ship's own lit windows below and traffic flying by.
-static func _dress(t: Track) -> void:
-	var L := t.length
-	var half := Track.ROAD_WIDTH * 0.5
-	KitDress.chevrons(t, NAVY, CYAN)
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var glow := SurfaceTool.new()
-	glow.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_hall(t, st, glow, 24.0 - 0.02, 1.5, 20.0, 14.0, AMBER)       # hangar
-	_hall(t, st, glow, 4.6, 10.6, 16.0, 17.0, CYAN)             # engine hall
-	_hall(t, st, glow, 21.4, 23.98, 14.0, 13.0, AMBER)          # cargo deck
-	KitDress.edge_lights(t, glow, _at(t, 1.5), _at(t, 3.0), 6.0, CYAN)
-	KitDress.edge_lights(t, glow, _at(t, 10.6), _at(t, 16.0), 6.0, VIOLET)
-	KitDress.edge_lights(t, glow, _at(t, 16.0), _at(t, 21.4), 5.0, AMBER, 0.9, 0.4)
-	# Hoops of light down the promenade.
-	var d := _at(t, 1.6)
-	while d < _at(t, 3.0):
-		var f := t.road_frame(d)
-		for side: float in [-1.0, 1.0]:
-			KitTools.box(glow, Transform3D(f.basis, f.origin + f.basis.x * side * (half + 0.8) + Vector3.UP * 3.6), Vector3(0.3, 7.2, 0.5), CYAN)
-		KitTools.box(glow, Transform3D(f.basis, f.origin + Vector3.UP * 7.25), Vector3(half * 2.0 + 1.9, 0.3, 0.5), CYAN)
-		d += 26.0
-	# The garden deck: lawn either side, trees in planters, violet grow-lights.
-	var lawn := SurfaceTool.new()
-	lawn.begin(Mesh.PRIMITIVE_TRIANGLES)
-	KitDress.apron(t, lawn, _at(t, 3.0), _at(t, 4.6), 9.0, [Color(0.3, 0.68, 0.36), Color(0.36, 0.74, 0.4)], 6.0)
-	KitTools.commit(t, lawn, Palette.toon(Color.WHITE, true), true)
-	var trees: Array[Transform3D] = []
-	for x in KitDress.beside(t, _at(t, 3.0), _at(t, 4.6), 13.0, 5.0):
-		trees.append(KitDress.varied(Transform3D(Basis(), x.origin), 0.85, 0.15))
-	KitDress.scatter(t, "tree_planter", trees, 240.0)
-	d = _at(t, 3.05)
-	while d < _at(t, 4.6):
-		var f := t.road_frame(d)
-		KitTools.box(glow, Transform3D(f.basis, f.origin + Vector3.UP * 7.1), Vector3(9.0, 0.2, 1.2), VIOLET.lerp(Color(1.0, 0.5, 0.8), 0.4))
-		d += 15.0
-	# Pipes over the engine hall, and solar panels beside the hull walk.
-	d = _at(t, 4.7)
-	while d < _at(t, 10.5):
-		var f := t.road_frame(d)
-		var g := t.road_frame(d + 8.0)
-		var along := Basis.looking_at((g.origin - f.origin).normalized(), Vector3.UP)
-		for x: float in [-6.5, 6.5, -5.4]:
-			KitTools.box(st, Transform3D(along, (f.origin + g.origin) * 0.5 + f.basis.x * x + Vector3.UP * 12.5), Vector3(0.7, 0.7, 8.4), AMBER.darkened(0.25) if x > 0.0 else DECK.darkened(0.3))
-		d += 8.0
-	var index := 0
-	for x in KitDress.beside(t, _at(t, 16.6), _at(t, 21.2), 34.0, 13.0):
-		var tilt := x.basis.rotated(x.basis.x, 0.5)
-		KitTools.box(st, Transform3D(tilt, x.origin - Vector3.UP * 1.5), Vector3(14.0, 0.3, 7.0), Color(0.12, 0.26, 0.62) if index % 2 == 0 else Color(0.16, 0.32, 0.7))
-		KitTools.box(st, Transform3D(Basis(), x.origin - Vector3.UP * 5.0), Vector3(0.6, 7.0, 0.6), DECK.darkened(0.2))
-		index += 1
-	# The ship's own lit windows and deck lights, far below the hull walk.
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 41
-	for i in 520:
-		var p := Vector3(rng.randf_range(-95.0, 455.0), -2.5, rng.randf_range(-515.0, 275.0))
-		var s := rng.randf_range(0.8, 2.6)
-		var c := (AMBER if i % 3 == 0 else (CYAN if i % 3 == 1 else Color.WHITE)).lerp(Color.WHITE, 0.3)
-		KitTools.quad(glow, p + Vector3(-s, 0, -s), p + Vector3(-s, 0, s), p + Vector3(s, 0, s), p + Vector3(s, 0, -s), c)
-	KitTools.commit(t, st, Palette.toon(Color.WHITE, true), true)
-	KitTools.commit(t, glow, KitTools.glow(Color.WHITE), true)
-	# Shuttles parked in the hangar bays, and the crew at the rail.
-	var parked: Array[Transform3D] = []
-	for x in KitDress.beside(t, L - 60.0, L + 150.0, 30.0, 12.0):
-		parked.append(Transform3D(x.basis.rotated(Vector3.UP, 0.5), x.origin + Vector3.UP * 0.9))
-	KitDress.scatter(t, "shuttle", parked, 300.0, 400.0)
-	var crew := [DECK, CYAN, AMBER, VIOLET.lightened(0.3), Color(0.5, 0.9, 0.6)]
-	KitDress.crowd(t, KitDress.beside(t, L - 60.0, L - 6.0, 3.0, 2.4), crew, 1)
-	KitDress.crowd(t, KitDress.beside(t, 4.0, 110.0, 3.0, 2.4), crew, 1)
-	KitDress.crowd(t, KitDress.beside(t, _at(t, 21.8), _at(t, 23.6), 3.4, 2.4), crew, 1)
-	var aerials: Array[Transform3D] = []
-	for x in KitDress.beside(t, _at(t, 16.4), _at(t, 21.3), 46.0, 5.0):
-		aerials.append(Transform3D(Basis(), x.origin - Vector3.UP * 2.0))
-	KitDress.scatter(t, "antenna", aerials, 320.0, 300.0)
-	# Cargo adrift in the low-gravity hall, over the karts' heads.
-	var adrift := PackedVector3Array()
-	for at: float in [13.9, 14.5, 15.1, 15.7]:
-		var f := t.road_frame(_at(t, at))
-		adrift.append(f.origin + f.basis.x * 4.0 + Vector3.UP * 8.5)
-	for at: float in [15.7, 15.1, 14.5, 13.9]:
-		var f := t.road_frame(_at(t, at))
-		adrift.append(f.origin - f.basis.x * 4.0 + Vector3.UP * 9.5)
-	KitDress.mover(t, "cargo_pod", adrift, 3.0, 6, {"size": 0.6, "bob": 0.8})
-	# Traffic: shuttles flying past the promenade windows, over the hull
-	# walk and back across the top of the ship.
-	var lane := PackedVector3Array([Vector3(-46, 4, -400), Vector3(-46, 5, -120), Vector3(-95, 24, 120), Vector3(60, 42, 262),
-		Vector3(320, 44, 268), Vector3(455, 32, 120), Vector3(475, 30, -200), Vector3(300, 62, -500), Vector3(60, 50, -540)])
-	KitDress.mover(t, "shuttle", lane, 55.0, 6)
-	# Rocks tumbling slowly by, out past the hull walk.
-	var belt := Node3D.new()
-	belt.position = Vector3(150, 30, 520)
-	t.add_child(belt)
-	var rocks: Array[Transform3D] = []
-	for i in 70:
-		var p := Vector3(rng.randf_range(-380.0, 380.0), rng.randf_range(-70.0, 90.0), rng.randf_range(-190.0, 260.0))
-		rocks.append(Transform3D(Basis(Vector3(rng.randf(), rng.randf(), rng.randf()).normalized(), rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(1.0, 6.0)), p))
-	KitTools.place(belt, "asteroid", rocks)
-	var drift := Spinner.new()
-	drift.target = belt
-	drift.axis = Vector3.UP
-	drift.speed = 0.006
-	t.add_child(drift)
-	# The planet's rings.
-	var rings := SurfaceTool.new()
-	rings.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var tilt := Basis(Vector3(1, 0, 0.4).normalized(), 0.35)
-	var bands := [[640.0, 700.0, DECK.lerp(VIOLET, 0.3)], [715.0, 800.0, VIOLET.lightened(0.35)], [815.0, 880.0, CYAN.lerp(DECK, 0.5)]]
-	for band: Array in bands:
-		for k in 64:
-			var a0 := TAU * k / 64.0
-			var a1 := TAU * (k + 1) / 64.0
-			var u0 := tilt * Vector3(cos(a0), 0, sin(a0))
-			var u1 := tilt * Vector3(cos(a1), 0, sin(a1))
-			KitTools.quad(rings, u0 * float(band[0]), u1 * float(band[0]), u1 * float(band[1]), u0 * float(band[1]), band[2])
-	var ring := KitTools.commit(t, rings, KitTools.glow(Color.WHITE), true)
-	ring.position = Vector3(180, 0, -120) + Vector3(-520, -640, 520)
-
-
-## What's outside: stars, a planet below, and the ship's own bulk under the
-## decks. Three draw calls.
-static func _space(t: Track) -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
-	var stars := SurfaceTool.new()
-	stars.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var centre := Vector3(180, 0, -120)
-	for i in 900:
-		var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.5, 1), rng.randf_range(-1, 1)).normalized()
-		var p := centre + dir * 1500.0
-		var size := rng.randf_range(2.5, 7.0)
-		var right := dir.cross(Vector3.UP).normalized() * size
-		var up := right.cross(dir).normalized() * size
-		var c := Color.WHITE.lerp(CYAN if i % 5 == 0 else VIOLET, rng.randf() * 0.5)
-		KitTools.quad(stars, p - right - up, p + right - up, p + right + up, p - right + up, c)
-	var glow := StandardMaterial3D.new()
-	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	glow.vertex_color_use_as_albedo = true
-	glow.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var si := MeshInstance3D.new()
-	si.mesh = stars.commit()
-	si.material_override = glow
-	si.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	t.add_child(si)
-	# A planet, below and to one side.
-	var planet := MeshInstance3D.new()
-	var ball := SphereMesh.new()
-	ball.radius = 520.0
-	ball.height = 1040.0
-	ball.radial_segments = 48
-	ball.rings = 24
-	planet.mesh = ball
-	planet.material_override = Palette.toon(VIOLET.lerp(CYAN, 0.25))
-	planet.position = centre + Vector3(-520, -640, 520)
-	planet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	t.add_child(planet)
-	# The ship under the decks: one long dark body (drawn only; drive off
-	# the hull walk and you fall past it).
-	var hull := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(560, 30, 800)
-	hull.mesh = box
-	hull.material_override = Palette.toon(NAVY.lightened(0.08))
-	hull.position = Vector3(180, -17.6, -120)
-	hull.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	t.add_child(hull)
+	SpaceWorlds.build(t)

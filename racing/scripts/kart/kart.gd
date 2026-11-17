@@ -44,6 +44,9 @@ var drifting := false
 var drift_dir := 0.0
 var drift_time := 0.0
 var boost_time := 0.0
+var knocked_ms := 0          # when something last knocked it (LaunchGaps: hit in the air)
+var _still_time := 0.0
+var _last_zone := -1
 var air_time := 0.0
 var wheel_spin := 0.0
 var wheel_compression: Array[float] = [0.0, 0.0, 0.0, 0.0]
@@ -187,6 +190,7 @@ func stick(seconds: float) -> void:
 func knock(from: Vector3) -> void:
 	if remote:
 		return
+	knocked_ms = Time.get_ticks_msec() + 1
 	var side := global_transform.basis.x
 	var push := side * signf(side.dot(global_position - from) + 0.01)
 	linear_velocity = linear_velocity * 0.6 + push * 6.0 + Vector3.UP * 2.0
@@ -538,9 +542,20 @@ func _check_recovery(delta: float) -> void:
 	var upright := global_transform.basis.y.dot(Vector3.UP)
 	_upside_down_time = _upside_down_time + delta if upright < 0.35 else 0.0
 	_on_deck_time = maxf(0.0, _on_deck_time - delta)
-	_off_track_time = _off_track_time + delta if _fallen_off() else 0.0
+	# (Not while a jump or a vent's blast carries it: those put it down.)
+	_off_track_time = _off_track_time + delta if _fallen_off() and not has_meta("airborne") else 0.0
 	# (Series 2 tracks have no ground: "too low" is far below their roads.)
 	var floor_y: float = track.ground_y + 20.0 if track and Track.has_kit(track.layout) else -12.0
+	# Stuck in a crater (wedged against its rail): out of it after a while.
+	# Driving through one takes a few seconds.
+	var zone: int = track.free_zone_at(global_position) if track and not track.free_zones.is_empty() else -1
+	_still_time = _still_time + delta if zone >= 0 and zone == _last_zone else 0.0
+	_last_zone = zone
+	if _still_time > 12.0:
+		_still_time = 0.0
+		respawn_reason = "stuck in a crater"
+		respawn()
+		return
 	if global_position.y < floor_y or _upside_down_time > 1.6 or _off_track_time > 0.4:
 		respawn_reason = "low" if global_position.y < floor_y else ("upside down" if _upside_down_time > 1.6 else "off the road at %s" % track.road_local(global_position) if track else "off")
 		respawn()
@@ -557,14 +572,20 @@ func _fallen_off() -> bool:
 		return track.in_water(global_position)
 	if track.under_lake(global_position):
 		return false   # dropped through the ice onto the sunken road
+	if track.in_free_zone(global_position):
+		return false   # anywhere in a crater you can drive round
 	var local: Vector3 = track.road_local(global_position)
 	var under_road: bool = local.y < -2.0 and absf(local.x) < Track.ROAD_WIDTH * 0.5 + 2.0
 	# Series 2 roads are often raised over a floor a kart can't climb back
 	# from: anywhere well below the road is off it.
 	# (Height below the road itself, not below its banked plane: on a flat
 	# run-off beside a banked bend that plane is metres overhead.)
-	if Track.has_kit(track.layout) and global_position.y - track.road_frame(track.offset_of(global_position)).origin.y < -2.5:
-		return true
+	# (And on a banked bend's low side, below the road's own surface there.)
+	if Track.has_kit(track.layout):
+		var f: Transform3D = track.road_frame(track.offset_of(global_position))
+		var surface_y := minf(f.origin.y, (f * Vector3(clampf(local.x, -20.0, 20.0), 0.0, 0.0)).y)
+		if global_position.y - surface_y < -2.5:
+			return true
 	return under_road or local.y < -6.0 or absf(local.x) > 45.0 or track.in_water(global_position)
 
 

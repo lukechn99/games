@@ -87,6 +87,11 @@ var ice_bank_zones: Array = []
 ## Other routes that leave the main road and rejoin it: each is
 ## {from, to, shift: PackedFloat32Array (sideways offset every metre), kind}.
 var branches: Array[Dictionary] = []
+## Launch pads on bowl rims (LaunchGaps), and the bowls a kart may drive
+## anywhere in: [centre (y = the bowl's floor), radius].
+var pads: Array[Dictionary] = []
+var free_zones: Array = []
+var view_far := 900.0         # how far the chase camera sees
 var curve := Curve3D.new()
 var length := 0.0
 var laps := LAPS
@@ -142,6 +147,34 @@ func in_gap(offset: float) -> bool:
 		if o >= float(g[0]) and o <= float(g[1]):
 			return true
 	return false
+
+
+## Inside a bowl a kart may drive anywhere in (the moon's craters).
+func in_free_zone(pos: Vector3) -> bool:
+	for z: Array in free_zones:
+		var c: Vector3 = z[0]
+		if Vector2(pos.x - c.x, pos.z - c.z).length() < float(z[1]) and pos.y > c.y - 3.0:
+			return true
+	return false
+
+
+## The lips out of bowl `i` (LaunchGaps pads on its rim).
+func pads_of_zone(i: int) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var c: Vector3 = free_zones[i][0]
+	for p in pads:
+		if Vector2((p["centre"] as Vector3).x - c.x, (p["centre"] as Vector3).z - c.z).length() < 1.0:
+			out.append(p)
+	return out
+
+
+## Which bowl `pos` is in, or -1.
+func free_zone_at(pos: Vector3) -> int:
+	for i in free_zones.size():
+		var c: Vector3 = free_zones[i][0]
+		if Vector2(pos.x - c.x, pos.z - c.z).length() < float(free_zones[i][1]) and pos.y > c.y - 3.0:
+			return i
+	return -1
 
 
 func on_bridge(pos: Vector3) -> bool:
@@ -1685,6 +1718,20 @@ func _build_mountains() -> void:
 ## Where to drop a kart that fell off or flipped: a little behind where it was.
 func respawn_transform(pos: Vector3) -> Transform3D:
 	var off := offset_of(pos) - 6.0
+	# Never back in mid-air: before a jump's lip instead.
+	for g: Array in gaps:
+		if in_gap(off) and fposmod(off, length) >= float(g[0]) and fposmod(off, length) <= float(g[1]):
+			off = float(g[0]) - 14.0
+	var zone := free_zone_at(pos)
+	if zone >= 0:
+		# Stuck in a crater: put just inside its (first) lip, facing out, so
+		# it's away at once.
+		var c: Vector3 = free_zones[zone][0]
+		for p in pads:
+			if Vector2((p["centre"] as Vector3).x - c.x, (p["centre"] as Vector3).z - c.z).length() < 1.0:
+				var out: Vector3 = p["dir"]
+				var at := Vector3(c.x, float(p["rim_y"]), c.z) + out * (float(p["r"]) - 3.0)
+				return Transform3D(Basis.looking_at(out, Vector3.UP), at + Vector3.UP * 1.5)
 	var t := transform_at(off)
 	# Fell off a route beside the main road (the mine's cavern trestle, say):
 	# back onto that route, not across on the main road. The rope bridge is

@@ -27,6 +27,7 @@ extends Node3D
 
 const WARN := 0.7        # seconds a hazard glows before it fires
 const JET_H := 4.5
+const BLOWN_TIME := 1.5   # seconds in the air after a vent's blast, before the reset
 const GRACE := 4.0       # seconds a kart just knocked is let through hazards
 
 var track: Track
@@ -36,6 +37,7 @@ var hazards: Array[Dictionary] = []
 var _elapsed := 0.0
 var _in_gravity := {}
 var _knocked := {}       # kart -> when a hazard last knocked it (race clock)
+var _blown := {}         # kart -> seconds until a vent's blast puts it back
 
 
 func setup(t: Track, all: Array[Kart]) -> void:
@@ -84,17 +86,30 @@ func _make_hazard(h: Dictionary) -> Dictionary:
 	# The jet itself (shown while live), and its floor strip (always there,
 	# brightening just before it fires).
 	var jet := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(absf(x1 - x0), JET_H, 0.9)
-	jet.mesh = box
-	jet.material_override = _glow(c, 0.75)
-	jet.transform = Transform3D(f.basis, mid + Vector3.UP * JET_H * 0.5)
+	if h.get("blow", false):
+		# A vent's gas: a column widening as it rises, see-through.
+		var cone := CylinderMesh.new()
+		cone.bottom_radius = absf(x1 - x0) * 0.5
+		cone.top_radius = absf(x1 - x0) * 0.9
+		cone.height = float(h.get("height", JET_H))
+		cone.radial_segments = 12
+		cone.rings = 1
+		cone.cap_top = false
+		cone.cap_bottom = false
+		jet.mesh = cone
+		jet.material_override = _glow(c, 0.4)
+	else:
+		var box := BoxMesh.new()
+		box.size = Vector3(absf(x1 - x0), float(h.get("height", JET_H)), float(h.get("depth", 0.9)))
+		jet.mesh = box
+		jet.material_override = _glow(c, 0.75)
+	jet.transform = Transform3D(f.basis, mid + Vector3.UP * float(h.get("height", JET_H)) * 0.5)
 	jet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	jet.visible = false
 	add_child(jet)
 	var strip := MeshInstance3D.new()
 	var plate := BoxMesh.new()
-	plate.size = Vector3(absf(x1 - x0), 0.06, 1.3)
+	plate.size = Vector3(absf(x1 - x0), 0.06, float(h.get("depth", 0.9)) + 0.4)
 	strip.mesh = plate
 	var sm := _glow(c.darkened(0.55), 1.0)
 	strip.material_override = sm
@@ -130,13 +145,27 @@ func _physics_process(delta: float) -> void:
 			_sweep(h, t)
 			continue
 		var on := live(h, t)
-		(h["jet"] as MeshInstance3D).visible = on
-		var soon := live(h, t + WARN)
-		(h["strip_mat"] as StandardMaterial3D).albedo_color = h["bright"] if on or soon else h["dim"]
+		var jet := h["jet"] as MeshInstance3D
+		var soon := live(h, t + float(h.get("warn", WARN)))
+		jet.visible = on or (soon and h.get("blow", false))
+		if h.get("blow", false):
+			# A vent: sputters for its warning, then the full column.
+			var w := 1.0 if on else 0.12 + 0.1 * absf(sin(t * 18.0))
+			jet.scale = Vector3(1.0, w, 1.0)
+			jet.position = (h["frame"] as Transform3D).origin + (h["frame"] as Transform3D).basis.x * (float(h["from_x"]) + float(h["to_x"])) * 0.5 + Vector3.UP * float(h.get("height", JET_H)) * 0.5 * w
+		(h["strip_mat"] as StandardMaterial3D).albedo_color = h["bright"] if on or (soon and fposmod(t * 6.0, 1.0) < 0.5) else h["dim"]
 		if not on:
 			h["hit"] = {}
 	for k in karts:
 		if not is_instance_valid(k) or k.remote:
+			continue
+		if _blown.has(k):
+			_blown[k] = float(_blown[k]) - delta
+			if float(_blown[k]) <= 0.0:
+				_blown.erase(k)
+				k.remove_meta("airborne")
+				k.respawn_reason = "blown off by a vent"
+				k.respawn()
 			continue
 		var off := track.offset_of(k.global_position)
 		var light := 1.0
@@ -166,10 +195,13 @@ func _physics_process(delta: float) -> void:
 			if h.has("sweep") or not (h["jet"] as MeshInstance3D).visible or (h["hit"] as Dictionary).has(k) or spared(k, t):
 				continue
 			var local: Vector3 = (h["frame"] as Transform3D).affine_inverse() * k.global_position
-			if local.x > minf(h["from_x"], h["to_x"]) - 0.8 and local.x < maxf(h["from_x"], h["to_x"]) + 0.8 and absf(local.z) < 1.6 and local.y > -1.0 and local.y < JET_H:
+			if local.x > minf(h["from_x"], h["to_x"]) - 0.8 and local.x < maxf(h["from_x"], h["to_x"]) + 0.8 and absf(local.z) < float(h.get("depth", 0.9)) * 0.5 + 1.15 and local.y > -1.0 and local.y < float(h.get("height", JET_H)):
 				h["hit"][k] = true
 				_knocked[k] = t
-				k.knock((h["frame"] as Transform3D).origin + (h["frame"] as Transform3D).basis.x * (float(h["from_x"]) + float(h["to_x"])) * 0.5 - (h["frame"] as Transform3D).basis.z * 2.0)
+				if h.get("blow", false):
+					_blow(k, h)
+				else:
+					k.knock((h["frame"] as Transform3D).origin + (h["frame"] as Transform3D).basis.x * (float(h["from_x"]) + float(h["to_x"])) * 0.5 - (h["frame"] as Transform3D).basis.z * 2.0)
 
 
 ## A kart a hazard has just knocked is let through for a moment. Without
@@ -219,3 +251,15 @@ func _spin(k: Kart, z: Dictionary, delta: float) -> void:
 		return
 	var under := Vector3(-r.z, 0.0, r.x) * float(z["turn"])   # the platform's velocity here
 	k.linear_velocity += under * 0.55 * delta
+
+
+## A vent's blast: up and away into space, then put back on the road.
+func _blow(k: Kart, h: Dictionary) -> void:
+	var f: Transform3D = h["frame"]
+	var side := signf(float(h["from_x"]) + float(h["to_x"]))
+	k.knocked_ms = Time.get_ticks_msec() + 1
+	k.linear_velocity = Vector3.UP * 24.0 + f.basis.x * side * 9.0 + k.linear_velocity * 0.3
+	k.angular_velocity = f.basis.z * 3.0 * side
+	k.crashed.emit(0.8)
+	_blown[k] = BLOWN_TIME
+	k.set_meta("airborne", true)

@@ -1,5 +1,5 @@
 {
- "_about": "Limits per track (design doc 14.5). New tracks use the default; the first three are held at their levels when verify was built (2026-11-14) and should only go down. 'air' (the intro fly-over) is reported, not judged.",
+ "_about": "Limits per track (design doc 14.5). New tracks use the default; the first three are held at their levels when verify was built (2026-11-14) and should only go down. 'air' (the intro fly-over) is reported, not judged. Starliner Run allows 2 resets: its saucer vents blow karts into space and put them back by design.",
  "default": {
   "draws": 250,
   "tris_k": 150,
@@ -24,7 +24,9 @@
    "resets": 1,
    "lap_spread": 2.5
   },
-  "starliner": {},
+  "starliner": {
+   "resets": 2
+  },
   "proving": {},
   "funfair": {},
   "windy": {}

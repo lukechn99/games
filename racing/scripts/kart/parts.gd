@@ -13,6 +13,9 @@ const SURFACES := {
 	"ice": {"grip": 0.28, "drag": 0.0, "color": Color(0.74, 0.88, 0.97)},
 	"snow": {"grip": 0.55, "drag": 0.5, "color": Color(0.96, 0.97, 1.0)},
 	"boost": {"grip": 1.0, "drag": -2.5, "color": Color(1.0, 0.62, 0.15)},
+	# The space track's shoulders: moon dust and the red planet's rust.
+	"moondust": {"grip": 0.7, "drag": 1.1, "color": Color(0.72, 0.72, 0.76)},
+	"reddust": {"grip": 0.65, "drag": 1.2, "color": Color(0.78, 0.4, 0.24)},
 }
 
 ## Chassis: sets turning and the hit box (design doc 5.2).

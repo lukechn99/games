@@ -38,6 +38,7 @@ func _run() -> void:
 	await _test_frost()
 	await _test_launch_gap()
 	await _test_kit_dress()
+	await _test_space()
 	await _test_track_fx()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
@@ -985,7 +986,9 @@ func _test_launch_gap() -> void:
 	check(not beside._fallen_off(), "and one on the road doesn't")
 	beside.free()
 	# Karts arriving fast, slow and off-centre all land beyond it, upright.
-	var cases := [["fast", 32.0, 0.0], ["slow", 6.0, 0.0], ["off-centre", 26.0, 4.5], ["off the other side", 18.0, -4.5]]
+	# Two press drift at the lip: a trick (a somersault, and a boost on
+	# landing). The others just fly it.
+	var cases := [["fast", 32.0, 0.0, true], ["slow", 6.0, 0.0, false], ["off-centre", 26.0, 4.5, true], ["off the other side", 18.0, -4.5, false]]
 	for c: Array in cases:
 		var k := Kart.new()
 		k.configure("frame", "slicks", "fox")
@@ -1005,21 +1008,28 @@ func _test_launch_gap() -> void:
 		var flipped := 0.0
 		var resets := [0]
 		k.respawned.connect(func(): resets[0] += 1)
+		var boosted := false
 		for i in 60 * 7:
-			k.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+			var to_lip := lip - track.offset_of(k.global_position)
+			k.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": bool(c[3]) and to_lip > 0.0 and to_lip < 2.5}
 			await physics_frame
 			if launch.flying(k):
 				flew = true
 				flipped = maxf(flipped, absf(vis.transform.basis.get_euler().x) + (PI if vis.transform.basis.y.y < 0.0 else 0.0))
 			elif flew:
+				boosted = k.boost_time > 0.0
 				break
 		await _ticks(40)
 		var off := track.offset_of(k.global_position)
 		var local := track.road_local(k.global_position)
 		check(flew and resets[0] == 0 and off > landing and absf(local.x) < Track.ROAD_WIDTH * 0.5 and absf(local.y) < 1.5,
 			"a %s kart flies the gap and lands on the road" % c[0], "flew %s resets %d off %.0f (landing %.0f) local %s" % [flew, resets[0], off, landing, local])
-		check(k.global_transform.basis.y.dot(Vector3.UP) > 0.9 and vis.transform.is_equal_approx(Transform3D.IDENTITY) and flipped > 2.0,
-			"and comes down wheels-first after a somersault", "up %.2f flipped %.1f" % [k.global_transform.basis.y.dot(Vector3.UP), flipped])
+		check(k.global_transform.basis.y.dot(Vector3.UP) > 0.9 and vis.transform.is_equal_approx(Transform3D.IDENTITY),
+			"and comes down wheels-first", "up %.2f" % k.global_transform.basis.y.dot(Vector3.UP))
+		if c[3]:
+			check(flipped > 2.0 and boosted, "a trick off the lip somersaults and boosts on landing", "flipped %.1f boosted %s" % [flipped, boosted])
+		else:
+			check(flipped < 0.2 and not boosted, "no trick: no somersault, no boost (and no penalty)", "flipped %.1f boosted %s" % [flipped, boosted])
 		launch.free()
 		k.free()
 
@@ -1145,3 +1155,158 @@ func _test_kit_dress() -> void:
 	check(absf(m.where(1).basis.y.y - 1.0) < 0.01, "level ones stay upright")
 	# The three tracks have their research-led set pieces.
 	check(Track.kit_of("funfair") != null and Track.kit_of("windy") != null, "kits are registered")
+
+
+## The space track (design doc 8.6): crater lips that send you where you
+## steer, gliders on long jumps, falling only when hit in the air, vents
+## that blow you off and put you back, and craters you can drive round.
+func _test_space() -> void:
+	print("Starliner Run")
+	if _world:
+		_world.free()
+	_world = Node3D.new()
+	root.add_child(_world)
+	var track := Track.new()
+	track.layout = "starliner"
+	_world.add_child(track)
+	await physics_frame
+	await physics_frame
+	var C: Dictionary = StarlinerTrack.CRATERS
+	var zone_of := func(key: String) -> int:
+		var c: Vector2 = C[key]
+		for i in track.free_zones.size():
+			var z: Vector3 = track.free_zones[i][0]
+			if Vector2(z.x, z.z).distance_to(c) < 1.0:
+				return i
+		return -1
+	check(track.free_zones.size() == 5 and track.pads.size() == 7, "five craters, seven lips (three out of the first)", "%d zones %d pads" % [track.free_zones.size(), track.pads.size()])
+	# Off the road inside a crater is still on the track.
+	var probe := Kart.new()
+	probe.configure("frame", "slicks", "fox")
+	probe.track = track
+	_world.add_child(probe)
+	var t0: Vector2 = C["T"]
+	probe.global_position = Vector3(t0.x + 14.0, StarlinerTrack.ground(t0 + Vector2(14, 0), "moon") + 0.6, t0.y)
+	check(not probe._fallen_off(), "a kart driving round a crater's bowl is not off the road")
+	probe.free()
+	# Out of the first crater, where you steer decides where you land.
+	for want: String in ["M", "L", "R"]:
+		var target: Vector2 = C[want]
+		var dir2 := (target - t0).normalized()
+		var dir := Vector3(dir2.x, 0, dir2.y)
+		var k := _space_kart(track)
+		var at := t0 + dir2 * (StarlinerTrack.CR - 6.0)
+		k.global_transform = Transform3D(Basis.looking_at(dir, Vector3.UP), Vector3(at.x, StarlinerTrack.ground(at, "moon") + 0.8, at.y))
+		k.linear_velocity = dir * 20.0
+		var launch := _space_launch(track, k)
+		var flew := false
+		for i in 60 * 6:
+			k.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+			await physics_frame
+			if launch.flying(k):
+				flew = true
+			elif flew:
+				break
+		await _ticks(20)
+		check(flew and track.free_zone_at(k.global_position) == zone_of.call(want), "out over the lip towards %s, it lands in %s" % [want, want],
+			"flew %s zone %d at %s" % [flew, track.free_zone_at(k.global_position), k.global_position.round()])
+		launch.free()
+		k.free()
+	# The last crater fires you to the red planet under a glider, and you
+	# land on its road.
+	var b0: Vector2 = C["B"]
+	var k2 := _space_kart(track)
+	var at2 := b0 + Vector2(0, -(StarlinerTrack.CR - 6.0))
+	k2.global_transform = Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(at2.x, StarlinerTrack.ground(at2, "moon") + 0.8, at2.y))
+	k2.linear_velocity = Vector3.FORWARD * 20.0
+	var launch2 := _space_launch(track, k2)
+	var glided := false
+	var flew2 := false
+	var hit := false
+	for i in 60 * 10:
+		k2.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+		await physics_frame
+		if launch2.flying(k2):
+			flew2 = true
+			for c in (k2.get_meta("visual") as Node3D).get_children():
+				if c is MeshInstance3D:
+					glided = true
+		elif flew2:
+			break
+	await _ticks(30)
+	check(flew2 and glided and StarlinerTrack.world_of(k2.global_position) == "mars" and absf(track.road_local(k2.global_position).x) < Track.ROAD_WIDTH * 0.5,
+		"the last crater launches you, gliding, onto the red planet's road", "glided %s at %s" % [glided, k2.global_position.round()])
+	check((k2.get_meta("visual") as Node3D).get_child_count() == 0, "and the glider folds away when you land")
+	# Hit by an item in the air: you fall, and are put back before the lip.
+	k2.global_transform = Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(at2.x, StarlinerTrack.ground(at2, "moon") + 0.8, at2.y))
+	k2.linear_velocity = Vector3.FORWARD * 20.0
+	var put_back := [0]
+	k2.respawned.connect(func(): put_back[0] += 1)
+	for i in 60 * 6:
+		k2.input = {"steer": 0.0, "throttle": 1.0, "brake": 0.0, "drift": false}
+		await physics_frame
+		if launch2.flying(k2) and not hit and k2.global_position.distance_to(Vector3(at2.x, k2.global_position.y, at2.y)) > 60.0:
+			k2.knock(k2.global_position + Vector3.RIGHT)
+			hit = true
+		if put_back[0] > 0:
+			break
+	check(hit and put_back[0] == 1 and StarlinerTrack.world_of(k2.global_position) == "moon" and not launch2.flying(k2),
+		"hit by an item in the air, you fall and are put back on the moon", "hit %s put back %d at %s" % [hit, put_back[0], k2.global_position.round()])
+	launch2.free()
+	k2.free()
+	# A saucer vent sputters first, then blows you off and puts you back.
+	var vent: Dictionary = {}
+	for h: Dictionary in track.fx_hazards:
+		if h.get("blow", false):
+			vent = h
+			break
+	check(not vent.is_empty() and TrackFx.live(vent, 0.0 - float(vent["phase"]) + 0.1) and not TrackFx.live(vent, float(vent["period"]) - float(vent["phase"]) - float(vent["warn"]) * 0.5),
+		"the saucer has vents that warn before they blow")
+	var k3 := _space_kart(track)
+	var all: Array[Kart] = [k3]
+	var fx := TrackFx.new()
+	fx.setup(track, all)
+	_world.add_child(fx)
+	var vf := track.road_frame(float(vent["at"]))
+	k3.global_transform = Transform3D(vf.basis, vf.origin + vf.basis.x * (float(vent["from_x"]) + float(vent["to_x"])) * 0.5 + Vector3.UP * 0.6)
+	fx._elapsed = fposmod(-float(vent["phase"]), float(vent["period"])) + 0.2
+	var rose := 0.0
+	var back := [0]
+	k3.respawned.connect(func(): back[0] += 1)
+	for i in 60 * 3:
+		await physics_frame
+		rose = maxf(rose, k3.global_position.y - vf.origin.y)
+		if back[0] > 0:
+			break
+	check(rose > 8.0 and back[0] == 1 and StarlinerTrack.world_of(k3.global_position) == "saucer",
+		"a vent blows you up into space, then you're put back on the saucer", "rose %.1f put back %d" % [rose, back[0]])
+	fx.free()
+	k3.free()
+	# The shoulders slow you; the road doesn't.
+	var f := track.road_frame(track.length - 40.0)
+	var space := _world.get_world_3d().direct_space_state
+	var surface_at := func(x: float) -> String:
+		var p := f.origin + f.basis.x * x
+		var r := space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 3.0, p + Vector3.DOWN * 3.0))
+		return String((r["collider"] as Object).get_meta("surface", "?")) if not r.is_empty() else "none"
+	check(surface_at.call(11.0) == "moondust" and Parts.surface("moondust")["drag"] > 0.5 and surface_at.call(0.0) == "asphalt",
+		"dust shoulders beside the road slow you", "%s / %s" % [surface_at.call(0.0), surface_at.call(11.0)])
+
+
+func _space_kart(track: Track) -> Kart:
+	var k := Kart.new()
+	k.configure("frame", "slicks", "fox")
+	k.track = track
+	_world.add_child(k)
+	var vis := Node3D.new()
+	k.add_child(vis)
+	k.set_meta("visual", vis)
+	return k
+
+
+func _space_launch(track: Track, k: Kart) -> LaunchGaps:
+	var all: Array[Kart] = [k]
+	var launch := LaunchGaps.new()
+	launch.setup(track, all)
+	_world.add_child(launch)
+	return launch

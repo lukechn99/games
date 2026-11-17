@@ -380,7 +380,7 @@ The first Starliner Run (a starship's decks, flat with boxy details) was judged 
 
 **Jump rules (all jumps on every track):**
 - **No skill needed.** Driving off a lip at any speed flies the one planned arc to the landing (LaunchGaps), with wide landings. Long jumps open a glider.
-- **Tricks are optional.** Press drift just before or just after leaving a lip: a somersault and a short boost on landing. Missing it costs nothing.
+- **Tricks are optional.** Press drift just before or just after leaving a lip: a somersault and a short boost on landing (0.7 s). Missing it costs nothing. Computer drivers (medium and hard) somersault for show but get no boost: they don't brake for the extra speed and were thrown off bends after landings.
 - **You only fall if hit in the air.** An item hit mid-flight drops the kart; it is put back before the lip. (Guardrails stop you steering off a ramp's side.) While a jump carries a kart, nothing in the world can snag it.
 
 **The lap (about 2,720 m, two laps, computer laps 79 to 105 s):**

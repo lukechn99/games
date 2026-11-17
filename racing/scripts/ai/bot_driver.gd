@@ -22,7 +22,6 @@ var _noise := FastNoiseLite.new()
 var _t := 0.0
 var _stuck := 0.0
 var _fell_on_lap := -1        # after a fall, stay on the main road for the lap
-var _last_trick := -10.0
 
 
 func _init(k: Kart, t: Track, lvl := "medium", seed_value := 0) -> void:
@@ -36,6 +35,9 @@ func _init(k: Kart, t: Track, lvl := "medium", seed_value := 0) -> void:
 
 
 func _ready() -> void:
+	# Medium and hard drivers do a trick off every lip (LaunchGaps reads
+	# this; pressing drift at the lip would start a drift hop on the ground).
+	kart.set_meta("tricks", level != "easy")
 	lane = (float(get_index() % 3) - 1.0) * float(LEVELS[level]["lane"])
 	kart.respawned.connect(func(): _fell_on_lap = kart.lap)
 
@@ -68,7 +70,6 @@ func _physics_process(delta: float) -> void:
 	var target := _target_at(off + look, wander, bi, take)
 	# In a crater you can drive anywhere: make for one of its lips (a bowl
 	# with several, the moon's first crater, is picked lap by lap).
-	var trick := false
 	var zone := track.free_zone_at(kart.global_position)
 	if zone >= 0:
 		var lips := track.pads_of_zone(zone)
@@ -76,14 +77,6 @@ func _physics_process(delta: float) -> void:
 			var p: Dictionary = lips[(kart.lap + get_index()) % lips.size()]
 			var dir: Vector3 = p["dir"]
 			target = (p["centre"] as Vector3) + dir * (float(p["r"]) + 14.0)
-			var c: Vector3 = p["centre"]
-			var along := Vector3(kart.global_position.x - c.x, 0.0, kart.global_position.z - c.z).dot(dir)
-			trick = float(p["r"]) - along < maxf(spd, 1.0) * 0.12
-	else:
-		for g: Array in track.gaps:
-			var to_lip := fposmod(float(g[0]) - off, track.length)
-			if to_lip < maxf(spd, 1.0) * 0.12:
-				trick = true
 
 	var to := target - kart.global_position
 	to.y = 0.0
@@ -115,11 +108,6 @@ func _physics_process(delta: float) -> void:
 	var drift := false
 	if bool(cfg["drift"]) and bend > 0.012 and spd > 14.0 and absf(steer) > 0.35:
 		drift = true
-	# A trick off every lip (not the easy ones: they forget).
-	if trick and level != "easy":
-		drift = _t - _last_trick > 0.6
-		if drift:
-			_last_trick = _t
 
 	# Stuck against something: back off and turn away.
 	_stuck = _stuck + delta if spd < 1.0 and throttle > 0.5 else 0.0

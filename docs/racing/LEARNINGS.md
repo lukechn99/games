@@ -148,6 +148,12 @@ The web build uses Godot's Compatibility renderer (WebGL 2).
 - **"Below the road" depends on the bank.** On a banked bend's low side a
   kart on the shoulder is more than 2.5 m below the road's centre. Measure
   from the road's surface at that point.
+- **Computer drivers can't use a boost they didn't plan for.** Giving them
+  the trick boost (or having them tap drift at the lip, which starts a
+  drift hop) put karts off the bend after a landing on three tracks that
+  had raced clean. *Rule:* a change to shared driving code is checked on
+  every track (verify all), and computer drivers only get speed their
+  corner logic knows about.
 - **Tracing one kart beats guessing.** `KW_TRACE=<kart> KW_TRACE_FROM=<s>
   KW_TRACE_TO=<s>` with `tests/race_report.gd` prints a kart's position,
   speed and road position every 1/6 s; the reset list gives where it was

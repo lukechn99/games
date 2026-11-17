@@ -28,7 +28,7 @@ const RIDE := 0.55          # kart centre above the road
 const HOLD := 7.0           # how firmly a kart is held to the arc
 const TRICK_EARLY := 0.25   # seconds before the lip a drift press still counts
 const TRICK_LATE := 0.3     # and after it
-const TRICK_BOOST := 0.9    # seconds of boost for a trick
+const TRICK_BOOST := 0.7    # seconds of boost for a trick
 const GLIDE_SPAN := 90.0    # gliders open on jumps longer than this
 
 var track: Track
@@ -164,7 +164,10 @@ func _launch(k: Kart, arc: Dictionary, side: float) -> void:
 	var speed := maxf(float(arc["min_speed"]), Vector2(k.linear_velocity.x, k.linear_velocity.z).length())
 	var fly := float(arc["fly_speed"]) if float(arc["fly_speed"]) > 0.0 else speed * float(arc["slow"])
 	var f := {"arc": arc, "t": 0.0, "T": float(arc["span"]) / fly, "speed": speed, "side": side,
-		"trick": _clock - float(_pressed.get(k, -10.0)) < TRICK_EARLY, "knocked": k.knocked_ms}
+		"trick": _clock - float(_pressed.get(k, -10.0)) < TRICK_EARLY, "knocked": k.knocked_ms,
+		# Computer drivers flip for show, but get no boost: they don't brake
+		# for the extra speed, and were thrown off bends after landings.
+		"show": bool(k.get_meta("tricks", false))}
 	if arc["glide"]:
 		f["glider"] = _open_glider(k)
 	_flights[k] = f
@@ -194,7 +197,7 @@ func _fly(k: Kart, delta: float) -> void:
 		return
 	var vis := k.get_meta("visual", null) as Node3D
 	if vis:
-		if f["trick"]:
+		if f["trick"] or f["show"]:
 			# A forward somersault about the kart's middle, eased in and out.
 			var turn := -TAU * smoothstep(0.08, 0.92, u)
 			var pivot := Vector3(0.0, 0.45, 0.0)

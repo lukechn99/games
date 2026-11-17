@@ -9,7 +9,7 @@ const out = resolve(process.argv[2] || join(REPO, 'public/tracks'))
 const only = process.argv.slice(3)
 const CUPS = [
   ['gp', [['meadow', 'Meadow'], ['mine', 'Mine'], ['frost', 'Frost']]],
-  ['gp2', [['funfair', 'Funfair'], ['windy', 'Windy City'], ['starliner', 'Starliner']]],
+  ['gp2', [['funfair', 'Funfair'], ['windy', 'Windy City'], ['starliner', 'Cosmic Crossing']]],
 ]
 await mkdir(out, { recursive: true })
 await ensureExport()

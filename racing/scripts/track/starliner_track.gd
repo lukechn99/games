@@ -1,6 +1,6 @@
 class_name StarlinerTrack
 extends RefCounted
-## Starliner Run (design doc 8.6): a lap across two little worlds and a
+## Cosmic Crossing (design doc 8.6; the track id is still "starliner"): a lap across two little worlds and a
 ## flying saucer, on Mario Kart's rules for jumps (no skill needed to make
 ## one; a trick off the lip for a boost; you only fall if hit in the air).
 ##
@@ -17,7 +17,7 @@ extends RefCounted
 ## beyond. Gravity points down everywhere (like every other track), so each
 ## world is a squashed ball and the road keeps to its gentle top.
 
-const NAME := "Starliner Run"
+const NAME := "Cosmic Crossing"
 const SIGN_FONT := "res://assets/fonts/black_ops_one.woff2"
 const NAVY := Color(0.078, 0.106, 0.2)       # space
 const CYAN := Color(0.21, 0.88, 1.0)         # saucer lights

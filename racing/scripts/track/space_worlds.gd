@@ -1,6 +1,6 @@
 class_name SpaceWorlds
 extends RefCounted
-## What Starliner Run is made of (design doc 8.6): the moon and the red
+## What Cosmic Crossing is made of (design doc 8.6): the moon and the red
 ## planet with the road cut into them, the moon's crater bowls with their
 ## rim rails and side ramps, dust shoulders and guardrails along every road,
 ## the flying saucer, and space round it all.
@@ -109,15 +109,18 @@ static func _shoulders(t: Track, samples: Array) -> void:
 	KitTools.solid(t, hit.commit())
 
 
-## A world: a squashed ball, its top shaped round the road (cut into the
-## ground where it rises beside it, built up where it falls away), with
-## holes where the crater bowls go.
+## A world: round underneath, its top flattened where the road runs (cut
+## into the ground where it rises beside the road, built up where it falls
+## away), with holes where the crater bowls go. Craters dent the moon all
+## over and volcanoes rise from the red planet, so neither outline is a
+## perfect circle.
 static func _planet(t: Track, body: Dictionary, world: String, samples: Array) -> void:
 	var cx := float(body["x"])
 	var cz := float(body["z"])
 	var a := float(body["a"])
 	var bb := float(body["b"])
 	var top := float(body["top"])
+	var centre := Vector3(cx, top - bb, cz)
 	# The road on this world, in 24 m cells, for finding the nearest bit.
 	var cells := {}
 	for s: Array in samples:
@@ -128,18 +131,23 @@ static func _planet(t: Track, body: Dictionary, world: String, samples: Array) -
 		if not cells.has(key):
 			cells[key] = []
 		(cells[key] as Array).append(f)
-	# Rings: close together across the top, wider down the sides and under.
+	var features := _features(world, body, cells)
+	# Rings: close together across the top, then down the sides and round
+	# underneath (a full ball below the middle).
 	var rings: Array[Vector2] = []   # (distance out, height)
 	var d := 0.0
 	var flat := a * 0.8
 	while d < flat:
 		rings.append(Vector2(d, StarlinerTrack.body_h(body, Vector2(cx + d, cz))))
-		d += 3.0 if d < 12.0 else 7.0
+		d += 3.0 if d < 12.0 else 8.0
 	var phi0 := asin(flat / a)
-	for k in range(1, 11):
-		var phi := lerpf(phi0, PI, float(k) / 10.0)
+	for k in range(1, 7):
+		var phi := lerpf(phi0, PI * 0.5, float(k) / 6.0)
 		rings.append(Vector2(a * sin(phi), top - bb + bb * cos(phi)))
-	var segs := 56
+	for k in range(1, 17):
+		var phi := lerpf(PI * 0.5, PI, float(k) / 16.0)
+		rings.append(Vector2(a * sin(phi), top - bb + a * cos(phi)))
+	var segs := 64
 	var verts: Array[Vector3] = []
 	var cols: Array[Color] = []
 	for r in rings.size():
@@ -147,16 +155,17 @@ static func _planet(t: Track, body: Dictionary, world: String, samples: Array) -
 		for k in segs:
 			var ang := TAU * k / segs
 			var p := Vector3(cx + cos(ang) * ring.x, ring.y, cz + sin(ang) * ring.x)
-			var natural := p.y
-			if world == "moon":
-				p.y = StarlinerTrack.ground(Vector2(p.x, p.z), "moon") if ring.x < flat else p.y
+			if world == "moon" and ring.x < flat:
+				p.y = StarlinerTrack.ground(Vector2(p.x, p.z), "moon")
 			elif ring.x < flat:
 				p.y += _dunes(p) * smoothstep(0.0, 40.0, ring.x)
-			natural = p.y
+			var lift := _feature_lift(features, (p - centre).normalized())
+			p += (p - centre).normalized() * lift.x
+			var natural := p.y
 			if ring.x < flat:
 				p.y = _shape_round_road(cells, p, natural)
 			verts.append(p)
-			cols.append(_tint(world, p, ring, natural - p.y))
+			cols.append(_tint(world, p, ring, natural - p.y, lift))
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for r in rings.size() - 1:
@@ -171,6 +180,120 @@ static func _planet(t: Track, body: Dictionary, world: String, samples: Array) -
 				st.set_color(cols[i])
 				st.add_vertex(verts[i])
 	KitTools.commit(t, st, Palette.toon(Color.WHITE, true))
+	# Lava glowing in each volcano's crater.
+	var lava := SurfaceTool.new()
+	lava.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for f: Dictionary in features:
+		if f["kind"] != "volcano":
+			continue
+		var dir: Vector3 = f["dir"]
+		var floor_at := centre + dir * (_radius_along(body, dir) + float(f["h"]) * 0.58)
+		var side := dir.cross(Vector3.UP if absf(dir.y) < 0.95 else Vector3.RIGHT).normalized()
+		var up := dir.cross(side).normalized()
+		var r := float(f["arad"]) * a * 0.17
+		for n in 12:
+			var a0 := TAU * n / 12.0
+			var a1 := TAU * (n + 1) / 12.0
+			KitTools.quad(lava, floor_at, floor_at + (side * cos(a0) + up * sin(a0)) * r, floor_at + (side * cos(a1) + up * sin(a1)) * r, floor_at,
+				Color(1.0, 0.45, 0.12) if n % 2 == 0 else Color(1.0, 0.62, 0.2))
+	if not features.is_empty():
+		KitTools.commit(t, lava, KitTools.glow(Color.WHITE), true)
+
+
+## How far the ball's surface is from its centre along `dir` (flattened
+## top, round bottom).
+static func _radius_along(body: Dictionary, dir: Vector3) -> float:
+	var a := float(body["a"])
+	var b := float(body["b"]) if dir.y > 0.0 else a
+	var flat := Vector2(dir.x, dir.z).length()
+	return 1.0 / sqrt(flat * flat / (a * a) + dir.y * dir.y / (b * b))
+
+
+## The moon's craters and the red planet's volcanoes, off the road: each a
+## direction from the centre, an angular radius and a size.
+static func _features(world: String, body: Dictionary, cells: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 91 if world == "moon" else 57
+	var a := float(body["a"])
+	var centre := Vector3(float(body["x"]), float(body["top"]) - float(body["b"]), float(body["z"]))
+	var clear_of_road := func(dir: Vector3, arad: float) -> bool:
+		var p := centre + dir * _radius_along(body, dir)
+		for c: Array in cells.values():
+			for f: Transform3D in c:
+				if Vector2(p.x - f.origin.x, p.z - f.origin.z).length() < arad * a * 1.6 + 30.0:
+					return false
+		for c: Vector2 in StarlinerTrack.CRATERS.values():
+			if world == "moon" and Vector2(p.x, p.z).distance_to(c) < arad * a * 1.6 + 50.0:
+				return false
+		return true
+	if world == "moon":
+		var tries := 0
+		while out.size() < 30 and tries < 400:
+			tries += 1
+			var phi := acos(rng.randf_range(-1.0, 0.85))     # from straight up
+			var az := rng.randf() * TAU
+			var dir := Vector3(sin(phi) * cos(az), cos(phi), sin(phi) * sin(az))
+			var arad := deg_to_rad(rng.randf_range(5.0, 15.0))
+			if dir.y > 0.45 and not clear_of_road.call(dir, arad):
+				continue
+			var overlaps := false
+			for f in out:
+				if dir.angle_to(f["dir"]) < (arad + float(f["arad"])) * 0.9:
+					overlaps = true
+			if not overlaps:
+				out.append({"kind": "crater", "dir": dir, "arad": arad, "h": arad * a * 0.28})
+	else:
+		# Three great volcanoes round the sides, facing away from the moon
+		# and the saucer (so no jump flies into one), and a smaller one you
+		# pass on the road.
+		for v: Array in [[180.0, 74.0, 17.0, 110.0], [250.0, 64.0, 15.0, 90.0], [325.0, 82.0, 16.0, 100.0]]:
+			var az := deg_to_rad(v[0])
+			var phi := deg_to_rad(v[1])
+			var dir := Vector3(sin(phi) * cos(az), cos(phi), sin(phi) * sin(az))
+			out.append({"kind": "volcano", "dir": dir, "arad": deg_to_rad(v[2]), "h": v[3]})
+		# The small one: the first place on the upper slopes clear of the road.
+		for step in 24:
+			var az := deg_to_rad(150.0 + step * 15.0)
+			var phi := deg_to_rad(34.0)
+			var dir := Vector3(sin(phi) * cos(az), cos(phi), sin(phi) * sin(az))
+			if clear_of_road.call(dir, deg_to_rad(7.0)):
+				out.append({"kind": "volcano", "dir": dir, "arad": deg_to_rad(7.0), "h": 36.0})
+				break
+	return out
+
+
+## How far the ground rises (+) or sinks along the way out, and how much
+## of a feature this is (for colouring): (lift, crater floor 0..1, volcano
+## slope 0..1, caldera 0..1).
+static func _feature_lift(features: Array[Dictionary], v: Vector3) -> Vector4:
+	var lift := 0.0
+	var floor_k := 0.0
+	var slope_k := 0.0
+	var caldera := 0.0
+	for f: Dictionary in features:
+		var r := v.angle_to(f["dir"]) / float(f["arad"])
+		if r > 1.6:
+			continue
+		var h := float(f["h"])
+		if f["kind"] == "crater":
+			if r < 1.0:
+				lift += -h + h * 1.4 * r * r
+				floor_k = maxf(floor_k, 1.0 - r)
+			else:
+				var u := (r - 1.0) / 0.6
+				lift += h * 0.55 * (1.0 - u) * (1.0 - u)
+		elif r < 1.0:
+			# A steep cone on a broad base.
+			var shield := h * (0.65 * pow(1.0 - r, 1.15) + 0.35 * pow(1.0 - r, 3.0))
+			if r < 0.18:
+				# The caldera: a pit in the summit.
+				var rim := h * (0.65 * pow(0.82, 1.15) + 0.35 * pow(0.82, 3.0))
+				shield = rim - h * 0.22 * (1.0 - r / 0.18)
+				caldera = 1.0 - r / 0.18
+			lift += shield
+			slope_k = maxf(slope_k, 1.0 - r)
+	return Vector4(lift, floor_k, slope_k, caldera)
 
 
 ## The ground beside the road meets the dust shoulders, then eases back to
@@ -207,7 +330,7 @@ static func _dunes(p: Vector3) -> float:
 ## Ground colour: the moon grey with darker seas and small pale craters;
 ## the red planet rust with light dust and dark streaks, and an ice cap
 ## underneath.
-static func _tint(world: String, p: Vector3, ring: Vector2, cut: float) -> Color:
+static func _tint(world: String, p: Vector3, ring: Vector2, cut: float, lift := Vector4.ZERO) -> Color:
 	var n := sin(p.x * 0.021 + 1.3) * sin(p.z * 0.017 + 0.4) + 0.5 * sin(p.x * 0.07 - p.z * 0.05)
 	if world == "moon":
 		var c := StarlinerTrack.MOON_C.lerp(StarlinerTrack.MOON_DARK, clampf(n * 0.6, 0.0, 0.7))
@@ -219,9 +342,19 @@ static func _tint(world: String, p: Vector3, ring: Vector2, cut: float) -> Color
 				c = c.darkened(0.25) if dd < r * 0.75 else c.lightened(0.18)
 		if cut > 1.5:
 			c = c.darkened(0.12)   # the walls of a cutting
+		if lift.y > 0.0:
+			c = c.darkened(0.3 * lift.y)          # crater floors darker
+		elif lift.x > 0.5:
+			c = c.lightened(0.15)                 # their rims paler
 		return c
-	if ring.y < float(StarlinerTrack.MARS["top"]) - float(StarlinerTrack.MARS["b"]) * 1.75:
+	if ring.y < float(StarlinerTrack.MARS["top"]) - float(StarlinerTrack.MARS["b"]) - float(StarlinerTrack.MARS["a"]) * 0.8:
 		return Color(0.95, 0.95, 0.98)   # the ice cap
+	if lift.w > 0.0:
+		return Color(0.18, 0.08, 0.06)   # the caldera's scorched pit
+	if lift.z > 0.0:
+		# A volcano's slopes: darker rock streaked down from the top.
+		var streak := absf(sin(atan2(p.z, p.x) * 40.0))
+		return StarlinerTrack.RUST_DARK.lerp(StarlinerTrack.RUST, 0.35 + 0.3 * streak).lerp(StarlinerTrack.RUST, 1.0 - lift.z)
 	var c := StarlinerTrack.RUST.lerp(StarlinerTrack.RUST_LIGHT, clampf(n * 0.5 + 0.3, 0.0, 1.0))
 	# Dark lands in blotches, not bands.
 	var blot := sin(p.x * 0.019 + 0.7) * sin(p.z * 0.023 - 1.1) + 0.45 * sin(p.x * 0.051 + p.z * 0.037)
@@ -596,7 +729,7 @@ static func _space(t: Track) -> void:
 	var stars := SurfaceTool.new()
 	stars.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var centre := Vector3(150, 150, -330)
-	for i in 1100:
+	for i in 650:
 		var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized()
 		var p := centre + dir * 2200.0
 		var size := rng.randf_range(3.0, 9.0)
@@ -622,8 +755,8 @@ static func _space(t: Track) -> void:
 	var ball := SphereMesh.new()
 	ball.radius = 420.0
 	ball.height = 840.0
-	ball.radial_segments = 40
-	ball.rings = 20
+	ball.radial_segments = 28
+	ball.rings = 14
 	giant.mesh = ball
 	giant.material_override = Palette.toon(StarlinerTrack.VIOLET.lerp(StarlinerTrack.CYAN, 0.3))
 	giant.position = centre + Vector3(1500, -350, 900)

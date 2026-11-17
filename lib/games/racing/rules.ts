@@ -20,7 +20,7 @@ export const TRACKS = [
   { id: 'frost', name: 'Frosty Pass', laps: 3 },
   { id: 'funfair', name: 'Funfair Frenzy', laps: 2 },
   { id: 'windy', name: 'Windy City Circuit', laps: 2 },
-  { id: 'starliner', name: 'Starliner Run', laps: 2 },
+  { id: 'starliner', name: 'Cosmic Crossing', laps: 2 },
 ] as const
 export type TrackId = (typeof TRACKS)[number]['id']
 

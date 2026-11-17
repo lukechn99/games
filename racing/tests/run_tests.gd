@@ -1161,7 +1161,7 @@ func _test_kit_dress() -> void:
 ## steer, gliders on long jumps, falling only when hit in the air, vents
 ## that blow you off and put you back, and craters you can drive round.
 func _test_space() -> void:
-	print("Starliner Run")
+	print("Cosmic Crossing")
 	if _world:
 		_world.free()
 	_world = Node3D.new()

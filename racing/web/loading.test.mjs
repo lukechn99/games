@@ -16,7 +16,7 @@ function page(track, readyState = 'complete') {
   return { document, status, progress, notice }
 }
 
-for (const [track, name] of Object.entries({ meadow: 'Meadow Loop', mine: 'Mining Mountain', frost: 'Frosty Pass', funfair: 'Funfair Frenzy', windy: 'Windy City Circuit', starliner: 'Starliner Run' })) {
+for (const [track, name] of Object.entries({ meadow: 'Meadow Loop', mine: 'Mining Mountain', frost: 'Frosty Pass', funfair: 'Funfair Frenzy', windy: 'Windy City Circuit', starliner: 'Cosmic Crossing' })) {
   test(`${track} uses its own aerial under a project base path`, () => {
     const p = page(track)
     assert.equal(p.document.head.children[0].href, `https://example.com/games/tracks/aerial-${track}.jpg`)

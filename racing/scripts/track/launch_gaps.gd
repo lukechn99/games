@@ -50,7 +50,8 @@ func setup(t: Track, all: Array[Kart]) -> void:
 		var a := t.road_frame(g[0])
 		var b := t.road_frame(g[1])
 		var opt: Dictionary = g[2] if g.size() > 2 else {}
-		var arc := make_arc(a.origin + Vector3.UP * RIDE, b.origin + Vector3.UP * RIDE, a, b, opt)
+		# ("land_up": the landing's road lies under the ground there, a crater.)
+		var arc := make_arc(a.origin + Vector3.UP * RIDE, b.origin + Vector3.UP * (RIDE + float(opt.get("land_up", 0.0))), a, b, opt)
 		arc["from"] = float(g[0])
 		arc["to"] = float(g[1])
 		arc["pads"] = bool(opt.get("pads", false))

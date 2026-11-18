@@ -12,7 +12,7 @@ const EXTRA := {
 	"meadow": [["tunnel", 180.0, 0.0, 2.6, 24.0, ""]],
 	"frost": [["hairpin", 176.0, 0.0, 2.6, 24.0, ""]],
 	# Over the moon's first crater, looking down the diamond; the saucer's vents.
-	"starliner": [["craters", 70.0, 0.0, 26.0, 150.0, ""], ["vents", 1640.0, 0.0, 4.0, 50.0, ""]],
+	"starliner": [["craters", 1190.0, 0.0, 26.0, 150.0, ""], ["vents", 150.0, 0.0, 4.0, 50.0, ""]],
 }
 
 

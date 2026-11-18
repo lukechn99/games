@@ -15,6 +15,8 @@ const SURFACES := {
 	"boost": {"grip": 1.0, "drag": -2.5, "color": Color(1.0, 0.62, 0.15)},
 	# The space track's shoulders: moon dust and the red planet's rust.
 	"moondust": {"grip": 0.7, "drag": 1.1, "color": Color(0.72, 0.72, 0.76)},
+	# A crater's bowl: drives like a road (the bowl is the road there).
+	"regolith": {"grip": 1.0, "drag": 0.0, "color": Color(0.7, 0.7, 0.74)},
 	"reddust": {"grip": 0.65, "drag": 1.2, "color": Color(0.78, 0.4, 0.24)},
 }
 

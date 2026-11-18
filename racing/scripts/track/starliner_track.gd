@@ -4,18 +4,19 @@ extends RefCounted
 ## flying saucer, on Mario Kart's rules for jumps (no skill needed to make
 ## one; a trick off the lip for a boost; you only fall if hit in the air).
 ##
-## The moon: from the base, into a diamond of five craters. Each crater's
-## far rim launches you into the next; out of the first you choose by
-## steering: straight on to the middle crater, or left or right into a side
-## crater. The last crater launches you across space to the red planet.
-## The red planet: a winding road over rust dust, with dust devils. Then a
-## jump to the saucer: round its rim past vents that warn, then blow karts
-## off into space; the last vent always blows, and carries you back to the
-## moon.
+## The lap starts on the saucer (the only flat ground): round its rim past
+## vents that warn, then blow karts up off the road; the last vent always
+## blows, and carries you to the moon, landing in the first of a diamond of
+## five craters. Each crater's far rim launches you into the next; out of
+## the first you choose by steering: straight on to the middle crater, or
+## left or right into a side crater. The last crater launches you across
+## space to the red planet, where the road weaves between volcanoes, and
+## its edge launches you back to the saucer.
 ##
 ## Roads are raised slabs with dust shoulders that slow you, and guardrails
-## beyond. Gravity points down everywhere (like every other track), so each
-## world is a squashed ball and the road keeps to its gentle top.
+## beyond; in a crater the bowl itself is the road. Gravity points down
+## everywhere (like every other track), so the roads keep to the gentle
+## tops of round worlds.
 
 const NAME := "Cosmic Crossing"
 const SIGN_FONT := "res://assets/fonts/black_ops_one.woff2"
@@ -25,9 +26,9 @@ const AMBER := Color(1.0, 0.7, 0.12)         # warnings
 const VIOLET := Color(0.69, 0.29, 0.88)      # nebula
 const MOON_C := Color(0.74, 0.74, 0.78)      # moon dust
 const MOON_DARK := Color(0.46, 0.46, 0.53)   # crater floors, maria
-const RUST := Color(0.7, 0.3, 0.16)          # the red planet
-const RUST_LIGHT := Color(0.88, 0.52, 0.3)
-const RUST_DARK := Color(0.44, 0.17, 0.1)
+const RUST := Color(0.8, 0.42, 0.24)         # the red planet: dusty rust
+const RUST_LIGHT := Color(0.93, 0.64, 0.42)
+const RUST_DARK := Color(0.52, 0.25, 0.15)
 const HULL := Color(0.8, 0.84, 0.9)          # the saucer
 const ROAD := Color(0.6, 0.62, 0.68)         # the raised road everywhere
 const SIGN_INK := Color(0.95, 0.96, 1.0)
@@ -35,25 +36,33 @@ const SIGN_EDGE := NAVY
 const SIGN_BOARD := Color(0.14, 0.19, 0.34)
 const SIGN_TRIM := CYAN
 
-## The worlds: squashed balls, by the centre of their top (x, z), the height
-## of the top, and their radii across (a) and up (b).
-const MOON := {"x": 0.0, "z": 0.0, "top": 200.0, "a": 320.0, "b": 160.0}
-const MARS := {"x": 0.0, "z": -690.0, "top": 150.0, "a": 300.0, "b": 150.0}
-const SAUCER := Vector3(300, 140, -360)   # centre of its deck
+## The worlds: balls, by the centre of their top (x, z), the height of the
+## top, and their radius (a, b: across and up, the same for a ball).
+const MOON := {"x": 0.0, "z": 0.0, "top": 200.0, "a": 380.0, "b": 380.0}
+const MARS := {"x": -375.0, "z": -650.0, "top": 165.0, "a": 340.0, "b": 340.0}
+const SAUCER := Vector3(-20, 175, -380)   # centre of its deck
 const SAUCER_R := 130.0
 const RING := 105.0                       # the road's radius round the deck
-const LAND_AT := 160.0                    # degrees round the ring: the jump from Mars lands here
-const VENT_AT := -160.0                   # and the last vent (the angle falls as you drive)
+const LAND_AT := 147.3                    # degrees round the ring: the jump from Mars lands here, tangent
+const START_AT := 117.0                   # the start line
+const VENT_AT := -190.0                   # and the last vent (the angle falls as you drive)
 const RIDE := 0.5                         # the road's height above the ground
 const SHOULDER := 6.5                     # dust either side, before the guardrail
 const CR := 30.0                          # crater radius (to the rim crest)
-const CRATERS := {"T": Vector2(-30, 50), "M": Vector2(-30, -40), "B": Vector2(-30, -130),
-	"L": Vector2(-100, -40), "R": Vector2(40, -40)}
-## The roads, as points across the ground (x, z), sampled into the lap.
-const START := [Vector2(20, 125), Vector2(-12, 118), Vector2(-28, 104), Vector2(-30, 90), Vector2(-30, 80)]
-const MOON_IN := [Vector2(137, -131), Vector2(130, -50), Vector2(122, 30), Vector2(108, 96), Vector2(76, 124), Vector2(46, 126)]
-const MARS_ROAD := [Vector2(-30, -545), Vector2(-52, -615), Vector2(-38, -695), Vector2(15, -745),
-	Vector2(85, -748), Vector2(130, -705), Vector2(120, -660), Vector2(130, -600)]
+## The craters run across the moon's top towards the red planet (FIELD),
+## with a side crater either side of the middle one.
+const FIELD := Vector2(-0.5, -0.866)
+const CRATERS := {"T": Vector2(25, 47.94), "M": Vector2(-20, -30), "B": Vector2(-65, -107.94),
+	"L": Vector2(38.89, -64.00), "R": Vector2(-78.89, 4.00)}
+## Where the saucer drops you, swinging round the moon into the first crater.
+const MOON_ROAD := [Vector2(112, -92), Vector2(128, -30), Vector2(120, 40), Vector2(98, 88), Vector2(66, 100), Vector2(40, 73.92)]
+const IN_CRATER := -0.3   # the lap's road in a crater lies just under the bowl, which is the road
+## The red planet's road from where you land, weaving between volcanoes
+## (x, z from its centre), and the volcanoes (x, z, base radius, height).
+const MARS_ROAD := [Vector2(52, 119), Vector2(14, 80), Vector2(-18, 30), Vector2(8, -20), Vector2(-14, -72),
+	Vector2(22, -116), Vector2(72, -108), Vector2(98, -62), Vector2(68, -16), Vector2(100, 32), Vector2(111, 85)]
+const MARS_CONES := [[-52.0, 62.0, 24.0, 30.0], [30.0, 22.0, 24.0, 32.0], [-45.0, -30.0, 24.0, 34.0],
+	[48.0, -70.0, 24.0, 36.0], [120.0, -10.0, 20.0, 26.0]]
 const POINTS := []   # built in configure (_points)
 
 static var _marks := {}   # name -> a point on the lap
@@ -76,38 +85,55 @@ static func configure(t: Track) -> void:
 static func _points() -> Array:
 	_marks = {}
 	var pts: Array[Vector3] = []
-	_marks["start"] = _ground(START[0], "moon")
-	pts.append_array(_road(START, "moon", 3.0))
-	var t: Vector2 = CRATERS["T"]
-	var m: Vector2 = CRATERS["M"]
-	var b: Vector2 = CRATERS["B"]
-	_line(pts, Vector2(t.x, t.y + CR - 2.0), Vector2(t.x, t.y - CR), "moon", 2.0)
-	_marks["t_lip"] = pts[pts.size() - 1]
-	_marks["m_land"] = _ground(Vector2(m.x, m.y + CR * 0.55), "moon")
-	_flight(pts, _marks["t_lip"], _marks["m_land"], 11.0, 10.0)
-	_line(pts, Vector2(m.x, m.y + CR * 0.55), Vector2(m.x, m.y - CR), "moon", 2.0)
-	_marks["m_lip"] = pts[pts.size() - 1]
-	_marks["b_land"] = _ground(Vector2(b.x, b.y + CR * 0.55), "moon")
-	_flight(pts, _marks["m_lip"], _marks["b_land"], 11.0, 10.0)
-	_line(pts, Vector2(b.x, b.y + CR * 0.55), Vector2(b.x, b.y - CR), "moon", 2.0)
-	_marks["b_lip"] = pts[pts.size() - 1]
-	_marks["mars_land"] = _ground(MARS_ROAD[0], "mars")
-	_flight(pts, _marks["b_lip"], _marks["mars_land"], 45.0, 25.0)
-	pts.append_array(_road(MARS_ROAD, "mars", 5.0))
-	_marks["mars_lip"] = pts[pts.size() - 1]
-	_marks["saucer_land"] = _ring_point(LAND_AT)
-	_flight(pts, _marks["mars_lip"], _marks["saucer_land"], 30.0, 25.0)
-	var a := LAND_AT
+	var T: Vector2 = CRATERS["T"]
+	var M: Vector2 = CRATERS["M"]
+	var B: Vector2 = CRATERS["B"]
+	# Round the saucer from the start line to the last vent.
+	_marks["start"] = _ring_point(START_AT)
+	var a := START_AT
 	while a > VENT_AT + 0.01:
 		pts.append(_ring_point(a))
 		a -= 2.5
 	pts.append(_ring_point(VENT_AT))
 	_marks["vent"] = pts[pts.size() - 1]
-	_marks["moon_land"] = _ground(MOON_IN[0], "moon")
-	_flight(pts, _marks["vent"], _marks["moon_land"], 40.0, 25.0)
-	var home := _road(MOON_IN, "moon", 5.0)
-	pts.append_array(home)
+	# Blown to the moon: round its road and into the first crater, out of
+	# its far rim.
+	_marks["moon_land"] = _ground(MOON_ROAD[0], "moon")
+	_flight(pts, _marks["vent"], _marks["moon_land"], 45.0, 25.0)
+	pts.append_array(_road(MOON_ROAD, "moon", 4.0))
+	_line(pts, T - FIELD * (CR - 2.0), T + FIELD * CR, "moon", 2.0)
+	_marks["t_lip"] = pts[pts.size() - 1]
+	_marks["m_land"] = _ground(M - FIELD * CR * 0.55, "moon")
+	_flight(pts, _marks["t_lip"], _marks["m_land"], 11.0, 10.0)
+	_line(pts, M - FIELD * CR * 0.55, M + FIELD * CR, "moon", 2.0)
+	_marks["m_lip"] = pts[pts.size() - 1]
+	_marks["b_land"] = _ground(B - FIELD * CR * 0.55, "moon")
+	_flight(pts, _marks["m_lip"], _marks["b_land"], 11.0, 10.0)
+	var mars0 := mars_at(MARS_ROAD[0])
+	var to_mars := (mars0 - B).normalized()
+	pts.append_array(_road([B - FIELD * CR * 0.55, B, B + to_mars * CR], "moon", 2.0))
+	_marks["b_lip"] = pts[pts.size() - 1]
+	# Across space to the red planet, its road, and its edge.
+	_marks["mars_land"] = _ground(mars0, "mars")
+	_flight(pts, _marks["b_lip"], _marks["mars_land"], 60.0, 25.0)
+	var road: Array = []
+	for q: Vector2 in MARS_ROAD:
+		road.append(mars_at(q))
+	pts.append_array(_road(road, "mars", 5.0))
+	_marks["mars_lip"] = pts[pts.size() - 1]
+	# Back to the saucer, and round to the start.
+	_marks["saucer_land"] = _ring_point(LAND_AT)
+	_flight(pts, _marks["mars_lip"], _marks["saucer_land"], 35.0, 25.0)
+	a = LAND_AT
+	while a > START_AT + 1.0:
+		pts.append(_ring_point(a))
+		a -= 2.5
 	return pts
+
+
+## A place on the red planet, from its centre.
+static func mars_at(q: Vector2) -> Vector2:
+	return Vector2(float(MARS["x"]) + q.x, float(MARS["z"]) + q.y)
 
 
 ## The ground's height at (x, z) on a world.
@@ -140,7 +166,15 @@ static func crater_off(r: float) -> float:
 
 
 static func _ground(p: Vector2, world: String) -> Vector3:
-	return Vector3(p.x, ground(p, world) + RIDE, p.y)
+	return Vector3(p.x, ground(p, world) + (IN_CRATER if world == "moon" and in_crater(p) else RIDE), p.y)
+
+
+## Inside a crater's rim (where the bowl is the road).
+static func in_crater(p: Vector2) -> bool:
+	for c: Vector2 in CRATERS.values():
+		if p.distance_to(c) < CR + 2.0:
+			return true
+	return false
 
 
 static func _ring_point(deg: float) -> Vector3:
@@ -210,21 +244,21 @@ static func plan(t: Track) -> void:
 	var Lc: Vector2 = CRATERS["L"]
 	var Rc: Vector2 = CRATERS["R"]
 	t.pads = [
-		_pad(T, M, {"lift": 11.0, "half": 8.5}), _pad(T, Lc, {"lift": 15.0}), _pad(T, Rc, {"lift": 15.0}),
-		_pad(M, B, {"lift": 11.0, "half": 8.5}), _pad(Lc, B, {"lift": 15.0}), _pad(Rc, B, {"lift": 15.0}),
+		_pad(T, M, {"lift": 11.0, "half": 8.5}), _pad(T, Lc, {"lift": 15.0, "half": 8.0}), _pad(T, Rc, {"lift": 15.0, "half": 8.0}),
+		_pad(M, B, {"lift": 11.0, "half": 8.5}), _pad(Lc, B, {"lift": 15.0, "half": 8.5}), _pad(Rc, B, {"lift": 15.0, "half": 8.5}),
 	]
 	# The last crater fires you across space to the red planet.
-	var mars := _pad(B, B + Vector2(0, -100), {"lift": 45.0, "fly_speed": 72.0, "glide": true, "half": 8.5})
+	var mars := _pad(B, mars_at(MARS_ROAD[0]), {"lift": 60.0, "fly_speed": 90.0, "glide": true, "half": 8.5})
 	mars["to"] = t.road_frame(_at(t, "mars_land"))
 	t.pads.append(mars)
 	t.gaps = [
+		[_at(t, "vent"), _at(t, "moon_land"), {"lift": 45.0, "fly_speed": 75.0, "glide": true}],
 		[_at(t, "t_lip"), _at(t, "m_land"), {"pads": true}],
 		[_at(t, "m_lip"), _at(t, "b_land"), {"pads": true}],
 		[_at(t, "b_lip"), _at(t, "mars_land"), {"pads": true}],
-		[_at(t, "mars_lip"), _at(t, "saucer_land"), {"lift": 30.0, "fly_speed": 62.0, "glide": true}],
-		[_at(t, "vent"), _at(t, "moon_land"), {"lift": 40.0, "fly_speed": 62.0, "glide": true}],
+		[_at(t, "mars_lip"), _at(t, "saucer_land"), {"lift": 35.0, "fly_speed": 66.0, "glide": true}],
 	]
-	# Boosts: down the base straight, and two on the red planet.
+	# Boosts: two on the red planet.
 	var mars0 := _at(t, "mars_land")
 	t.surface_zones = [
 		{"from": (mars0 + 150.0) / L, "to": (mars0 + 162.0) / L, "surface": "boost"},
@@ -233,18 +267,18 @@ static func plan(t: Track) -> void:
 	# The saucer's vents: each covers half the road, sputters as a warning,
 	# then blows whoever is on it off into space. They take turns.
 	t.fx_hazards = []
-	var ring0 := _at(t, "saucer_land")
-	var ring1 := _at(t, "vent")
+	var ring0 := _at(t, "start") + 30.0
+	var ring1 := _at(t, "vent") - 20.0
 	var span := fposmod(ring1 - ring0, L)
 	var i := 0
-	for u: float in [0.14, 0.3, 0.46, 0.62, 0.78]:
+	for u: float in [0.05, 0.25, 0.45, 0.65, 0.85]:
 		var left := i % 2 == 0
 		t.fx_hazards.append({"at": fposmod(ring0 + span * u, L), "from_x": -7.0 if left else 0.4, "to_x": -0.4 if left else 7.0,
 			"period": 5.2, "on": 1.6, "warn": 1.5, "phase": i * 1.3, "blow": true, "height": 16.0, "depth": 3.0,
 			"color": Color(0.75, 1.0, 0.85)})
 		i += 1
 	# Dust devils crossing the red planet's road.
-	for u: float in [0.3, 0.62]:
+	for u: float in [0.22, 0.55]:
 		t.fx_hazards.append({"at": mars0 + _mars_len(t) * u, "sweep": 3.2 + u, "model": "dust_devil", "phase": u})
 
 
@@ -265,7 +299,7 @@ static func _pad(from: Vector2, to: Vector2, opt: Dictionary) -> Dictionary:
 	p["r"] = CR
 	p["half"] = opt.get("half", 6.5)
 	p["rim_y"] = ground(lip, "moon")
-	p["to"] = Transform3D(Basis.looking_at(dir, Vector3.UP), _ground(land, "moon"))
+	p["to"] = Transform3D(Basis.looking_at(dir, Vector3.UP), Vector3(land.x, ground(land, "moon") + 0.1, land.y))
 	return p
 
 
@@ -291,15 +325,14 @@ static func road_material(m: ShaderMaterial) -> void:
 
 static func crate_frames(t: Track) -> Array[Transform3D]:
 	var out: Array[Transform3D] = []
-	out.append(t.transform_at(_at(t, "start") + 40.0))
-	out.append(t.transform_at(_at(t, "mars_land") + 240.0))
-	out.append(t.transform_at(fposmod(_at(t, "saucer_land") + 60.0, t.length)))
+	out.append(t.transform_at(_at(t, "start") + 60.0))
+	out.append(t.transform_at(_at(t, "mars_land") + 250.0))
 	# A reward for taking a side crater: boxes on its floor.
 	for k: String in ["L", "R"]:
 		var c: Vector2 = CRATERS[k]
 		var to: Vector2 = CRATERS["B"]
 		var dir := (to - c).normalized()
-		out.append(Transform3D(Basis.looking_at(Vector3(dir.x, 0, dir.y), Vector3.UP), _ground(c, "moon")))
+		out.append(Transform3D(Basis.looking_at(Vector3(dir.x, 0, dir.y), Vector3.UP), Vector3(c.x, ground(c, "moon") + 0.4, c.y)))
 	return out
 
 

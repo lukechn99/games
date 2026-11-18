@@ -154,6 +154,16 @@ The web build uses Godot's Compatibility renderer (WebGL 2).
   had raced clean. *Rule:* a change to shared driving code is checked on
   every track (verify all), and computer drivers only get speed their
   corner logic knows about.
+- **A road that looks raised makes karts look like they hover.** (2026-11-18)
+  Inside craters the road sat 0.9 m above the bowl around it, so karts on it
+  seemed to float. *Rule:* where the ground is the road (a crater's bowl),
+  the lap's road lies just under it, and karts drive on what you see.
+- **Point a landing where the way out is.** Dropping karts into a crater
+  heading 90° away from its exit sent them up the bowl wall and over the
+  rim rail. Landings face the way on; rims have solid well above the rail.
+- **Detail costs pixels, not triangles.** The worlds were at the triangle
+  budget, so their rock is drawn by a shader. Its cost on a phone is not yet
+  measured.
 - **Tracing one kart beats guessing.** `KW_TRACE=<kart> KW_TRACE_FROM=<s>
   KW_TRACE_TO=<s>` with `tests/race_report.gd` prints a kart's position,
   speed and road position every 1/6 s; the reset list gives where it was

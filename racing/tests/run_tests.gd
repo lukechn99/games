@@ -1215,10 +1215,14 @@ func _test_space() -> void:
 	# The last crater fires you to the red planet under a glider, and you
 	# land on its road.
 	var b0: Vector2 = C["B"]
+	var to_mars := Vector3.FORWARD
+	for p: Dictionary in track.pads:
+		if p.get("glide", false):
+			to_mars = p["dir"]
 	var k2 := _space_kart(track)
-	var at2 := b0 + Vector2(0, -(StarlinerTrack.CR - 6.0))
-	k2.global_transform = Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(at2.x, StarlinerTrack.ground(at2, "moon") + 0.8, at2.y))
-	k2.linear_velocity = Vector3.FORWARD * 20.0
+	var at2 := b0 + Vector2(to_mars.x, to_mars.z) * (StarlinerTrack.CR - 6.0)
+	k2.global_transform = Transform3D(Basis.looking_at(to_mars, Vector3.UP), Vector3(at2.x, StarlinerTrack.ground(at2, "moon") + 0.8, at2.y))
+	k2.linear_velocity = to_mars * 20.0
 	var launch2 := _space_launch(track, k2)
 	var glided := false
 	var flew2 := false
@@ -1238,8 +1242,8 @@ func _test_space() -> void:
 		"the last crater launches you, gliding, onto the red planet's road", "glided %s at %s" % [glided, k2.global_position.round()])
 	check((k2.get_meta("visual") as Node3D).get_child_count() == 0, "and the glider folds away when you land")
 	# Hit by an item in the air: you fall, and are put back before the lip.
-	k2.global_transform = Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(at2.x, StarlinerTrack.ground(at2, "moon") + 0.8, at2.y))
-	k2.linear_velocity = Vector3.FORWARD * 20.0
+	k2.global_transform = Transform3D(Basis.looking_at(to_mars, Vector3.UP), Vector3(at2.x, StarlinerTrack.ground(at2, "moon") + 0.8, at2.y))
+	k2.linear_velocity = to_mars * 20.0
 	var put_back := [0]
 	k2.respawned.connect(func(): put_back[0] += 1)
 	for i in 60 * 6:
@@ -1254,7 +1258,8 @@ func _test_space() -> void:
 		"hit by an item in the air, you fall and are put back on the moon", "hit %s put back %d at %s" % [hit, put_back[0], k2.global_position.round()])
 	launch2.free()
 	k2.free()
-	# A saucer vent sputters first, then blows you off and puts you back.
+	# A saucer vent sputters first, then blows you up; you fall back by
+	# yourself (no reset while you're over the track).
 	var vent: Dictionary = {}
 	for h: Dictionary in track.fx_hazards:
 		if h.get("blow", false):
@@ -1273,23 +1278,22 @@ func _test_space() -> void:
 	var rose := 0.0
 	var back := [0]
 	k3.respawned.connect(func(): back[0] += 1)
-	for i in 60 * 3:
+	for i in 60 * 5:
+		k3.input = {"steer": 0.0, "throttle": 0.0, "brake": 0.0, "drift": false}
 		await physics_frame
 		rose = maxf(rose, k3.global_position.y - vf.origin.y)
-		if back[0] > 0:
-			break
-	check(rose > 8.0 and back[0] == 1 and StarlinerTrack.world_of(k3.global_position) == "saucer",
-		"a vent blows you up into space, then you're put back on the saucer", "rose %.1f put back %d" % [rose, back[0]])
+	check(rose > 8.0 and back[0] == 0 and absf(k3.global_position.y - vf.origin.y) < 2.5 and StarlinerTrack.world_of(k3.global_position) == "saucer",
+		"a vent blows you up, and you fall back onto the saucer by yourself", "rose %.1f put back %d at %s" % [rose, back[0], k3.global_position.round()])
 	fx.free()
 	k3.free()
 	# The shoulders slow you; the road doesn't.
-	var f := track.road_frame(track.length - 40.0)
+	var f := track.road_frame(StarlinerTrack._at(track, "mars_land") + 120.0)
 	var space := _world.get_world_3d().direct_space_state
 	var surface_at := func(x: float) -> String:
 		var p := f.origin + f.basis.x * x
 		var r := space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 3.0, p + Vector3.DOWN * 3.0))
 		return String((r["collider"] as Object).get_meta("surface", "?")) if not r.is_empty() else "none"
-	check(surface_at.call(11.0) == "moondust" and Parts.surface("moondust")["drag"] > 0.5 and surface_at.call(0.0) == "asphalt",
+	check(surface_at.call(11.0) == "reddust" and Parts.surface("reddust")["drag"] > 0.5 and surface_at.call(0.0) == "asphalt",
 		"dust shoulders beside the road slow you", "%s / %s" % [surface_at.call(0.0), surface_at.call(11.0)])
 
 

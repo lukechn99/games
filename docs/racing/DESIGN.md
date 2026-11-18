@@ -383,18 +383,18 @@ The first Starliner Run (a starship's decks, flat with boxy details) was judged 
 - **Tricks are optional.** Press drift just before or just after leaving a lip: a somersault and a short boost on landing (0.7 s). Missing it costs nothing. Computer drivers (medium and hard) somersault for show but get no boost: they don't brake for the extra speed and were thrown off bends after landings.
 - **You only fall if hit in the air.** An item hit mid-flight drops the kart; it is put back before the lip. (Guardrails stop you steering off a ramp's side.) While a jump carries a kart, nothing in the world can snag it.
 
-**The lap (about 2,720 m, two laps, computer laps 79 to 105 s):**
+**The lap (about 2,880 m, two laps, computer laps 84 to 104 s; rebuilt 2026-11-18):**
 | Part | What it is |
 |---|---|
-| **The moon** (grey, squashed ball) | A base with the start, then a diamond of five craters, each about 60 m across. Every crater's far rim launches you into the next. Out of the first you choose by steering: straight to the middle crater, or over a left or right lip (amber posts, ramps up to them) into a side crater with item boxes and a boost pad. All three ways meet in the last crater, which fires you across space to the red planet. You can drive anywhere in a crater's bowl. |
-| **The red planet** (rust) | A winding road over rust dust, with two dust devils crossing it, boost strips, rocks and dust devils roaming beside it. A lip at its edge launches you to the saucer. |
-| **The flying saucer** | A ring road round its rim with a glass dome in the middle, lights round the edge and aliens cheering. Five vents, each across half the road, take turns: they sputter for 1.5 s as a warning, then blow anyone on them up into space, and you're put back on the road just behind. The last vent always blows and carries you back to the moon. |
+| **The flying saucer** (the start: the only flat ground, so the grid is on its rim) | A ring road round its rim with a glass dome in the middle and aliens cheering. Five vents, each across half the road, take turns: they sputter for 1.5 s as a warning, then blow anyone on them straight up. You fall back by yourself; only a kart blown off the track is put back (the usual recovery). The last vent always blows and carries you to the moon. |
+| **The moon** (grey, round) | You land on a road that swings round the moon into a line of five craters, each about 60 m across, pointing at the red planet. Every crater's far rim launches you into the next. Out of the first you choose by steering: straight on (cyan posts) to the middle crater, or over a left or right lip (amber posts) into a side crater with item boxes. All three ways meet in the last crater, which fires you across space to the red planet. In a crater the bowl is the road: drive anywhere in it. |
+| **The red planet** (rust, round) | A road weaving back and forth between five volcanoes, with two dust devils crossing it and boost strips. Its edge launches you back to the saucer. |
 
 - **Roads:** a raised slab with no markings, dust shoulders either side that slow you (moon dust, rust dust, saucer grating), then guardrails.
 - **Why squashed balls:** gravity points down on every track. Each world is a ball half as tall as it is wide, so the road keeps to its gentle top; a true ball the size of the crater field would put the jumps between worlds 600 m apart or more. The jumps are 270 to 385 m, flown at about 60 to 70 m/s: four to six seconds under a glider.
 - **Built:** `scripts/track/starliner_track.gd` (layout, jumps, lips, vents), `scripts/track/space_worlds.gd` (worlds, craters, ramps, shoulders, saucer, scenery), LaunchGaps pads (lips on a bowl's rim), Track `free_zones` (craters) and `view_far` (the camera sees 2,600 m here), TrackFx `blow` hazards. Models: glider, dust devil, rust rocks.
 - **Cost:** at most 133 draw calls and 147k triangles at the fixed views (budgets 250 and 150k). Not yet measured on a phone.
-- **Shape:** each world is round underneath and flattened on top where the road runs. Craters dent the moon all over and three great volcanoes (and a small one by the road) rise from the red planet, with lava glowing in their calderas, so neither outline is a perfect circle (the owner's request).
+- **Shape:** each world is a ball; craters dent the moon all over, and volcanoes rise from the red planet (five beside its road, three great ones round its sides, lava glowing in their calderas), so neither outline is a perfect circle (the owner's request).
 - **Name:** Cosmic Crossing (the owner's choice); the track id stays `starliner` so links keep working.
 - **Not built:** the Tractor beam item.
 

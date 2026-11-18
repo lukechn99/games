@@ -7,6 +7,8 @@ extends RefCounted
 
 const EDGE := Track.ROAD_WIDTH * 0.5 + 1.1   # where the road's kerb ends
 const RAIL_H := 1.3
+const VERGE := 46.0     # the fine ground beside a road reaches this far out
+const VERGE_AT: Array[float] = [0.0, 3.0, 7.0, 13.0, 21.0, 31.4]   # its steps beyond the rail
 
 
 static func build(t: Track) -> void:
@@ -138,13 +140,13 @@ static func _planet(t: Track, body: Dictionary, world: String, samples: Array) -
 	var flat := a * 0.55
 	while d < flat:
 		rings.append(Vector2(d, StarlinerTrack.body_h(body, Vector2(cx + d, cz))))
-		d += 3.0 if d < 12.0 else 8.0
+		d += 3.0 if d < 12.0 else 11.0   # (the verge carries the detail by the road)
 	var phi0 := asin(flat / a)
-	var n := 26
+	var n := 22
 	for k in range(1, n + 1):
 		var phi := lerpf(phi0, PI, float(k) / n)
 		rings.append(Vector2(a * sin(phi), top - a + a * cos(phi)))
-	var segs := 64
+	var segs := 56
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var verts: Array[Vector3] = []
@@ -176,6 +178,7 @@ static func _planet(t: Track, body: Dictionary, world: String, samples: Array) -
 			for i: int in [i0, i2, i1, i0, i3, i2]:
 				st.add_index(i)
 	KitTools.commit(t, st, ground_material(world))
+	_verge(t, samples, world, body, features)
 	# Lava glowing in each volcano's crater.
 	var lava := SurfaceTool.new()
 	lava.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -361,10 +364,58 @@ static func _shape_round_road(cells: Dictionary, p: Vector3, natural: float) -> 
 				if dd < best:
 					best = dd
 					level = f.origin.y - 1.0
-	var inner := EDGE + StarlinerTrack.SHOULDER + 2.0
-	if best < inner:
-		return minf(level, natural) if natural < level - 6.0 else level
-	return lerpf(level, natural, smoothstep(inner, inner + 18.0, best))
+	# Near the road the world's coarse ground stays well under the fine
+	# verge (`_verge`), which carries the shape there; its big triangles
+	# would otherwise lift over the road where the land rises beside it.
+	if best < VERGE:
+		return minf(natural, level - 2.5)
+	return lerpf(minf(natural, level - 2.5), natural, smoothstep(VERGE, VERGE + 14.0, best))
+
+
+## Fine ground either side of the road, from the guardrail out to VERGE:
+## level with the shoulder at the rail, then rising or falling to the
+## world's own shape (volcanoes and all) at the far edge.
+static func _verge(t: Track, samples: Array, world: String, body: Dictionary, features: Array[Dictionary]) -> void:
+	var a := float(body["a"])
+	var centre := Vector3(float(body["x"]), float(body["top"]) - a, float(body["z"]))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rail := EDGE + StarlinerTrack.SHOULDER
+	var any := false
+	var shape := func(f: Transform3D, side: float, out: float) -> Array:
+		var q := f.origin + f.basis.x * side * (rail + out)
+		var g := Vector2(q.x, q.z)
+		var y := StarlinerTrack.ground(g, world) if world == "mars" else StarlinerTrack.body_h(body, g)
+		var p := Vector3(q.x, y, q.z)
+		var dir := (p - centre).normalized()
+		var lift := _feature_lift(features, dir)
+		p += dir * lift.x
+		var shoulder := f.origin.y - 0.55
+		var u := smoothstep(0.0, VERGE - rail, out)
+		var natural := p.y
+		p.y = lerpf(shoulder, natural, u)
+		return [p, _tint(world, dir, absf(natural - p.y) * (1.0 - u), lift)]
+	for i in samples.size() - 1:
+		var sa: Array = samples[i]
+		var sb: Array = samples[i + 1]
+		if sa[1] != world or sb[1] != world or sa[2] or sb[2] or float(sb[3]) - float(sa[3]) > 4.5:
+			continue
+		any = true
+		var fa: Transform3D = sa[0]
+		var fb: Transform3D = sb[0]
+		for side: float in [-1.0, 1.0]:
+			for k in VERGE_AT.size() - 1:
+				var a0: Array = shape.call(fa, side, VERGE_AT[k])
+				var a1: Array = shape.call(fa, side, VERGE_AT[k + 1])
+				var b0: Array = shape.call(fb, side, VERGE_AT[k])
+				var b1: Array = shape.call(fb, side, VERGE_AT[k + 1])
+				var quad := [a0, b0, b1, a1] if side > 0.0 else [a0, a1, b1, b0]
+				for idx: int in [0, 1, 2, 0, 2, 3]:
+					st.set_color(quad[idx][1])
+					st.add_vertex(quad[idx][0])
+	if any:
+		var mi := KitTools.commit(t, st, ground_material(world))
+		mi.visibility_range_end = 700.0
 
 
 static func _in_bowl(p: Vector3, apron: float) -> bool:
@@ -434,7 +485,7 @@ static func _craters(t: Track, _samples: Array) -> void:
 	var lights := SurfaceTool.new()
 	lights.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var radii: Array[float] = [0.0, 4.0, 8.0, 12.0, 16.0, 20.0, 24.0, 27.0, 30.0, 32.5, 36.5, 41.0, 47.0]
-	var segs := 36
+	var segs := 32
 	for key: String in StarlinerTrack.CRATERS:
 		var c: Vector2 = StarlinerTrack.CRATERS[key]
 		var pts: Array[Vector3] = []
@@ -451,8 +502,6 @@ static func _craters(t: Track, _samples: Array) -> void:
 				var i3 := (i + 1) * segs + k
 				var u := radii[i] / StarlinerTrack.CR
 				var col := StarlinerTrack.MOON_DARK.lerp(StarlinerTrack.MOON_C, clampf(u * u, 0.0, 1.0)) if u <= 1.0 else StarlinerTrack.MOON_C.lightened(0.08 * (1.0 - clampf(u - 1.0, 0.0, 1.0) * 2.0))
-				if (k + i) % 2 == 0:
-					col = col.darkened(0.04)
 				KitTools.quad(st, pts[i0], pts[i3], pts[i2], pts[i1], col)
 		# The ways out (and the road's way in), with the rail broken there.
 		var gaps: Array[Vector2] = []    # (direction angle, half-width in metres)
@@ -491,6 +540,7 @@ static func _craters(t: Track, _samples: Array) -> void:
 			var up := Vector3.UP * 0.13
 			KitTools.quad(rails, fa + Vector3.UP * 1.15 - up, fb + Vector3.UP * 1.15 - up, fb + Vector3.UP * 1.15 + up, fa + Vector3.UP * 1.15 + up, Color(0.2, 0.45, 0.95))
 			KitTools.quad(rails, fa + Vector3.UP * 0.65 - up, fb + Vector3.UP * 0.65 - up, fb + Vector3.UP * 0.65 + up, fa + Vector3.UP * 0.65 + up, Color(0.92, 0.93, 0.95))
+	st.index()              # shared corners: shaded smooth, not in facets
 	st.generate_normals()
 	var mesh := st.commit()
 	var mi := MeshInstance3D.new()
@@ -541,7 +591,7 @@ static func _saucer(t: Track) -> void:
 	var prof: Array[Vector2] = [Vector2(0, deck), Vector2(60, deck), Vector2(StarlinerTrack.SAUCER_R - 4.0, deck), Vector2(StarlinerTrack.SAUCER_R, deck - 1.5),
 		Vector2(StarlinerTrack.SAUCER_R + 3.0, deck - 4.5), Vector2(StarlinerTrack.SAUCER_R - 8.0, deck - 10.0), Vector2(70, deck - 17.0), Vector2(30, deck - 21.0), Vector2(0, deck - 22.0)]
 	var cols: Array[Color] = [StarlinerTrack.HULL, StarlinerTrack.HULL.darkened(0.08), StarlinerTrack.HULL.darkened(0.15), StarlinerTrack.HULL.lightened(0.05), Color(0.6, 0.64, 0.72), Color(0.5, 0.54, 0.62), Color(0.42, 0.46, 0.55), Color(0.38, 0.42, 0.5)]
-	_spin(st, c, prof, cols, 64)
+	_spin(st, c, prof, cols, 48)
 	# The dome, glass with a lit band.
 	var dome: Array[Vector2] = []
 	for k in 9:
@@ -624,7 +674,7 @@ static func _dress(t: Track) -> void:
 	var mars_rocks: Array[Transform3D] = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 23
-	for i in 150:
+	for i in 110:
 		var on_mars := i % 2 == 1
 		var body: Dictionary = StarlinerTrack.MARS if on_mars else StarlinerTrack.MOON
 		var ang := rng.randf() * TAU
@@ -676,7 +726,7 @@ static func _space(t: Track) -> void:
 	var stars := SurfaceTool.new()
 	stars.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var centre := Vector3(150, 150, -330)
-	for i in 650:
+	for i in 420:
 		var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized()
 		var p := centre + dir * 2200.0
 		var size := rng.randf_range(3.0, 9.0)
@@ -702,8 +752,8 @@ static func _space(t: Track) -> void:
 	var ball := SphereMesh.new()
 	ball.radius = 420.0
 	ball.height = 840.0
-	ball.radial_segments = 28
-	ball.rings = 14
+	ball.radial_segments = 20
+	ball.rings = 10
 	giant.mesh = ball
 	giant.material_override = Palette.toon(StarlinerTrack.VIOLET.lerp(StarlinerTrack.CYAN, 0.3))
 	giant.position = centre + Vector3(1500, -350, 900)

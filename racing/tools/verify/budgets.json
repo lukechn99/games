@@ -1,5 +1,5 @@
 {
- "_about": "Limits per track (design doc 14.5). New tracks use the default; the first three are held at their levels when verify was built (2026-11-14) and should only go down. 'air' (the intro fly-over) is reported, not judged. Starliner Run allows 2 resets: its saucer vents blow karts into space and put them back by design.",
+ "_about": "Limits per track (design doc 14.5). New tracks use the default; the first three are held at their levels when verify was built (2026-11-14) and should only go down. 'air' (the intro fly-over) is reported, not judged. Cosmic Crossing (id starliner) allows 4 resets: karts hit by items during its long jumps fall by design (Mario Kart's one way to fall), and vents can blow karts off the saucer.",
  "default": {
   "draws": 250,
   "tris_k": 150,
@@ -25,7 +25,7 @@
    "lap_spread": 2.5
   },
   "starliner": {
-   "resets": 2
+   "resets": 4
   },
   "proving": {},
   "funfair": {},

@@ -51,6 +51,30 @@ try {
   await ctx.close()
   console.log('PASS: prompt hides synchronously on rotation, visible bounds fit, canvas CSS resizes before the engine')
 
+  // In the site's frame, turning sideways: only the page around the game hears
+  // it at first (the game frame keeps its old size and gets no event). The
+  // prompt must still go within a frame or two, not seconds later.
+  const ctx2 = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+  const outer = await ctx2.newPage()
+  await outer.route('**/frame.html', (r) => r.fulfill({ contentType: 'text/html', body: '<canvas id="canvas"></canvas>' }))
+  await outer.route('**/outer.html', (r) => r.fulfill({ contentType: 'text/html', body: '<meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0"><iframe id="f" src="/frame.html" style="border:0;width:390px;height:800px"></iframe>' }))
+  await outer.goto('http://frame.test/outer.html')
+  const frame = outer.frames().find((f) => f.url().endsWith('/frame.html'))
+  await frame.evaluate(() => {
+    // No orientation API in the frame: as when it reports nothing useful.
+    Object.defineProperty(screen, 'orientation', { value: undefined })
+    Object.defineProperty(window, 'orientation', { value: undefined })
+  })
+  await frame.addScriptTag({ content: await readFile(join(GAME, 'web/landscape.js'), 'utf8') })
+  assert.equal(await frame.locator('#racing-rotate').isVisible(), true)
+  await outer.setViewportSize({ width: 844, height: 390 })   // the frame stays 390 x 800
+  const t0 = Date.now()
+  await frame.waitForFunction(() => getComputedStyle(document.getElementById('racing-rotate')).display === 'none', null, { timeout: 2000, polling: 'raf' })
+  const ms = Date.now() - t0
+  assert.ok(ms < 300, `prompt went after ${ms} ms`)
+  await ctx2.close()
+  console.log(`PASS: in the site's frame, prompt goes ${ms} ms after the page turns`)
+
   const game = await b.newPage({ viewport: { width: 960, height: 540 } })
   const errors = []
   game.on('console', m => { if (isError(m.text())) { errors.push(m.text()); console.error(m.text()) } })

@@ -5,6 +5,8 @@
   var coarse = matchMedia('(pointer: coarse)')
   var portrait = matchMedia('(orientation: portrait)')
   var orientation = screen.orientation
+  var topPortrait = null
+  try { if (window.top !== window) topPortrait = window.top.matchMedia('(orientation: portrait)') } catch (e) {}
   var card
   var css = document.createElement('style')
   css.textContent =
@@ -20,6 +22,8 @@
 
   function isPortrait() {
     if (orientation && /^(portrait|landscape)-/.test(orientation.type)) return orientation.type.indexOf('portrait') === 0
+    // The whole page's shape, not the game frame's: the frame is resized late.
+    if (topPortrait) return topPortrait.matches
     if (typeof window.orientation === 'number') return Math.abs(window.orientation) !== 90
     return portrait.matches
   }
@@ -44,15 +48,36 @@
     document.body.appendChild(card)
     update()
   }
-  window.addEventListener('orientationchange', update)
-  window.addEventListener('resize', update)
-  if (orientation && orientation.addEventListener) orientation.addEventListener('change', update)
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', update)
-    window.visualViewport.addEventListener('scroll', update)
+  // On a phone the first event can come before the browser reports the new
+  // orientation, and the next one seconds later (the prompt stayed up for
+  // seconds after turning). So on any sign of a turn, look again every
+  // frame for a second.
+  var polling = 0
+  function kick() {
+    update()
+    if (polling > 0) { polling = 60; return }
+    polling = 60
+    var tick = function () {
+      update()
+      if (--polling > 0) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
   }
-  coarse.addEventListener('change', update)
-  portrait.addEventListener('change', update)
+  // The page around the game (same site) hears about a turn first: the
+  // game's own frame is resized after it.
+  var top = window
+  try { if (window.top !== window && window.top.document) top = window.top } catch (e) {}
+  var targets = top === window ? [window] : [window, top]
+  for (var i = 0; i < targets.length; i++) {
+    targets[i].addEventListener('orientationchange', kick)
+    targets[i].addEventListener('resize', kick)
+    if (targets[i].visualViewport) targets[i].visualViewport.addEventListener('resize', kick)
+  }
+  if (window.visualViewport) window.visualViewport.addEventListener('scroll', update)
+  if (orientation && orientation.addEventListener) orientation.addEventListener('change', kick)
+  coarse.addEventListener('change', kick)
+  portrait.addEventListener('change', kick)
+  if (top !== window) top.matchMedia('(orientation: portrait)').addEventListener('change', kick)
   if (document.body) addCard()
   else document.addEventListener('DOMContentLoaded', addCard)
 

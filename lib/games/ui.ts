@@ -5,6 +5,7 @@ import HauntedView from './haunted/ui/HauntedView'
 import FourView from './fourinarow/FourView'
 import SHView from './secrethitler/SHView'
 import RacingView from './racing/RacingView'
+import HideSeekView from './hideseek/HideSeekView'
 
 export interface GameViewProps<V = unknown, A = unknown> {
   view: V
@@ -28,4 +29,5 @@ export const GAME_VIEWS: Record<string, ComponentType<GameViewProps<any, any>>> 
   fourinarow: FourView,
   secrethitler: SHView,
   racing: RacingView,
+  hideseek: HideSeekView,
 }

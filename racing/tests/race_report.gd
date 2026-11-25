@@ -97,11 +97,16 @@ func _race(layout: String, laps: int) -> void:
 	var worst_at := 0.0
 	var last_us := Time.get_ticks_usec()
 	var frame := 0
+	# Wheels off the ground while no jump or vent carries the kart: floating,
+	# bouncing. Counted per tenth of the lap, to say where.
+	var loose := {"on": 0, "all": 0}
+	var loose_by: Array[int] = []
+	loose_by.resize(10)
 	while done.size() < karts.size() and t[0] < laps * 150.0:
 		await physics_frame
 		if OS.has_environment("KW_TRACE") and int(t[0] * 60.0) % 10 == 0 and t[0] >= float(OS.get_environment("KW_TRACE_FROM")) and t[0] < float(OS.get_environment("KW_TRACE_TO")):
 			var k0: Kart = karts[int(OS.get_environment("KW_TRACE"))]
-			print("[trace] %.1f %s v=%s local=%s" % [t[0], k0.global_position.round(), k0.linear_velocity.round(), track.road_local(k0.global_position).snappedf(0.1)])
+			print("[trace] %.1f %s v=%s local=%s wheels=%d" % [t[0], k0.global_position.round(), k0.linear_velocity.round(), track.road_local(k0.global_position).snappedf(0.1), k0.grounded_wheels])
 		t[0] += 1.0 / 60.0
 		frame += 1
 		var now := Time.get_ticks_usec()
@@ -127,6 +132,11 @@ func _race(layout: String, laps: int) -> void:
 			if done.has(k):
 				continue
 			stuck_now[k] = float(stuck_now.get(k, 0.0)) + 1.0 / 60.0 if k.linear_velocity.length() < 2.0 and t[0] > 5.0 else 0.0
+			if t[0] > 5.0 and not k.has_meta("airborne"):
+				loose["all"] += 1
+				if k.grounded_wheels < 4:
+					loose["on"] += 1
+					loose_by[clampi(int(10.0 * track.offset_of(k.global_position) / track.length), 0, 9)] += 1
 			if stuck_now[k] > stuck:
 				stuck_at = "%s, %.0f%% round the lap at %s, road-local %s" % [k.display_name, 100.0 * track.offset_of(k.global_position) / track.length, k.global_position.round(), track.road_local(k.global_position).snappedf(0.1)]
 			stuck = maxf(stuck, stuck_now[k])
@@ -150,6 +160,8 @@ func _race(layout: String, laps: int) -> void:
 		"lap_min": snappedf(lap_times[0], 0.1) if not lap_times.is_empty() else 0.0,
 		"lap_max": snappedf(lap_times[-1], 0.1) if not lap_times.is_empty() else 0.0,
 		"resets": count["resets"], "reset_reasons": reasons, "stuck_s": snappedf(stuck, 0.1), "stuck_at": stuck_at if stuck > 2.0 else "",
+		"loose_pct": snappedf(100.0 * loose["on"] / maxf(1.0, loose["all"]), 0.1),
+		"loose_by_tenth": loose_by.map(func(n: int) -> float: return snappedf(100.0 * n / maxf(1.0, loose["all"]), 0.1)),
 		"routes": routes, "items": used,
 		"step_ms": snappedf(typical, 0.01), "step_max_ms": snappedf(worst, 0.1), "step_max_at_s": snappedf(worst_at, 0.1),
 		"sim_s": snappedf(t[0], 0.1), "wall_s": snappedf((Time.get_ticks_msec() - wall0) / 1000.0, 0.1),

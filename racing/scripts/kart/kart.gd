@@ -411,8 +411,13 @@ func _physics_process(delta: float) -> void:
 		var force := wheel_fwd * f_long + wheel_right * f_side
 		if force.length() > max_force:
 			force = force.normalized() * max_force
-		# Push a little above the contact patch so cornering doesn't roll the kart over.
-		var at: Vector3 = hit["position"] - global_position + up * (radius * 0.9)
+		# Pushed at the height of the centre of mass, so cornering and braking
+		# don't tip the kart: pushed lower, hard corners lifted the inside
+		# wheels on flat road (2 of 4 down for seconds through hairpins), and
+		# with half the tires gone it slid wide. (The look of leaning into
+		# corners is the driver's, in kart_visual.gd.)
+		var at: Vector3 = hit["position"] - global_position
+		at += up * ((global_basis * center_of_mass).dot(up) - at.dot(up))
 		apply_force(force, at)
 
 	surface_name = _dominant(surfaces)

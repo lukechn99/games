@@ -148,7 +148,10 @@ func _test_turning_by_chassis() -> void:
 	print("turning (chassis sets turn radius)")
 	var r := {}
 	for id in Parts.CHASSIS:
-		r[id] = await _turn_radius(id, "slicks", "asphalt", 9.0)
+		# At 5 m/s, where steering sets the circle. Faster, every kart turns
+		# at the tires' limit (about 1.2 g), the same circle for all; the
+		# old spread at 9 m/s came from karts rolling onto two wheels.
+		r[id] = await _turn_radius(id, "slicks", "asphalt", 5.0)
 	check(r["soapbox"] < r["frame"] and r["frame"] < r["hauler"] and r["frame"] < r["racer"], "soapbox turns tightest, hauler and racer widest",
 		", ".join(r.keys().map(func(k): return "%s %.1f m" % [k, r[k]])))
 

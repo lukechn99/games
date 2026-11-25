@@ -257,6 +257,8 @@ static func _frozen_lake(t: Track) -> void:
 		exit_frames.append(t.transform_at(d))
 		d += 2.0
 
+	# For respawns: never set a kart down over a hole (track.gd).
+	t.set_meta("ice_holes", holes)
 	var in_hole := func(p: Vector3) -> bool:
 		for h in holes:
 			if Vector2(p.x - h.x, p.z - h.y).length() < h.z:
@@ -365,6 +367,14 @@ static func _frozen_lake(t: Track) -> void:
 	bshape.backface_collision = true
 	bcol.shape = bshape
 	bed.add_child(bcol)
+	# And a thick slab under the floor: a kart pinned against a boulder was
+	# pushed down through the thin floor and reset (Frosty Pass, 71%).
+	var slab := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(LAKE_RX * 2.2, 6.0, LAKE_RZ * 2.2)
+	slab.shape = box
+	slab.position = LAKE_CENTER + Vector3.UP * (DEEP + 0.01 - 3.0)
+	bed.add_child(slab)
 	# The sunken road: the shortcut's line, down under the ice, climbing out
 	# through the opening at the far end.
 	var road := SurfaceTool.new()
@@ -463,6 +473,7 @@ static func _frozen_lake(t: Track) -> void:
 		col3.shape = cyl
 		col3.position = p + Vector3.UP * 1.2
 		solid.add_child(col3)
+		t.obstacles.append(Vector4(p.x, p.y, p.z, cyl.radius))
 	t._scatter(Track.KIT_NATURE + "rock_largeA.glb", rocks)
 	# Kelp swaying either side of the sunken road.
 	var kelp := SetPieces._new_st()
@@ -614,7 +625,9 @@ class Holes extends Node:
 			if kart == null or kart.remote:
 				continue
 			var p := kart.global_position
-			if p.y > ICE_Y + 2.0 or p.y < DEEP + 1.0:
+			# Only while going through the ice: lower down (DEEP + 1 before) a
+			# kart on a bump of the lakebed was slammed down through the floor.
+			if p.y > ICE_Y + 2.0 or p.y < ICE_Y - 3.0:
 				continue
 			for h in holes:
 				var rel := Vector2(p.x - h.x, p.z - h.y)

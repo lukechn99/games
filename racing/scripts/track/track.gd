@@ -79,6 +79,8 @@ var gaps: Array = []
 ## Zones and timed hazards (TrackFx), filled in by a kit's plan().
 var fx_zones: Array[Dictionary] = []
 var fx_hazards: Array[Dictionary] = []
+## Solid things on a line karts drive that bots steer round: (x, y, z, radius).
+var obstacles: Array[Vector4] = []
 var surface_zones: Array = SURFACE_ZONES
 var rail_zones: Array = RAIL_ZONES
 ## Frost: stretches held at a gentle bank for the icy hairpins, [from, to]
@@ -1732,6 +1734,18 @@ func respawn_transform(pos: Vector3) -> Transform3D:
 				var out: Vector3 = p["dir"]
 				var at := Vector3(c.x, float(p["rim_y"]), c.z) + out * (float(p["r"]) - 3.0)
 				return Transform3D(Basis.looking_at(out, Vector3.UP), at + Vector3.UP * 1.5)
+	# Not over a hole in the ice (Frosty Pass): set down there, karts fell
+	# straight back in. Back along the road until clear.
+	if has_meta("ice_holes"):
+		for i in 30:
+			var o := transform_at(off).origin
+			var clear := true
+			for h: Vector3 in get_meta("ice_holes"):
+				if Vector2(o.x - h.x, o.z - h.y).length() < h.z + 3.0:
+					clear = false
+			if clear:
+				break
+			off -= 3.0
 	var t := transform_at(off)
 	# Fell off a route beside the main road (the mine's cavern trestle, say):
 	# back onto that route, not across on the main road. The rope bridge is

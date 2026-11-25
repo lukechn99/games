@@ -78,6 +78,24 @@ func _physics_process(delta: float) -> void:
 			var dir: Vector3 = p["dir"]
 			target = (p["centre"] as Vector3) + dir * (float(p["r"]) + 14.0)
 
+	# A boulder on the way (the sunken road under Frosty Pass's ice): aim
+	# past its nearer side. Bots drove straight into them and backed off for
+	# seconds.
+	var kp := kart.global_position
+	for o: Vector4 in track.obstacles:
+		var rel := Vector3(o.x - kp.x, 0.0, o.z - kp.z)
+		var aim := Vector3(target.x - kp.x, 0.0, target.z - kp.z)
+		if absf(o.y - kp.y) > 3.0 or aim.length() < 0.1:
+			continue
+		var dir := aim.normalized()
+		var ahead := rel.dot(dir)
+		var side := dir.cross(Vector3.UP).dot(rel)   # + : obstacle to the right
+		var clear := o.w + 2.2
+		if ahead > 0.0 and ahead < look + 6.0 and absf(side) < clear:
+			var left := -dir.cross(Vector3.UP)
+			target = Vector3(o.x, target.y, o.z) + (left if side >= 0.0 else -left) * (clear + 0.5)
+			break
+
 	var to := target - kart.global_position
 	to.y = 0.0
 	var fwd := -kart.global_transform.basis.z

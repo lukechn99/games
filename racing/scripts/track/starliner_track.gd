@@ -143,8 +143,9 @@ static func ground(p: Vector2, world: String) -> float:
 	if world == "mars":
 		return body_h(MARS, p)
 	var h := body_h(MOON, p)
-	for c: Vector2 in CRATERS.values():
-		h += crater_off(p.distance_to(c))
+	for key: String in CRATERS:
+		var c: Vector2 = CRATERS[key]
+		h += entry_off(p - c) if key == "T" else crater_off(p.distance_to(c))
 	return h
 
 
@@ -163,6 +164,39 @@ static func crater_off(r: float) -> float:
 		var u := (r - CR) / 16.0
 		return 2.5 * (1.0 - u) * (1.0 - u)
 	return 0.0
+
+
+## The first crater, where the moon's road comes in: a notch through the
+## rim, so the road eases down into the bowl. (Over the rim's crest, a road
+## climbing the moon turned downhill so sharply that karts flew for 2 s.)
+## Beside the notch the rim is as everywhere else.
+static func entry_off(v: Vector2) -> float:
+	var r := v.length()
+	var out := -FIELD
+	var along := v.dot(out)
+	var across := absf(v.dot(Vector2(-out.y, out.x)))
+	var w := (1.0 - smoothstep(NOTCH_HALF, NOTCH_HALF + 10.0, across)) * smoothstep(0.0, 12.0, along)
+	return lerpf(crater_off(r), notch_off(r), w)
+
+
+const NOTCH_HALF := 9.0    # half the notch's flat width (the road and its edges)
+const NOTCH_FROM := 20.0   # the bowl's own shape inside this, eased to the plain at CR + 16
+
+
+## The notch's shape by distance from the centre: the bowl, then a smooth
+## curve meeting the plain level and flat (no crest).
+static func notch_off(r: float) -> float:
+	if r < NOTCH_FROM:
+		return crater_off(r)
+	var end := CR + 16.0
+	if r >= end:
+		return 0.0
+	# Hermite from the bowl (height and slope) at NOTCH_FROM to 0, flat, at the end.
+	var L := end - NOTCH_FROM
+	var u := (r - NOTCH_FROM) / L
+	var h0 := crater_off(NOTCH_FROM)
+	var m0 := 16.0 * NOTCH_FROM / (CR * CR) * L
+	return h0 * (2.0 * u * u * u - 3.0 * u * u + 1.0) + m0 * (u * u * u - 2.0 * u * u + u)
 
 
 static func _ground(p: Vector2, world: String) -> Vector3:
@@ -299,7 +333,11 @@ static func _pad(from: Vector2, to: Vector2, opt: Dictionary) -> Dictionary:
 	p["r"] = CR
 	p["half"] = opt.get("half", 6.5)
 	p["rim_y"] = ground(lip, "moon")
-	p["to"] = Transform3D(Basis.looking_at(dir, Vector3.UP), Vector3(land.x, ground(land, "moon") + 0.1, land.y))
+	# Facing down the bowl's slope there: set down level, karts flew on for
+	# a second as the bowl fell away under them.
+	var fall := (ground(land + dir2, "moon") - ground(land - dir2, "moon")) * 0.5
+	var down := Vector3(dir.x, fall, dir.z).normalized()
+	p["to"] = Transform3D(Basis.looking_at(down, Vector3.UP), Vector3(land.x, ground(land, "moon") + 0.1, land.y))
 	return p
 
 

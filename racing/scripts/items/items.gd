@@ -387,6 +387,13 @@ func _update_weeds(delta: float) -> void:
 		var vel: Vector3 = w["vel"]
 		# Roll along the road the way it was thrown, wandering side to side.
 		var off := track.offset_of(w["pos"])
+		# Gone at a jump's edge: it followed the road out along the flight's
+		# line and hit karts in mid-air, which fell (6 resets a race on
+		# Cosmic Crossing's glide to the red planet).
+		if track.in_gap(off):
+			w["node"].queue_free()
+			_weeds.erase(w)
+			continue
 		var frame := track.transform_at(off)
 		var along := -frame.basis.z if vel.dot(-frame.basis.z) > 0.0 else frame.basis.z
 		var to_line: Vector3 = frame.origin - w["pos"]

@@ -25,6 +25,8 @@ extends Node
 
 const MIN_SPEED := 22.0     # a slow kart is thrown at least this fast (m/s)
 const RIDE := 0.55          # kart centre above the road
+const LAND := 0.3           # ...where the flight ends: about where it sits (a
+                            # higher set-down dropped it for 0.3 s first)
 const HOLD := 7.0           # how firmly a kart is held to the arc
 const TRICK_EARLY := 0.25   # seconds before the lip a drift press still counts
 const TRICK_LATE := 0.3     # and after it
@@ -51,7 +53,7 @@ func setup(t: Track, all: Array[Kart]) -> void:
 		var b := t.road_frame(g[1])
 		var opt: Dictionary = g[2] if g.size() > 2 else {}
 		# ("land_up": the landing's road lies under the ground there, a crater.)
-		var arc := make_arc(a.origin + Vector3.UP * RIDE, b.origin + Vector3.UP * (RIDE + float(opt.get("land_up", 0.0))), a, b, opt)
+		var arc := make_arc(a.origin + Vector3.UP * RIDE, b.origin + Vector3.UP * (LAND + float(opt.get("land_up", 0.0))), a, b, opt)
 		arc["from"] = float(g[0])
 		arc["to"] = float(g[1])
 		arc["pads"] = bool(opt.get("pads", false))
@@ -157,7 +159,7 @@ func _physics_process(delta: float) -> void:
 			if over_lip(p, k.global_position, k.linear_velocity):
 				var a := Transform3D(Basis.looking_at(p["dir"], Vector3.UP), k.global_position)
 				var b: Transform3D = p["to"]
-				_launch(k, make_arc(k.global_position, b.origin + Vector3.UP * RIDE, a, b, p), 0.0)
+				_launch(k, make_arc(k.global_position, b.origin + Vector3.UP * LAND, a, b, p), 0.0)
 				break
 
 
@@ -231,9 +233,20 @@ func _fly(k: Kart, delta: float) -> void:
 	if u >= 1.0:
 		_end(k, f)
 		if not k.remote:
-			# Set down rolling along the landing road at the speed it arrived.
+			# Set down rolling along the landing road at the speed it arrived,
+			# level with the road under it: nose down from the descent, the
+			# front wheels struck first and the kart pitched, bottomed out
+			# and spun (Windy City's drawbridge). Only turned, not moved:
+			# moved down onto the road, karts caught the landing road's
+			# raised edge (Cosmic Crossing).
 			k.linear_velocity = -b.basis.z * float(f["speed"])
 			k.angular_velocity = Vector3.ZERO
+			var q := PhysicsRayQueryParameters3D.create(k.global_position, k.global_position - Vector3.UP * 4.0, 1, [k.get_rid()])
+			var hit := k.get_world_3d().direct_space_state.intersect_ray(q)
+			if not hit.is_empty() and (hit["normal"] as Vector3).dot(Vector3.UP) > 0.6:
+				var n := hit["normal"] as Vector3
+				var ahead := -b.basis.z - n * (-b.basis.z).dot(n)
+				k.global_basis = Basis.looking_at(ahead.normalized(), n)
 			if f["trick"]:
 				k.boost_time = maxf(k.boost_time, TRICK_BOOST)
 

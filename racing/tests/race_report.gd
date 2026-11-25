@@ -102,6 +102,13 @@ func _race(layout: String, laps: int) -> void:
 	var loose := {"on": 0, "all": 0}
 	var loose_by: Array[int] = []
 	loose_by.resize(10)
+	# Jolts: a sudden change of velocity on the ground with no kart near and
+	# no item: what the road itself does to a kart (phantom hits, rough
+	# landings). Counted by where, to the nearest 1% of the lap.
+	var prev_v := {}
+	var prev_knock := {}
+	var prev_state := {}   # airborne, resets: the frame either changes isn't a jolt
+	var jolts := {}
 	while done.size() < karts.size() and t[0] < laps * 150.0:
 		await physics_frame
 		if OS.has_environment("KW_TRACE") and int(t[0] * 60.0) % 10 == 0 and t[0] >= float(OS.get_environment("KW_TRACE_FROM")) and t[0] < float(OS.get_environment("KW_TRACE_TO")):
@@ -132,6 +139,20 @@ func _race(layout: String, laps: int) -> void:
 			if done.has(k):
 				continue
 			stuck_now[k] = float(stuck_now.get(k, 0.0)) + 1.0 / 60.0 if k.linear_velocity.length() < 2.0 and t[0] > 5.0 else 0.0
+			var v := k.linear_velocity
+			var state := [k.has_meta("airborne"), count["resets"]]
+			if t[0] > 5.0 and prev_v.has(k) and not k.has_meta("airborne") and int(prev_knock.get(k, 0)) == k.knocked_ms and prev_state.get(k) == state:
+				var dv := (v - (prev_v[k] as Vector3)).length()
+				var alone := true
+				for o in karts:
+					if o != k and o.global_position.distance_to(k.global_position) < 3.5:
+						alone = false
+				if dv > JOLT and alone:
+					var pc := int(100.0 * track.offset_of(k.global_position) / track.length)
+					jolts[pc] = int(jolts.get(pc, 0)) + 1
+			prev_v[k] = v
+			prev_knock[k] = k.knocked_ms
+			prev_state[k] = state
 			if t[0] > 5.0 and not k.has_meta("airborne"):
 				loose["all"] += 1
 				if k.grounded_wheels < 4:
@@ -160,6 +181,8 @@ func _race(layout: String, laps: int) -> void:
 		"lap_min": snappedf(lap_times[0], 0.1) if not lap_times.is_empty() else 0.0,
 		"lap_max": snappedf(lap_times[-1], 0.1) if not lap_times.is_empty() else 0.0,
 		"resets": count["resets"], "reset_reasons": reasons, "stuck_s": snappedf(stuck, 0.1), "stuck_at": stuck_at if stuck > 2.0 else "",
+		"jolts": jolts.values().reduce(func(a, n): return a + n, 0),
+		"jolts_at": _top(jolts, 5),
 		"loose_pct": snappedf(100.0 * loose["on"] / maxf(1.0, loose["all"]), 0.1),
 		"loose_by_tenth": loose_by.map(func(n: int) -> float: return snappedf(100.0 * n / maxf(1.0, loose["all"]), 0.1)),
 		"routes": routes, "items": used,
@@ -169,3 +192,13 @@ func _race(layout: String, laps: int) -> void:
 	world.free()
 	Items.sand.clear()
 	await physics_frame
+
+
+const JOLT := 2.5   # m/s in one 1/60 s frame: 15 g
+
+
+## The `n` biggest entries of {percent round the lap: count}, as "pct%: count".
+func _top(counts: Dictionary, n: int) -> Array:
+	var keys := counts.keys()
+	keys.sort_custom(func(a, b): return int(counts[a]) > int(counts[b]))
+	return keys.slice(0, n).map(func(kk): return "%d%%: %d" % [kk, counts[kk]])

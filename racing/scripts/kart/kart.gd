@@ -453,7 +453,17 @@ func _physics_process(delta: float) -> void:
 	else:
 		air_time += delta
 		var level := up.cross(Vector3.UP)
-		apply_torque((level * AIR_LEVELLING - angular_velocity * 1.5) * mass * 0.6)
+		var right_up := AIR_LEVELLING
+		# Tipped over with the ground just below (rolled up a wall on its
+		# side, say): put back on its wheels hard. At the air's rate a kart
+		# wedged against Windy City's walls slid along on its side for 3 s
+		# and was reset upside down.
+		if up.dot(Vector3.UP) < 0.8:
+			params.from = global_position
+			params.to = global_position - Vector3.UP * 2.5
+			if not space.intersect_ray(params).is_empty():
+				right_up *= 4.0
+		apply_torque((level * right_up - angular_velocity * 1.5) * mass * 0.6)
 
 	if _drift_exit > 0.0 and grounded_wheels > 0:
 		# Coming out of a drift: swing the momentum back in line with the nose

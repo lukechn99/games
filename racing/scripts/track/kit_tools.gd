@@ -120,6 +120,7 @@ static func rooms(t: Track, list: Array, wall: Color, pillar: Color) -> void:
 	lights.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var hit := SurfaceTool.new()
 	hit.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var blocks: Array = []   # [transform, size]
 	for room: Array in list:
 		var d0: float = room[0]
 		var d1: float = room[1]
@@ -145,11 +146,16 @@ static func rooms(t: Track, list: Array, wall: Color, pillar: Color) -> void:
 				var b0: Vector3 = b.origin + b.basis.x * side * half
 				var flip: bool = side < 0.0
 				quad(hit, a0, b0, b0 + Vector3.UP * h, a0 + Vector3.UP * h, wall, flip)
-				# A second sheet just behind: a kart hitting a single thin
-				# sheet hard, at an angle, can slip through it.
-				var a2 := a0 + a.basis.x * side * 0.8
-				var b2 := b0 + b.basis.x * side * 0.8
-				quad(hit, a2, b2, b2 + Vector3.UP * h, a2 + Vector3.UP * h, wall, flip)
+				# And a thick block behind it: a kart hitting thin sheets hard,
+				# at an angle, slipped through even two of them (Windy City's
+				# riverwalk hairpins, into the river).
+				var along := b0 - a0
+				if along.length() > 0.2:
+					var out := along.cross(Vector3.UP).normalized() * side
+					if out.dot(a.basis.x * side) < 0.0:
+						out = -out
+					var basis := Basis(out, Vector3.UP, out.cross(Vector3.UP))
+					blocks.append([Transform3D(basis, a0.lerp(b0, 0.5) + out * 0.8 + Vector3.UP * h * 0.5), Vector3(1.6, h, along.length() + 0.6)])
 				var top := 0.9 if open else (1.3 if glass or rail else h)
 				var shade := own if index % 2 == 0 else own.lightened(0.07)
 				quad(walls, a0, b0, b0 + Vector3.UP * top, a0 + Vector3.UP * top, shade, flip)
@@ -178,6 +184,16 @@ static func rooms(t: Track, list: Array, wall: Color, pillar: Color) -> void:
 	commit(parent_of(t), lights, glow(Color.WHITE), true)
 	hit.generate_normals()
 	solid(t, hit.commit())
+	var body := StaticBody3D.new()
+	body.set_meta("surface", "asphalt")
+	t.add_child(body)
+	for blk: Array in blocks:
+		var cs := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = blk[1]
+		cs.shape = box
+		cs.transform = blk[0]
+		body.add_child(cs)
 
 
 static func parent_of(t: Track) -> Node3D:

@@ -79,6 +79,16 @@ jobs:
           ~/godot/godot --headless --path racing --export-release "Web" "$PWD/public/racing/index.html"
           test -f public/racing/index.wasm
           cp racing/web/mobile.js racing/web/landscape.js racing/web/tilt.js racing/web/net.js racing/web/loading.js public/racing/
+      # Hide and Seek (Godot): its checks, then export to public/hideseek.
+      - name: Test and export Hide and Seek
+        run: |
+          ~/godot/godot --headless --path hideseek --import
+          ~/godot/godot --headless --path hideseek --fixed-fps 60 -s tests/run_tests.gd 2>&1 | tee /tmp/hideseek-tests.log
+          grep -q "^hide and seek checks: 0 failures" /tmp/hideseek-tests.log
+          ! grep -q "SCRIPT ERROR" /tmp/hideseek-tests.log
+          mkdir -p public/hideseek
+          ~/godot/godot --headless --path hideseek --export-release "Web" "$PWD/public/hideseek/index.html"
+          test -f public/hideseek/index.wasm
       - run: npm run build
         env:
           # Project sites live at https://<user>.github.io/<repo>/

@@ -226,11 +226,26 @@ Each one is reviewed before the next starts.
 
 | | Milestone | Done when |
 |---|---|---|
-| H0 | Sandbox | In a grey test barn: walk as a seeker or hider on phone and computer, get a random prop and reroll it, jump onto stacked bales, lock rotation, shoot paintballs with limited ammo and fading paint, and see the spark burst, plume and edge-flash warning. Exports in CI to `/games/hideseek/`. |
+| H0 | Sandbox (**built, 16a**) | In a grey test barn: walk as a seeker or hider on phone and computer, get a random prop and reroll it, jump onto stacked bales, lock rotation, shoot paintballs with limited ammo and fading paint, and see the spark burst, plume and edge-flash warning. Exports in CI to `/games/hideseek/`. |
 | H1 | Rules and a grey farm | `rules.ts` with tests; the farm laid out in grey blocks with every building enterable; a full round with hide phase, sparks, tags and results, alone with bots. |
 | H2 | In Game Night | Multiplayer through the room: teams, synced timers, positions, tags, decoys, reconnects, spectators. |
 | H3 | Farm art | Blender props and buildings, palette, toon lighting, corn and pond. |
 | H4 | Polish and phones | Abilities, scoring and results map, performance on real phones, verify and bench. |
+
+## 16a. What's built (H0, 2026-11-25)
+
+Play it at `/games/hideseek/` once merged (CI tests and exports it on push to `main`). It's one person in a test barn with three sandbox hiders; nothing is networked yet.
+
+- **Where the code lives:** `hideseek/` (Godot 4.4.1, same settings as the racer). `scripts/rules.gd` holds the round rules with no nodes (timers, spark schedule, rerolls, ammo, finding, paint fade), so `rules.ts` can mirror it in H2. `props.gd` builds each prop as one merged mesh. `test_barn.gd` builds the barn, the scenery and the hiding spots. `player.gd` is both seekers and hiders.
+- **The test barn:** walls, roof, doors at both ends, stalls, a hayloft reached by a ramp (ladders later), and the yard by the doors. 46 scenery props of 7 kinds: hay bales (including a double stack to hop onto), trash cans, tires, chairs, crates, buckets and rakes leaning on walls. Each kind is one MultiMesh, so one draw call.
+- **You:** Tab (or the Switch button) swaps between seeker and hider, which restarts the round. Seekers start in the yard, blindfolded during the hide phase. Hiders get a random prop with 2 rerolls, can lock rotation (a rake then leans on the nearest wall) and see the edge flash before their burst.
+- **Sandbox hiders:** three, in random hand-placed spots (8 spots, including a bale on top of the double stack). They spark on the real schedule and join the seekers' count when painted.
+- **Paint:** 38 m/s with a slight drop, 15 m range, 12 shots plus 3 per find. Splats are about 0.55 m across, bright for 20 s, then fade over 20 s.
+- **Sparks:** CPU particles. The plume is drawn without depth test so it shows through the roof. One burst, one splat and one paintball are drawn behind the loading cover so the first ones don't stutter.
+- **Sandbox shortcuts:** hiding lasts 15 s here instead of 45. Test links: `?role=hider`, `?hide=N`, `?t=N` (start the clock at N), `?at=X,Z&look=YAW,PITCH`, `?sparknow`, `?seed=N`.
+- **Not yet:** shadows (none, so scenery and hiders match), decoys, chaff, the farm beyond the barn, multiplayer, bots that move.
+- **Checks:** `racing/tools/check.sh hideseek` (44 checks: the prop pool, rerolls, ammo, finding, winners, spark schedule and order, paint fade, a bale jumping onto a double stack, a seeker climbing it, jump height, a rake leaning on lock, paintball hits and range, the edge flash). CI runs the same.
+- **Download:** about 9.5 MB compressed, almost all the Godot engine; the game itself is 48 KB.
 
 ## 17. Sources
 

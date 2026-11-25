@@ -4,6 +4,10 @@ A Next.js site of party games (in `lib/games/`, `app/`) and a Godot kart
 racer, Animal Karts (`racing/`), published at
 https://lukechn99.github.io/games/ (the racer at `/games/racing/index.html`).
 
+Hide and Seek, a prop-hunt game, is a second Godot project in `hideseek/`
+(design in `docs/hideseek/DESIGN.md`; checks: `racing/tools/check.sh hideseek`),
+published at `/games/hideseek/`.
+
 Read before working on the racer:
 - `docs/racing/DESIGN.md`: the design and decisions (section 14 for
   performance and measuring).

@@ -4,6 +4,7 @@
 #   racing/tools/check.sh            game tests + site tests + types + lint
 #   racing/tools/check.sh game       just the game tests
 #   racing/tools/check.sh site       just the site checks
+#   racing/tools/check.sh hideseek   just Hide and Seek's checks
 # Exit status is non-zero if anything failed.
 cd "$(dirname "$0")/../.." || exit 2
 GODOT="${GODOT:-$HOME/godot/godot}"
@@ -39,6 +40,7 @@ valid_run() {
     benchmark) grep -q "^benchmark checks: 0 failures" "$log" && ! grep -q "SCRIPT ERROR" "$log" ;;
     grand-prix) grep -q "^Grand Prix checks: 0 failures" "$log" && ! grep -q "SCRIPT ERROR" "$log" ;;
     intro) grep -q '^intro checks: 0 failures' "$log" && ! grep -q 'SCRIPT ERROR' "$log" ;;
+    hideseek) grep -q '^hide and seek checks: 0 failures' "$log" && ! grep -q 'SCRIPT ERROR' "$log" ;;
     *) return 0 ;;
   esac
 }
@@ -50,6 +52,7 @@ summary() {
     grand-prix) grep -oE "Grand Prix checks: [0-9]+ failures" "$log" | tail -1 ;;
     intro) grep -oE "intro checks: [0-9]+ failures" "$log" | tail -1 ;;
     game) grep -oE '[0-9]+ passed, [0-9]+ failed' "$log" | tail -1 ;;
+    hideseek) grep -oE '[0-9]+ passed, [0-9]+ failed' "$log" | tail -1 ;;
     vitest) grep -E 'Tests +[0-9]+' "$log" | sed 's/\x1b\[[0-9;]*m//g; s/^ *//' | tail -1 ;;
     *) echo clean ;;
   esac
@@ -57,7 +60,7 @@ summary() {
 
 details() {
   case $1 in
-    game|intro|benchmark|medium|grand-prix) grep -E 'FAIL|SCRIPT ERROR|Parse Error|passed, |intro checks|benchmark checks|medium checks|Grand Prix checks' -A1 "$log" ;;
+    game|intro|benchmark|medium|grand-prix|hideseek) grep -E 'FAIL|SCRIPT ERROR|Parse Error|passed, |intro checks|benchmark checks|medium checks|Grand Prix checks' -A1 "$log" ;;
     vitest) sed 's/\x1b\[[0-9;]*m//g' "$log" | grep -E 'FAIL|✗|×|Error|expected|Tests ' ;;
     *) cat "$log" ;;
   esac
@@ -65,10 +68,11 @@ details() {
 
 # Godot learns new class_name scripts only on import. A fresh checkout, or
 # a pull that adds classes, otherwise fails with "Identifier not declared".
-refresh_classes() {
-  local cache=racing/.godot/global_script_class_cache.cfg
-  if [[ ! -f $cache ]] || [[ -n $(find racing/scripts racing/tests -name '*.gd' -newer "$cache" -print -quit) ]]; then
-    "$GODOT" --headless --path racing --import >/dev/null 2>&1
+refresh_classes() {   # [project folder, default racing]
+  local dir=${1:-racing}
+  local cache=$dir/.godot/global_script_class_cache.cfg
+  if [[ ! -f $cache ]] || [[ -n $(find "$dir/scripts" "$dir/tests" -name '*.gd' -newer "$cache" -print -quit) ]]; then
+    "$GODOT" --headless --path "$dir" --import >/dev/null 2>&1
     touch "$cache"
   fi
 }
@@ -80,6 +84,10 @@ if [[ $what == all || $what == game ]]; then
   step benchmark "$GODOT" --headless --path racing --fixed-fps 60 -s tests/benchmark_halves.gd
   step grand-prix "$GODOT" --headless --path racing --fixed-fps 60 -s tests/grand_prix.gd
   step intro "$GODOT" --headless --path racing --fixed-fps 60 -s tests/intro_handoff.gd
+fi
+if [[ $what == all || $what == game || $what == hideseek ]]; then
+  refresh_classes hideseek
+  step hideseek "$GODOT" --headless --path hideseek --fixed-fps 60 -s tests/run_tests.gd
 fi
 if [[ $what == all || $what == site ]]; then
 	step browser-tools node --test racing/tools/bench/compare.test.mjs racing/web/mobile.test.mjs racing/web/landscape.test.mjs racing/web/loading.test.mjs

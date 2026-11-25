@@ -19,6 +19,7 @@ function page({ physical = 'portrait-primary', legacy, coarse = true } = {}) {
   })
   vm.runInNewContext(readFileSync(new URL('./landscape.js', import.meta.url), 'utf8'), {
     window, document, screen: { orientation }, matchMedia: (query) => queries[query], innerWidth: 390, innerHeight: 844,
+    requestAnimationFrame: () => 0,
   })
   return { window, orientation, queries, card: elements[0] }
 }

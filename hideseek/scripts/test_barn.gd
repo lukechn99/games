@@ -1,6 +1,6 @@
 class_name TestBarn
 extends RefCounted
-## H0's grey test barn (design doc 16): a barn you can walk into, a hayloft
+## H0's test barn (design doc 16): a barn you can walk into, a hayloft
 ## up a ramp, stalls, and the yard by the doors, dressed with every prop in
 ## the pool. Scenery copies of each prop are one MultiMesh (one draw call
 ## per kind) with a solid box each, so paint can land on them.
@@ -9,11 +9,6 @@ const LAYER_WORLD := 1
 const LAYER_PLAYERS := 2
 const LAYER_PROPS := 4
 
-const BARN_RED := Color(0.62, 0.3, 0.27)
-const BOARDS := Color(0.55, 0.44, 0.32)
-const ROOF := Color(0.36, 0.33, 0.33)
-const GRASS := Color(0.45, 0.62, 0.32)
-const DIRT := Color(0.6, 0.5, 0.36)
 
 const LOFT_Y := 3.0
 
@@ -99,51 +94,33 @@ static func scenery() -> Array:
 	return out
 
 
+## Where the farmhouse and silo stand (outsides only until the H1 farm).
+const HOUSE := Vector3(-20.0, 0.0, 4.0)
+const SILO := Vector3(13.5, 0.0, -7.0)
+
+
 static func build(root: Node3D) -> void:
-	var mat := StandardMaterial3D.new()
-	mat.vertex_color_use_as_albedo = true
-	mat.roughness = 1.0
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var b := Surfaces.Builder.new()
 	var solid := StaticBody3D.new()
-	solid.name = "Barn"
+	solid.name = "Solid"
 	solid.collision_layer = LAYER_WORLD
 	solid.collision_mask = 0
 	root.add_child(solid)
 
-	# Ground, with a dirt apron at each door.
-	_block(st, solid, Vector3(70, 1, 70), Vector3(0, -0.5, 0), GRASS)
-	_block(st, null, Vector3(6, 0.02, 5), Vector3(0, 0.01, 14.5), DIRT)
-	_block(st, null, Vector3(6, 0.02, 5), Vector3(0, 0.01, -14.5), DIRT)
-	_block(st, null, Vector3(15.7, 0.02, 23.7), Vector3(0, 0.01, 0), BOARDS)
-	# Side walls, end walls with a 4 m door, lintels.
-	for x in [-8.0, 8.0]:
-		_block(st, solid, Vector3(0.3, 5, 24.3), Vector3(x, 2.5, 0), BARN_RED)
-	for z in [-12.0, 12.0]:
-		for x in [-5.0, 5.0]:
-			_block(st, solid, Vector3(6, 5, 0.3), Vector3(x, 2.5, z), BARN_RED)
-		_block(st, solid, Vector3(4, 1, 0.3), Vector3(0, 4.5, z), BARN_RED)
-	# Roof: two slopes from the eaves (5 m) to the ridge (8 m).
-	var slope := atan2(3.0, 8.0)
-	for side in [-1.0, 1.0]:
-		var b := Basis(Vector3.BACK, side * -slope)
-		_block(st, solid, Vector3(8.9, 0.2, 25.0), Vector3(side * 4.0, 6.6, 0), ROOF, b)
-	# Stalls on the west side.
-	for z in [-8.0, -4.0, 0.0]:
-		_block(st, solid, Vector3(3.2, 1.2, 0.15), Vector3(-6.4, 0.6, z), BOARDS)
-	# Hayloft over the north third, its railing, and a ramp up the east wall.
-	_block(st, solid, Vector3(15.7, 0.3, 7.85), Vector3(0, LOFT_Y - 0.15, 7.92), BOARDS)
-	_block(st, solid, Vector3(13.4, 0.9, 0.12), Vector3(-1.15, LOFT_Y + 0.45, 4.05), BOARDS)
-	var run := Vector3(0, LOFT_Y, 6.2)
-	var ramp_basis := Basis(Vector3.RIGHT, -atan2(run.y, run.z))
-	_block(st, solid, Vector3(1.4, 0.2, run.length()), Vector3(7.1, LOFT_Y / 2 - 0.1, 4.0 - run.z / 2), BOARDS, ramp_basis)
-
-	var m := st.commit()
-	m.surface_set_material(0, mat)
-	var mi := MeshInstance3D.new()
-	mi.mesh = m
-	mi.name = "BarnMesh"
-	root.add_child(mi)
+	# Ground: grass, with packed dirt at the barn doors and the porch.
+	_block(b, "grass", solid, Vector3(70, 1, 70), Vector3(0, -0.5, 0))
+	# Grass on out to the horizon (looks only; the play area is 70 m).
+	for i in 4:
+		var d := Vector3.FORWARD.rotated(Vector3.UP, i * PI / 2)
+		var side := d.cross(Vector3.UP).abs()
+		b.box("grass", side * 470 + d.abs() * 200 + Vector3(0, 0.2, 0), d * 135 + Vector3(0, -0.1, 0))
+	for z in [-14.5, 14.5]:
+		_block(b, "dirt", null, Vector3(7, 0.02, 5), Vector3(0, 0.01, z))
+	_block(b, "dirt", null, Vector3(5, 0.02, 7), HOUSE + Vector3(7.5, 0.01, 0.0))
+	_barn(b, solid)
+	_house(b, solid)
+	_silo(b, solid)
+	root.add_child(b.commit("Buildings"))
 
 	# Scenery props: one MultiMesh per kind, a solid box each.
 	var by_kind := {}
@@ -168,6 +145,186 @@ static func build(root: Node3D) -> void:
 			props.add_child(prop_body(kind, xf))
 
 
+## The red barn: board-and-batten siding, white trim, open sliding doors
+## with X braces, a metal roof, plank floors.
+static func _barn(b: Surfaces.Builder, solid: StaticBody3D) -> void:
+	_block(b, "floor", null, Vector3(15.7, 0.02, 23.7), Vector3(0, 0.01, 0))
+	for x in [-8.0, 8.0]:
+		_block(b, "barn_siding", solid, Vector3(0.3, 5, 24.3), Vector3(x, 2.5, 0))
+	for z in [-12.0, 12.0]:
+		for x in [-5.0, 5.0]:
+			_block(b, "barn_siding", solid, Vector3(6, 5, 0.3), Vector3(x, 2.5, z))
+		_block(b, "barn_siding", solid, Vector3(4, 1, 0.3), Vector3(0, 4.5, z))
+		var out: float = signf(z)
+		# Gable: outside and inside faces.
+		var zo: float = z + out * 0.15
+		var zi: float = z - out * 0.15
+		if out > 0:
+			b.tri("barn_siding", Vector3(-8, 5, zo), Vector3(8, 5, zo), Vector3(0, 8, zo))
+			b.tri("barn_siding", Vector3(-8, 5, zi), Vector3(0, 8, zi), Vector3(8, 5, zi))
+		else:
+			b.tri("barn_siding", Vector3(-8, 5, zo), Vector3(0, 8, zo), Vector3(8, 5, zo))
+			b.tri("barn_siding", Vector3(-8, 5, zi), Vector3(8, 5, zi), Vector3(0, 8, zi))
+		# Trim: door frame, hayloft door, corners.
+		var tz: float = z + out * 0.06
+		for x in [-2.12, 2.12]:
+			_block(b, "trim", null, Vector3(0.25, 4.25, 0.42), Vector3(x, 2.12, tz))
+		_block(b, "trim", null, Vector3(4.5, 0.25, 0.42), Vector3(0, 4.12, tz))
+		_frame(b, Vector3(0, 6.1, z + out * 0.17), Vector2(2.0, 1.8), out)
+		_block(b, "dark", null, Vector3(1.8, 1.6, 0.04), Vector3(0, 6.1, z + out * 0.155))
+		for x in [-8.0, 8.0]:
+			_block(b, "trim", null, Vector3(0.42, 5.0, 0.42), Vector3(x, 2.5, z))
+		# Sliding doors, slid open, and their track.
+		_block(b, "dark", null, Vector3(10.2, 0.14, 0.12), Vector3(0, 4.3, z + out * 0.24))
+		for side in [-1.0, 1.0]:
+			_barn_door(b, solid, Vector3(side * 3.15, 2.05, z + out * 0.25), out)
+	# Roof: two slopes from the eaves (5 m) to the ridge (8 m), overhanging.
+	var slope := atan2(3.0, 8.0)
+	for side in [-1.0, 1.0]:
+		var rb := Basis(Vector3.BACK, side * -slope)
+		_block(b, "barn_roof", solid, Vector3(9.4, 0.12, 25.4), Vector3(side * 4.2, 6.55, 0), rb)
+	# Stalls on the west side.
+	for z in [-8.0, -4.0, 0.0]:
+		_block(b, "floor", solid, Vector3(3.2, 1.2, 0.15), Vector3(-6.4, 0.6, z))
+	# Hayloft over the north third, its railing, and a ramp up the east wall.
+	_block(b, "floor", solid, Vector3(15.7, 0.3, 7.85), Vector3(0, LOFT_Y - 0.15, 7.92))
+	_block(b, "floor", solid, Vector3(13.4, 0.9, 0.12), Vector3(-1.15, LOFT_Y + 0.45, 4.05))
+	var run := Vector3(0, LOFT_Y, 6.2)
+	var ramp_basis := Basis(Vector3.RIGHT, -atan2(run.y, run.z))
+	_block(b, "floor", solid, Vector3(1.4, 0.2, run.length()), Vector3(7.1, LOFT_Y / 2 - 0.1, 4.0 - run.z / 2), ramp_basis)
+
+
+## One leaf of a sliding barn door: red boards in a white frame with an X.
+static func _barn_door(b: Surfaces.Builder, solid: StaticBody3D, at: Vector3, out: float) -> void:
+	var w := 2.1
+	var h := 4.1
+	_block(b, "barn_siding", solid, Vector3(w, h, 0.1), at)
+	var f := at + Vector3(0, 0, out * 0.07)
+	_frame(b, f, Vector2(w, h), out)
+	var diag := Vector2(w - 0.3, h - 0.3)
+	var ang := atan2(diag.y, diag.x)
+	for sgn in [-1.0, 1.0]:
+		_block(b, "trim", null, Vector3(diag.length(), 0.16, 0.05), f, Basis(Vector3.BACK, sgn * ang))
+
+
+## A white trim frame (width x height) facing out along z.
+static func _frame(b: Surfaces.Builder, at: Vector3, size: Vector2, out: float) -> void:
+	var t := 0.16
+	for x in [-1.0, 1.0]:
+		_block(b, "trim", null, Vector3(t, size.y, 0.05), at + Vector3(x * (size.x - t) / 2, 0, 0))
+	for y in [-1.0, 1.0]:
+		_block(b, "trim", null, Vector3(size.x, t, 0.05), at + Vector3(0, y * (size.y - t) / 2, 0))
+
+
+## The farmhouse: two storeys of white lap siding on a concrete footing, a
+## shingle roof, windows, a front door and a porch facing the barn.
+static func _house(b: Surfaces.Builder, solid: StaticBody3D) -> void:
+	var c := HOUSE
+	var hw := 4.0           # half width (x)
+	var hl := 5.5           # half length (z); the ridge runs along z
+	var top := 6.0
+	var rise := 2.6
+	_block(b, "concrete", solid, Vector3(hw * 2 + 0.3, 0.45, hl * 2 + 0.3), c + Vector3(0, 0.22, 0))
+	var wall_h := top - 0.45
+	var wy := 0.45 + wall_h / 2
+	for x in [-hw, hw]:
+		_block(b, "house_siding", solid, Vector3(0.25, wall_h, hl * 2), c + Vector3(x, wy, 0))
+	for z in [-hl, hl]:
+		_block(b, "house_siding", solid, Vector3(hw * 2, wall_h, 0.25), c + Vector3(0, wy, z))
+		var zo: float = c.z + z + signf(z) * 0.125
+		var l := Vector3(c.x - hw, top, zo)
+		var r := Vector3(c.x + hw, top, zo)
+		var apex := Vector3(c.x, top + rise, zo)
+		if z > 0:
+			b.tri("house_siding", l, r, apex)
+		else:
+			b.tri("house_siding", l, apex, r)
+		_window(b, c + Vector3(0, 7.0, z + signf(z) * 0.14), "z", signf(z))
+		for x in [-2.0, 2.0]:
+			_window(b, c + Vector3(x, 1.9, z + signf(z) * 0.14), "z", signf(z))
+			_window(b, c + Vector3(x, 4.5, z + signf(z) * 0.14), "z", signf(z))
+	for x in [-hw, hw]:
+		for z in [-hl, hl]:
+			_block(b, "trim", null, Vector3(0.36, wall_h, 0.36), c + Vector3(x, wy, z))
+	# Windows: front (+x, facing the barn) and back.
+	for zz in [-3.0, 3.0]:
+		_window(b, c + Vector3(hw + 0.14, 1.9, zz), "x", 1.0)
+		_window(b, c + Vector3(-hw - 0.14, 1.9, zz), "x", -1.0)
+	for zz in [-3.0, 0.0, 3.0]:
+		_window(b, c + Vector3(hw + 0.14, 4.5, zz), "x", 1.0)
+		_window(b, c + Vector3(-hw - 0.14, 4.5, zz), "x", -1.0)
+	_window(b, c + Vector3(-hw - 0.14, 1.9, 0.0), "x", -1.0)
+	# Front door and porch.
+	_block(b, "door", null, Vector3(0.06, 2.15, 1.05), c + Vector3(hw + 0.15, 0.45 + 1.07, 0))
+	_frame_x(b, c + Vector3(hw + 0.17, 0.45 + 1.1, 0), Vector2(1.35, 2.3))
+	_block(b, "concrete", solid, Vector3(3.2, 0.3, 5.4), c + Vector3(hw + 1.6, 0.15, 0))
+	_block(b, "concrete", solid, Vector3(0.6, 0.15, 1.6), c + Vector3(hw + 3.5, 0.075, 0))
+	for z in [-2.5, 2.5]:
+		_block(b, "trim", solid, Vector3(0.18, 2.8, 0.18), c + Vector3(hw + 3.0, 1.7, z))
+	_block(b, "shingles", solid, Vector3(3.6, 0.12, 5.8), c + Vector3(hw + 1.75, 3.2, 0), Basis(Vector3.BACK, -0.18))
+	# Roof, overhanging 0.5 m all round, and a chimney.
+	var ang := atan2(rise, hw)
+	var run := hw + 0.5
+	var slab := run / cos(ang)
+	for side in [-1.0, 1.0]:
+		var rb := Basis(Vector3.BACK, side * -ang)
+		var mid := Vector3(c.x + side * run / 2, top + rise - tan(ang) * run / 2 + 0.06, c.z)
+		_block(b, "shingles", solid, Vector3(slab, 0.14, hl * 2 + 1.0), mid, rb)
+	_block(b, "concrete", null, Vector3(0.8, 2.2, 0.8), c + Vector3(-1.6, top + rise - 0.2, 3.6))
+
+
+## A window on a wall facing along `axis` ("x" or "z"), `out` = +1 or -1.
+static func _window(b: Surfaces.Builder, at: Vector3, axis: String, out: float) -> void:
+	var w := 1.0
+	var h := 1.35
+	var t := 0.12
+	var s := func(along: float, up: float, thick: float) -> Vector3:
+		return Vector3(thick, up, along) if axis == "x" else Vector3(along, up, thick)
+	var o := func(along: float, up: float) -> Vector3:
+		return at + (Vector3(0, up, along) if axis == "x" else Vector3(along, up, 0))
+	_block(b, "glass", null, s.call(w, h, 0.04), at)
+	for a in [-1.0, 1.0]:
+		_block(b, "trim", null, s.call(t, h + t * 2, 0.08), o.call(a * (w + t) / 2, 0))
+	_block(b, "trim", null, s.call(w + t * 2, t, 0.08), o.call(0, (h + t) / 2))
+	_block(b, "trim", null, s.call(w + t * 3, t, 0.14), o.call(0, -(h + t) / 2))
+	_block(b, "trim", null, s.call(t * 0.5, h, 0.06), o.call(0, 0))
+	_block(b, "trim", null, s.call(w, t * 0.5, 0.06), o.call(0, 0))
+
+
+static func _frame_x(b: Surfaces.Builder, at: Vector3, size: Vector2) -> void:
+	var t := 0.14
+	for z in [-1.0, 1.0]:
+		_block(b, "trim", null, Vector3(0.05, size.y, t), at + Vector3(0, 0, z * (size.x - t) / 2))
+	_block(b, "trim", null, Vector3(0.05, t, size.x), at + Vector3(0, (size.y - t) / 2, 0))
+
+
+## The silo: shiny galvanized steel on a concrete footing, banded, with a
+## domed cap and a ladder up the side facing the barn.
+static func _silo(b: Surfaces.Builder, solid: StaticBody3D) -> void:
+	var r := 2.6
+	var h := 13.0
+	b.cylinder("concrete", r + 0.3, 0.5, SILO)
+	_block(b, "concrete", null, Vector3((r + 0.3) * 2, 0.02, (r + 0.3) * 2), SILO + Vector3(0, 0.49, 0))
+	b.cylinder("silo_metal", r, h, SILO + Vector3(0, 0.5, 0))
+	for y in [3.5, 6.5, 9.5, 12.5]:
+		b.cylinder("silo_metal", r + 0.04, 0.1, SILO + Vector3(0, y, 0))
+	b.dome("silo_metal", r + 0.08, 1.7, SILO + Vector3(0, 0.5 + h, 0))
+	var lx := SILO.x - r - 0.18
+	for z in [-0.24, 0.24]:
+		_block(b, "silo_metal", null, Vector3(0.06, h - 1.0, 0.06), Vector3(lx, 1.0 + (h - 1.0) / 2, SILO.z + z))
+	var y := 1.2
+	while y < h:
+		_block(b, "silo_metal", null, Vector3(0.05, 0.05, 0.5), Vector3(lx, y, SILO.z))
+		y += 0.4
+	var cs := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = r + 0.3
+	cyl.height = h + 2.0
+	cs.shape = cyl
+	cs.position = SILO + Vector3(0, cyl.height / 2, 0)
+	solid.add_child(cs)
+
+
 ## A solid box for one scenery prop. Paint sticks to it.
 static func prop_body(kind: String, xf: Transform3D) -> StaticBody3D:
 	var body := StaticBody3D.new()
@@ -184,24 +341,32 @@ static func prop_body(kind: String, xf: Transform3D) -> StaticBody3D:
 	return body
 
 
-static func _block(st: SurfaceTool, body: StaticBody3D, s: Vector3, at: Vector3, c: Color, b := Basis()) -> void:
-	var bm := BoxMesh.new()
-	bm.size = s
-	Props._add(st, bm, Transform3D(b, at), c)
+static func _block(b: Surfaces.Builder, surface: String, body: StaticBody3D, s: Vector3, at: Vector3, basis := Basis()) -> void:
+	b.box(surface, s, at, basis)
 	if body:
 		var cs := CollisionShape3D.new()
 		var box := BoxShape3D.new()
 		box.size = s
 		cs.shape = box
-		cs.transform = Transform3D(b, at)
+		cs.transform = Transform3D(basis, at)
 		body.add_child(cs)
 
 
-static func environment(root: Node3D) -> void:
+## Godot's Compatibility renderer draws a shadow-casting sun in its own
+## pass and adds it to the picture after conversion to screen colours, which
+## overshoots: lit surfaces came out ~1.4x brighter on screen with shadows
+## on. With these two, sunlit grass matches the no-shadow picture while
+## shade (inside the barn, under the eaves) reads as shade: less fill light,
+## a little more sun. Measured with ?ambient= and ?sunscale= (DESIGN 9.3b).
+const SHADOW_SUN_SCALE := 0.45
+const SHADOW_AMBIENT := 0.4
+
+
+static func environment(root: Node3D, shadows := true, sun_scale := -1.0, ambient := -1.0) -> void:
 	var sky_mat := ProceduralSkyMaterial.new()
 	sky_mat.sky_top_color = Color(0.36, 0.6, 0.9)
 	sky_mat.sky_horizon_color = Color(0.72, 0.84, 0.95)
-	sky_mat.ground_horizon_color = Color(0.7, 0.66, 0.6)
+	sky_mat.ground_horizon_color = Color(0.56, 0.66, 0.46)
 	sky_mat.ground_bottom_color = Color(0.5, 0.45, 0.4)
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
@@ -214,6 +379,8 @@ static func environment(root: Node3D) -> void:
 	env.ambient_light_color = Color(0.86, 0.82, 0.76)
 	env.ambient_light_sky_contribution = 0.3
 	env.ambient_light_energy = 0.62
+	if shadows:
+		env.ambient_light_energy = ambient if ambient >= 0.0 else SHADOW_AMBIENT
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	var we := WorldEnvironment.new()
 	we.environment = env
@@ -221,7 +388,13 @@ static func environment(root: Node3D) -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation = Vector3(deg_to_rad(-50), deg_to_rad(35), 0)
 	sun.light_energy = 0.85
+	if shadows:
+		sun.light_energy *= sun_scale if sun_scale >= 0.0 else SHADOW_SUN_SCALE
 	sun.light_color = Color(1.0, 0.96, 0.88)
+	sun.shadow_enabled = shadows
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_max_distance = 45.0
+	sun.shadow_blur = 1.5
 	root.add_child(sun)
 
 

@@ -5,7 +5,8 @@ extends Node3D
 ##
 ## Test links: ?role=hider, ?hide=SECONDS, ?t=SECONDS (start the clock
 ## there), ?at=X,Z[,Y]&look=YAW,PITCH (degrees), ?seed=N, ?sparknow,
-## ?relief=off (no normal maps).
+## ?relief=off (no normal maps), ?shadows=off, ?ambient=E&sunscale=K
+## (light levels with shadows on, for tuning).
 
 const SANDBOX_HIDE := 15.0       # the real game hides for 45 s
 const SANDBOX_HIDERS := 3
@@ -32,7 +33,7 @@ func _ready() -> void:
 	_query = _read_query()
 	role = "hider" if _query.get("role", "") == "hider" else "seeker"
 	Props.relief = _query.get("relief", "on") != "off"
-	TestBarn.environment(self)
+	TestBarn.environment(self, _query.get("shadows", "on") != "off", float(_query.get("sunscale", "-1")), float(_query.get("ambient", "-1")))
 	TestBarn.build(self)
 	_paint_root = Node3D.new()
 	_paint_root.name = "Paint"

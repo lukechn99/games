@@ -156,7 +156,17 @@ Built by `hideseek/tools/blender/props.py` (`python3`, bpy), one model at a time
 
 | Prop | Status | Triangles | File |
 |---|---|---|---|
-| Hay bale | Waiting for approval | 676 | 151 KB |
+| Hay bale | **Approved** 2026-11-25 | 676 | 151 KB |
+
+### 9.3b Buildings, ground and light (Decided 2026-11-25: the owner asked for wood siding on the barn and house, shiny metal on the silo, grass outside, sun and shadows)
+
+- **Surfaces** (`hideseek/tools/textures.py`, numpy): seamless 512 px colour and normal maps, each covering a fixed number of metres so every wall shares one scale: red board-and-batten barn siding with worn paint, white trim, a weathered corrugated barn roof, white lap siding, asphalt shingles, galvanized corrugated silo steel with ring seams and rivets, plank floor, grass, dirt, concrete. 20 JPEGs, 1.2 MB in all. They're named `.jpg.bin` so Godot ships them as they are; its import re-encodes them losslessly, several times larger.
+- **One draw call per surface:** `scripts/surfaces.gd` merges every wall, trim piece and roof of a surface into one mesh, with UVs in metres (13 building surfaces in all).
+- **Finishes:** silo steel is metallic and smooth, so it shines and reflects the sky; the barn roof is half-metallic; paint, wood, shingles and grass are matte.
+- **What's there now:** the barn (siding, white trim on corners and doors, hayloft door, sliding doors slid open with white X braces, metal roof with overhang, plank floors inside); the farmhouse beside it, outside only (two storeys of lap siding on a concrete footing, shingle roof, chimney, 17 trimmed windows, a green front door, a porch facing the barn); the silo (13 m of galvanized steel on a concrete footing, bands, domed cap, a ladder); grass out to the horizon. Interiors for the house and silo come with the H1 farm.
+- **Sun and shadows:** one shadow-casting sun (2 cascades, 45 m, soft filtering, 2048 px map); every prop, hider and building casts and receives, so a hider's shadow matches the scenery's. `?shadows=off` turns them off.
+- **The brightening, measured:** in this renderer a shadow-casting sun is drawn in its own pass and added after conversion to screen colours, so sunlit surfaces came out about 1.4x brighter on screen (2x in light terms; the racer saw the same and turned shadows off). Measured with `?ambient=` and `?sunscale=` against the no-shadow picture: with shadows on, the sun runs at 0.45 of its strength and the fill light at 0.4 instead of 0.62. Sunlit grass then matches the no-shadow picture to within a few levels, and shade reads as shade (the barn floor inside went from 116 to 56 brightness).
+- **Not yet measured on a phone.** Shadows are the most expensive effect; a frame-rate check on a real phone (like the racer's benchmark) should decide whether Low quality turns them off.
 
 ### 9.3 Where the models come from (Proposed)
 
@@ -273,3 +283,4 @@ Play it at `/games/hideseek/` once merged (CI tests and exports it on push to `m
 - 2026-11-25: Owner review: spark plume decided; hiders get a warning countdown before their own burst; seekers use a paintball marker; paint fades instead of staying all game; seekers have limited ammo (replaces the stamina idea).
 - 2026-11-25: Owner review: the hider warning is a screen-edge flash, not a countdown; found hiders join the seekers; hiders get a random prop from the scenery pool with two rerolls (replacing "Become" and prop changes); everyone can jump, e.g. a bale onto a stack of bales. H0 started.
 - 2026-11-25: H0 merged to main. Textured Blender props started (9.3a), one at a time with the owner approving each: the hay bale first.
+- 2026-11-25: Hay bale approved. Buildings and ground textured (9.3b): barn siding, farmhouse and silo outsides, grass to the horizon, sun and real shadows with the renderer's brightening measured and corrected.

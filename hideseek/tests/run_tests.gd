@@ -62,6 +62,8 @@ func _test_prop_pool() -> void:
 			check(tri <= 1500, "%s model is within 1,500 triangles" % k, str(tri))
 			check((aabb.size - Props.size(k)).abs().x < 0.06 and absf(aabb.size.y - Props.size(k).y) < 0.06 and absf(aabb.size.z - Props.size(k).z) < 0.06, "%s model matches its collision box" % k, "%v vs %v" % [aabb.size, Props.size(k)])
 			check(absf(aabb.position.y) < 0.02, "%s model stands on its origin" % k, str(aabb.position.y))
+	var missing := Surfaces.TILE.keys().filter(func(n): return Surfaces.material(n).albedo_texture == null or Surfaces.material(n).normal_texture == null)
+	check(missing.is_empty(), "every building and ground surface has its textures", str(missing))
 	var spot_kinds := TestBarn.SPOTS.map(func(s): return s[0])
 	check(spot_kinds.all(func(k): return pool.has(k)), "hiding spots only use pool props")
 

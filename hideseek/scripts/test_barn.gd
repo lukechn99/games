@@ -201,15 +201,19 @@ static func environment(root: Node3D) -> void:
 	var sky_mat := ProceduralSkyMaterial.new()
 	sky_mat.sky_top_color = Color(0.36, 0.6, 0.9)
 	sky_mat.sky_horizon_color = Color(0.72, 0.84, 0.95)
-	sky_mat.ground_horizon_color = Color(0.6, 0.66, 0.55)
-	sky_mat.ground_bottom_color = Color(0.35, 0.4, 0.3)
+	sky_mat.ground_horizon_color = Color(0.7, 0.66, 0.6)
+	sky_mat.ground_bottom_color = Color(0.5, 0.45, 0.4)
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
+	# Mostly warm-neutral fill with a little sky: pure sky light is blue, and
+	# turns straw in the shade olive green.
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.55
+	env.ambient_light_color = Color(0.86, 0.82, 0.76)
+	env.ambient_light_sky_contribution = 0.3
+	env.ambient_light_energy = 0.62
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	var we := WorldEnvironment.new()
 	we.environment = env

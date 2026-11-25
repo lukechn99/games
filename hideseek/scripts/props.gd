@@ -26,9 +26,12 @@ const KINDS := {
 	"rake": {"name": "Rake", "size": Vector3(0.42, 1.55, 0.12), "class": "medium", "leans": true},
 }
 
+const MODELS := "res://assets/models/%s.glb"
+
 const SPEED := {"small": 1.1, "medium": 0.95, "large": 0.8}
 
 static var _meshes := {}
+static var relief := true        # normal maps; off on Low (and ?relief=off)
 static var _material: StandardMaterial3D
 
 
@@ -70,10 +73,29 @@ static func material() -> StandardMaterial3D:
 	return _material
 
 
-static func mesh(kind: String) -> ArrayMesh:
+## The Blender model (assets/models/<kind>.glb, tools/blender/props.py)
+## if there is one, else the block-built stand-in below.
+static func mesh(kind: String) -> Mesh:
 	if not _meshes.has(kind):
-		_meshes[kind] = _build(kind)
+		var path := MODELS % kind
+		var m: Mesh = null
+		if ResourceLoader.exists(path):
+			var inst := (load(path) as PackedScene).instantiate()
+			var mi := inst.find_children("*", "MeshInstance3D", true, false)
+			if not mi.is_empty():
+				m = (mi[0] as MeshInstance3D).mesh
+			inst.free()
+		if m and not relief:
+			m = m.duplicate()
+			var mat := (m.surface_get_material(0) as StandardMaterial3D).duplicate()
+			mat.normal_enabled = false
+			m.surface_set_material(0, mat)
+		_meshes[kind] = m if m else _build(kind)
 	return _meshes[kind]
+
+
+static func has_model(kind: String) -> bool:
+	return ResourceLoader.exists(MODELS % kind)
 
 
 static func _build(kind: String) -> ArrayMesh:

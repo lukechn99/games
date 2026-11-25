@@ -51,6 +51,17 @@ func _test_prop_pool() -> void:
 	check(pool.all(func(k): return counts[k] >= 2), "every hider prop appears at least twice as scenery", str(counts))
 	for k in ["bale", "trash_can", "tire", "chair", "rake"]:
 		check(pool.has(k), "pool has the owner's idea: " + k)
+	for k in pool:
+		if Props.has_model(k):
+			var m := Props.mesh(k)
+			var aabb := m.get_aabb()
+			var tri := 0
+			for si in m.get_surface_count():
+				tri += (m.surface_get_array_index_len(si) if m.surface_get_array_index_len(si) > 0 else m.surface_get_array_len(si)) / 3
+			check(m.get_surface_count() == 1, "%s model is one surface (one draw call)" % k)
+			check(tri <= 1500, "%s model is within 1,500 triangles" % k, str(tri))
+			check((aabb.size - Props.size(k)).abs().x < 0.06 and absf(aabb.size.y - Props.size(k).y) < 0.06 and absf(aabb.size.z - Props.size(k).z) < 0.06, "%s model matches its collision box" % k, "%v vs %v" % [aabb.size, Props.size(k)])
+			check(absf(aabb.position.y) < 0.02, "%s model stands on its origin" % k, str(aabb.position.y))
 	var spot_kinds := TestBarn.SPOTS.map(func(s): return s[0])
 	check(spot_kinds.all(func(k): return pool.has(k)), "hiding spots only use pool props")
 

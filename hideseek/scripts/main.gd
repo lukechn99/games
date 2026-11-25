@@ -4,7 +4,8 @@ extends Node3D
 ## after another; Tab (or Switch) changes sides.
 ##
 ## Test links: ?role=hider, ?hide=SECONDS, ?t=SECONDS (start the clock
-## there), ?at=X,Z&look=YAW,PITCH (degrees), ?seed=N, ?sparknow.
+## there), ?at=X,Z[,Y]&look=YAW,PITCH (degrees), ?seed=N, ?sparknow,
+## ?relief=off (no normal maps).
 
 const SANDBOX_HIDE := 15.0       # the real game hides for 45 s
 const SANDBOX_HIDERS := 3
@@ -30,6 +31,7 @@ var _warm_nodes: Array[Node] = []
 func _ready() -> void:
 	_query = _read_query()
 	role = "hider" if _query.get("role", "") == "hider" else "seeker"
+	Props.relief = _query.get("relief", "on") != "off"
 	TestBarn.environment(self)
 	TestBarn.build(self)
 	_paint_root = Node3D.new()

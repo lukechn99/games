@@ -145,6 +145,19 @@ Three sizes. Hiders' props come only from objects used as scenery, and every one
 
 Rule: **a prop must look the same everywhere.** No hand-placed variations that only scenery copies have, and the same blob shadow on scenery copies and on hiders, or a hider stands out.
 
+### 9.3a Textured props (Decided 2026-11-25: the owner asked for textured models that look great and run fast)
+
+Built by `hideseek/tools/blender/props.py` (`python3`, bpy), one model at a time, each approved by the owner before the next:
+- **One mesh, one material, one draw call** per prop; 300–1,500 triangles; sized to the prop's collision box, origin at the bottom centre.
+- **Detail is baked, not modelled:** each prop's look is a procedural Blender material (straw, grain, rubber, metal), baked once into a 512 px colour texture with soft ambient occlusion multiplied in, and a 512 px normal map. Both are JPEGs packed in the `.glb`.
+- **Normal maps are optional:** `?relief=off` (and later, Low quality) draws without them.
+- **Lighting:** the shade is warm-neutral with a little sky, not pure sky blue, which turned straw in shadow olive green.
+- Checks: each model is one surface, within 1,500 triangles, and matches its collision box.
+
+| Prop | Status | Triangles | File |
+|---|---|---|---|
+| Hay bale | Waiting for approval | 676 | 151 KB |
+
 ### 9.3 Where the models come from (Proposed)
 
 The same way as the racer: low-poly models built by script in Blender (`tools/blender`, `bpy`) to fixed triangle budgets, plus CC0 Kenney kits where they fit (the furniture and nature kits are likely candidates for the farmhouse interior and the trees; to check). Colours from one palette, toon-lit like Animal Karts so both games feel like one family.
@@ -259,3 +272,4 @@ Play it at `/games/hideseek/` once merged (CI tests and exports it on push to `m
 - 2026-11-25: Game started from the owner's brief: prop hunt modelled on Call of Duty, sparks and confetti instead of sounds, farm as the first map, explore Godot. This document drafted; everything not in the brief is Proposed.
 - 2026-11-25: Owner review: spark plume decided; hiders get a warning countdown before their own burst; seekers use a paintball marker; paint fades instead of staying all game; seekers have limited ammo (replaces the stamina idea).
 - 2026-11-25: Owner review: the hider warning is a screen-edge flash, not a countdown; found hiders join the seekers; hiders get a random prop from the scenery pool with two rerolls (replacing "Become" and prop changes); everyone can jump, e.g. a bale onto a stack of bales. H0 started.
+- 2026-11-25: H0 merged to main. Textured Blender props started (9.3a), one at a time with the owner approving each: the hay bale first.

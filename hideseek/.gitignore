@@ -1,3 +1,5 @@
 .godot/
 *.import
 /build/
+assets/models/*_albedo.jpg
+assets/models/*_normal.jpg

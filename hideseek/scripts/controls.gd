@@ -26,6 +26,8 @@ var _last_touch_ms := -100000
 var _interruptions := -1
 var _check_t := 0.0
 const MOUSE_FINGER := 99             # a thumb that arrived as mouse events
+## Touch diagnostics shown on phones while we chase the iPhone stick bug.
+var counts := {"touch": 0, "drag": 0, "mbtn": 0, "mmove": 0}
 
 
 func _ready() -> void:
@@ -94,6 +96,14 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		counts["touch"] += 1
+	elif event is InputEventScreenDrag:
+		counts["drag"] += 1
+	elif event is InputEventMouseButton:
+		counts["mbtn"] += 1
+	elif event is InputEventMouseMotion:
+		counts["mmove"] += 1
 	if event is InputEventScreenTouch:
 		touching = true
 		_last_touch_ms = Time.get_ticks_msec()
@@ -206,3 +216,8 @@ func _draw() -> void:
 		var t := "Move"
 		var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
 		draw_string(font, base + Vector2(-w / 2, STICK + 22), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.8))
+
+
+func diagnostics() -> String:
+	return "touch %d · drag %d · mouse %d/%d · stick %s · move %.1f,%.1f · screen %dx%d" % [counts["touch"], counts["drag"], counts["mbtn"], counts["mmove"],
+		"held" if _stick_finger >= 0 else "-", input.move.x, input.move.y, get_viewport_rect().size.x, get_viewport_rect().size.y]

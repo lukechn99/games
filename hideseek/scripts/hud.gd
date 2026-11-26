@@ -3,6 +3,9 @@ extends CanvasLayer
 ## Timer, next-spark countdown, ammo or rerolls, crosshair, toasts, the
 ## seekers' blindfold in the hide phase, and the hider's edge flash.
 
+## Shown on phones with the touch diagnostics, so a screenshot says which build it is.
+const VERSION := "build 2026-11-25c"
+
 const EDGE_SHADER := """
 shader_type canvas_item;
 uniform float strength = 0.0;
@@ -142,7 +145,9 @@ func show_round(s: Dictionary, session: Session, me: Player, t: float, ph: Strin
 	_toast.modulate.a = clampf(_toast_left * 2.0, 0, 1)
 	_marker_left -= delta
 	var touch := controls.touching
-	if me.role == "seeker":
+	if touch:
+		_help.text = "%s · %s" % [VERSION, controls.diagnostics()]
+	elif me.role == "seeker":
 		_help.text = "" if touch else "Click to look around\nWASD move · Space jump\nClick to shoot"
 	else:
 		_help.text = "" if touch else "Click to look around\nWASD move · Space jump\nF switch prop · R lock · Q decoy"

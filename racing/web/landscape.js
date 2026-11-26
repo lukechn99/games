@@ -2,6 +2,9 @@
 // and Godot's rendering loop. Update the prompt on the physical rotation event;
 // the iframe's layout viewport can still have its old dimensions at that point.
 (function () {
+  // A page can word the prompt: <script src="landscape.js" data-message="...">
+  var script = document.currentScript
+  var message = (script && script.getAttribute('data-message')) || 'Turn your phone sideways to race'
   var coarse = matchMedia('(pointer: coarse)')
   var portrait = matchMedia('(orientation: portrait)')
   var orientation = screen.orientation
@@ -44,7 +47,7 @@
     card = document.createElement('div')
     card.id = 'racing-rotate'
     card.setAttribute('role', 'status')
-    card.innerHTML = '<div><div style="font-size:48px;margin-bottom:12px" aria-hidden="true">↻</div>Turn your phone sideways to race</div>'
+    card.innerHTML = '<div><div style="font-size:48px;margin-bottom:12px" aria-hidden="true">↻</div>' + message + '</div>'
     document.body.appendChild(card)
     update()
   }

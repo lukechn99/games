@@ -11,7 +11,7 @@ const STICK := 70.0
 
 var input := PlayerInput.new()
 var role := "seeker"
-var touching := false             # a touch was seen: show the touch layout
+var touching := false             # a touch screen: show the touch layout
 
 var _stick_finger := -1
 var _stick_origin := Vector2.ZERO
@@ -20,9 +20,13 @@ var _look_finger := -1
 var _look_last := Vector2.ZERO
 var _button_fingers := {}         # finger -> button name
 var _buttons := {}                # name -> {at, r, label}
+var _stick_home := Vector2(150, 570)   # where the stick rests, bottom left
 
 
 func _ready() -> void:
+	# Phones show the stick and buttons from the start, not after a first
+	# touch (players didn't know they could move).
+	touching = DisplayServer.is_touchscreen_available() or OS.has_feature("web_android") or OS.has_feature("web_ios")
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	resized.connect(_layout)
@@ -46,6 +50,7 @@ func _layout() -> void:
 		_buttons["lock"] = {"at": br + Vector2(-20, -140) * u, "r": 42 * u, "label": "Lock"}
 	_buttons["jump"] = {"at": br + Vector2(-150, 30) * u, "r": 46 * u, "label": "Jump"}
 	_buttons["switch_role"] = {"at": Vector2(s.x - 70 * u, 130 * u), "r": 34 * u, "label": "Switch"}
+	_stick_home = Vector2(150 * u, s.y - 150 * u)
 	queue_redraw()
 
 
@@ -140,6 +145,15 @@ func _draw() -> void:
 		var fs := int(b["r"] * 0.42)
 		var w := font.get_string_size(b["label"], HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
 		draw_string(font, b["at"] + Vector2(-w / 2, fs * 0.35), b["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
-	if _stick_finger >= 0:
-		draw_circle(_stick_origin, STICK, Color(1, 1, 1, 0.15))
-		draw_circle(_stick_origin + (_stick_at - _stick_origin).limit_length(STICK), 28, Color(1, 1, 1, 0.45))
+	# The movement stick: resting bottom left; a thumb anywhere on the left
+	# side picks it up there.
+	var base := _stick_origin if _stick_finger >= 0 else _stick_home
+	var knob := base + ((_stick_at - _stick_origin).limit_length(STICK) if _stick_finger >= 0 else Vector2.ZERO)
+	draw_circle(base, STICK, Color(1, 1, 1, 0.16))
+	draw_arc(base, STICK, 0, TAU, 48, Color(1, 1, 1, 0.55), 2.0)
+	draw_circle(knob, 30, Color(1, 1, 1, 0.5 if _stick_finger >= 0 else 0.35))
+	if _stick_finger < 0:
+		var fs := 15
+		var t := "Move"
+		var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
+		draw_string(font, base + Vector2(-w / 2, STICK + 22), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.8))

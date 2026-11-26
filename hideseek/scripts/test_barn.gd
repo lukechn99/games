@@ -12,35 +12,43 @@ const LAYER_PROPS := 4
 
 const LOFT_Y := 3.0
 
+## The barn's inside has four areas (owner, 2026-11-25): horse stalls down
+## the west side, a tool corner and a tractor bay under the loft, and a hay
+## corner in the south-east, so it isn't one big room.
+const STALL_FRONT := -4.4                     # stall fronts face the aisle here
+const STALL_EDGES := [-11.85, -8.4, -4.95, -1.5, 1.95]
+const TRACTOR := Vector3(4.0, 0.0, 8.0)       # parked facing the north door
+
 ## [kind, position, yaw] for props standing on something.
 const STANDING := [
-	# Bale stacks on the ground floor: a double stack a bale can hop onto.
-	["bale", Vector3(5.0, 0.0, -8.0), 0.0], ["bale", Vector3(5.0, 0.5, -8.0), 0.0],
-	["bale", Vector3(5.0, 0.0, -6.9), 0.0], ["bale", Vector3(5.0, 0.0, -9.1), 0.0], ["bale", Vector3(5.0, 0.5, -9.1), 0.0],
-	["bale", Vector3(3.6, 0.0, -9.1), PI / 2], ["bale", Vector3(-1.0, 0.0, 6.0), 0.3],
 	# Loft bales.
 	["bale", Vector3(-6.0, LOFT_Y, 6.0), 0.0], ["bale", Vector3(-6.0, LOFT_Y + 0.5, 6.0), 0.0],
 	["bale", Vector3(-4.9, LOFT_Y, 6.0), 0.0], ["bale", Vector3(-6.0, LOFT_Y, 7.1), 0.0],
 	["bale", Vector3(-4.9, LOFT_Y, 7.1), 0.0], ["bale", Vector3(-4.9, LOFT_Y + 0.5, 7.1), 0.0],
 	["bale", Vector3(-6.0, LOFT_Y + 0.5, 7.1), 0.0], ["bale", Vector3(-6.0, LOFT_Y + 1.0, 7.1), 0.0],
 	["bale", Vector3(-2.5, LOFT_Y, 10.8), PI / 2], ["bale", Vector3(-2.5, LOFT_Y + 0.5, 10.8), PI / 2],
-	# Trash cans by the doors, inside and out.
+	# Loose bales in the hay corner and the aisle (the stacked steps are added in scenery()).
+	["bale", Vector3(2.9, 0.0, -8.3), 0.4], ["bale", Vector3(5.3, 0.0, -8.5), -0.15], ["bale", Vector3(-1.0, 0.0, 6.0), 0.3],
+	# Trash cans by the doors, inside and out, and in the tool corner.
 	["trash_can", Vector3(2.8, 0.0, 11.2), 0.0], ["trash_can", Vector3(3.5, 0.0, 11.2), 0.4],
 	["trash_can", Vector3(-3.0, 0.0, 12.9), 0.0], ["trash_can", Vector3(3.0, 0.0, -12.9), 1.0],
-	# Tires: a stack of three, singles, one in the yard.
-	["tire", Vector3(6.5, 0.0, -10.5), 0.0], ["tire", Vector3(6.5, 0.2, -10.5), 0.5], ["tire", Vector3(6.5, 0.4, -10.5), 1.1],
-	["tire", Vector3(6.6, 0.0, -9.5), 0.0], ["tire", Vector3(4.0, 0.0, 14.0), 0.0], ["tire", Vector3(4.9, 0.0, 14.4), 0.0],
-	# Chairs.
-	["chair", Vector3(-3.0, 0.0, -10.5), 0.3], ["chair", Vector3(3.0, 0.0, 2.0), -2.2],
+	["trash_can", Vector3(-4.0, 0.0, 5.2), 0.2],
+	# Tires stacked in the tractor bay, two in the yard.
+	["tire", Vector3(6.9, 0.0, 10.9), 0.0], ["tire", Vector3(6.9, 0.2, 10.9), 0.5], ["tire", Vector3(6.9, 0.4, 10.9), 1.1],
+	["tire", Vector3(6.9, 0.0, 9.9), 0.0], ["tire", Vector3(4.0, 0.0, 14.0), 0.0], ["tire", Vector3(4.9, 0.0, 14.4), 0.0],
+	# Chairs: one at the workbench.
+	["chair", Vector3(-2.6, 0.0, -10.6), 0.3], ["chair", Vector3(3.0, 0.0, 2.0), -2.2],
 	["chair", Vector3(2.0, LOFT_Y, 10.4), PI], ["chair", Vector3(-1.5, 0.0, 14.0), 2.6],
-	# Crates.
-	["crate", Vector3(-6.5, 0.0, -10.8), 0.0], ["crate", Vector3(-6.5, 0.6, -10.8), 0.2],
-	["crate", Vector3(-5.8, 0.0, -10.8), 0.0], ["crate", Vector3(0.0, LOFT_Y, 11.0), 0.6],
-	["crate", Vector3(1.0, 0.0, -11.0), 0.0],
-	# Buckets in the stalls and by the door.
-	["bucket", Vector3(-7.0, 0.0, -6.0), 0.0], ["bucket", Vector3(-6.0, 0.0, -2.0), 0.0],
+	["chair", Vector3(-6.4, 0.0, 6.4), -PI / 2],
+	# Crates on the tool corner's shelves and by the south door.
+	["crate", Vector3(-6.9, 0.14, 11.55), 0.0], ["crate", Vector3(-5.7, 0.14, 11.55), 0.0],
+	["crate", Vector3(-3.0, 0.0, -11.2), 0.0], ["crate", Vector3(-2.4, 0.0, -11.3), 0.3],
+	["crate", Vector3(0.0, LOFT_Y, 11.0), 0.6],
+	# Buckets: one in each stall, on the workbench and shelf, by the doors.
+	["bucket", Vector3(-7.4, 0.0, -11.4), 0.0], ["bucket", Vector3(-7.4, 0.0, -7.95), 0.0],
+	["bucket", Vector3(-7.4, 0.0, -4.5), 0.0], ["bucket", Vector3(-7.4, 0.0, -1.05), 0.0],
+	["bucket", Vector3(-7.45, 0.96, 7.5), 0.0], ["bucket", Vector3(-6.3, 0.79, 11.55), 0.0],
 	["bucket", Vector3(2.2, 0.0, 11.5), 0.0], ["bucket", Vector3(-4.0, 0.0, 13.5), 0.0],
-	["bucket", Vector3(-6.6, 0.0, 1.8), 0.0],
 ]
 
 ## [kind, point on the wall at the ground, wall's outward normal]: props
@@ -48,21 +56,24 @@ const STANDING := [
 const LEANING := [
 	["rake", Vector3(7.85, 0.0, -4.0), Vector3(-1, 0, 0)],
 	["rake", Vector3(7.85, 0.0, -3.0), Vector3(-1, 0, 0)],
-	["rake", Vector3(-7.85, 0.0, 3.0), Vector3(1, 0, 0)],
+	["rake", Vector3(-3.4, 0.0, 11.85), Vector3(0, 0, -1)],
+	["rake", Vector3(-2.9, 0.0, 11.85), Vector3(0, 0, -1)],
 	["rake", Vector3(5.0, 0.0, 12.15), Vector3(0, 0, 1)],
 	["rake", Vector3(-4.0, 0.0, -11.85), Vector3(0, 0, 1)],
 ]
 
 ## Hand-placed hiding spots for sandbox hiders and, later, bots (design 12).
 const SPOTS := [
-	["bale", Vector3(5.0, 1.0, -8.0), 0.0],          # on top of the double stack
+	["bale", Vector3(4.3, 0.5, -9.7), 0.0],          # on the hay steps
 	["bale", Vector3(-3.8, LOFT_Y, 6.0), 0.0],
 	["trash_can", Vector3(4.2, 0.0, 11.2), 0.0],
-	["tire", Vector3(6.5, 0.6, -10.5), 0.0],
+	["tire", Vector3(6.9, 0.6, 10.9), 0.0],          # on top of the tire stack
 	["chair", Vector3(-3.6, 0.0, -10.2), 0.0],
-	["crate", Vector3(-5.8, 0.6, -10.8), 0.0],
-	["bucket", Vector3(-7.1, 0.0, -2.4), 0.0],
+	["crate", Vector3(-3.0, 0.6, -11.2), 0.0],
+	["bucket", Vector3(-7.4, 0.0, 1.5), 0.0],        # in the last stall
+	["bucket", Vector3(-7.45, 0.96, 6.6), 0.0],      # on the workbench
 	["rake", Vector3(7.85, 0.0, -5.0), Vector3(-1, 0, 0)],
+	["rake", Vector3(-2.45, 0.0, 11.85), Vector3(0, 0, -1)],
 ]
 
 const LEAN_ANGLE := 0.2  # radians off upright
@@ -87,6 +98,12 @@ static func spot_transform(spot: Array) -> Transform3D:
 ## Every scenery prop as [kind, transform].
 static func scenery() -> Array:
 	var out := []
+	# Hay corner: bales stacked in steps against the south and east walls,
+	# four high at the back down to one at the front.
+	for col in [7.3, 6.3, 5.3, 4.3]:
+		for row in 4:
+			for h in 4 - row:
+				out.append(["bale", Transform3D(Basis(), Vector3(col, h * 0.5, -11.5 + row * 0.6))])
 	for s in STANDING:
 		out.append([s[0], Transform3D(Basis(Vector3.UP, s[2]), s[1])])
 	for s in LEANING:
@@ -121,6 +138,7 @@ static func build(root: Node3D) -> void:
 	_house(b, solid)
 	_silo(b, solid)
 	root.add_child(b.commit("Buildings"))
+	_tractor(root, solid)
 
 	# Scenery props: one MultiMesh per kind, a solid box each.
 	var by_kind := {}
@@ -183,15 +201,155 @@ static func _barn(b: Surfaces.Builder, solid: StaticBody3D) -> void:
 	for side in [-1.0, 1.0]:
 		var rb := Basis(Vector3.BACK, side * -slope)
 		_block(b, "barn_roof", solid, Vector3(9.4, 0.12, 25.4), Vector3(side * 4.2, 6.55, 0), rb)
-	# Stalls on the west side.
-	for z in [-8.0, -4.0, 0.0]:
-		_block(b, "floor", solid, Vector3(3.2, 1.2, 0.15), Vector3(-6.4, 0.6, z))
+	_stalls(b, solid)
+	_tool_corner(b, solid)
 	# Hayloft over the north third, its railing, and a ramp up the east wall.
 	_block(b, "floor", solid, Vector3(15.7, 0.3, 7.85), Vector3(0, LOFT_Y - 0.15, 7.92))
 	_block(b, "floor", solid, Vector3(13.4, 0.9, 0.12), Vector3(-1.15, LOFT_Y + 0.45, 4.05))
 	var run := Vector3(0, LOFT_Y, 6.2)
 	var ramp_basis := Basis(Vector3.RIGHT, -atan2(run.y, run.z))
 	_block(b, "floor", solid, Vector3(1.4, 0.2, run.length()), Vector3(7.1, LOFT_Y / 2 - 0.1, 4.0 - run.z / 2), ramp_basis)
+
+
+## Four horse stalls down the west wall: board walls with black bars above,
+## a front with an open gate, straw bedding, a hay rack and a water bucket.
+static func _stalls(b: Surfaces.Builder, solid: StaticBody3D) -> void:
+	var back := -7.85
+	var depth := STALL_FRONT - back
+	var mid_x := (back + STALL_FRONT) / 2
+	for z in STALL_EDGES.slice(1):
+		_bar_wall(b, solid, Vector3(mid_x, 0, z), depth, "x")
+	for i in STALL_EDGES.size() - 1:
+		var z0: float = STALL_EDGES[i]
+		var z1: float = STALL_EDGES[i + 1]
+		# Front: boards and bars along 2 m, then the gate, swung open.
+		var front_len := (z1 - z0) - 1.35
+		_bar_wall(b, solid, Vector3(STALL_FRONT, 0, z0 + front_len / 2), front_len, "z")
+		_block(b, "floor", solid, Vector3(0.14, 2.35, 0.14), Vector3(STALL_FRONT, 1.17, z1 - 0.05))
+		var gate_at := Vector3(STALL_FRONT + 0.62, 0, z1 - 1.35)
+		_block(b, "floor", solid, Vector3(1.2, 1.15, 0.06), gate_at + Vector3(0, 0.7, 0))
+		for y in [0.25, 1.15]:
+			_block(b, "bars", null, Vector3(1.24, 0.06, 0.08), gate_at + Vector3(0, y, 0))
+		# Straw bedding with a heap or two.
+		_block(b, "straw", null, Vector3(depth - 0.1, 0.03, z1 - z0 - 0.12), Vector3(mid_x, 0.035, (z0 + z1) / 2))
+		b.dome("straw", 0.75, 0.22, Vector3(mid_x - 0.6, 0.03, (z0 + z1) / 2 + 0.5), 16, 4)
+		# Hay rack on the back wall, with hay in it.
+		var rz := (z0 + z1) / 2
+		_block(b, "bars", null, Vector3(0.05, 0.05, 1.3), Vector3(back + 0.45, 1.85, rz))
+		_block(b, "bars", null, Vector3(0.05, 0.05, 1.3), Vector3(back + 0.04, 1.15, rz))
+		var slope := atan2(0.41, 0.7)
+		for k in 7:
+			var bz := rz - 0.6 + k * 0.2
+			_block(b, "bars", null, Vector3(0.03, 0.81, 0.03), Vector3(back + 0.245, 1.5, bz), Basis(Vector3.BACK, slope))
+		_block(b, "straw", null, Vector3(0.3, 0.5, 1.2), Vector3(back + 0.2, 1.62, rz), Basis(Vector3.BACK, slope * 0.6))
+
+
+## A stall wall: boards to 1.3 m, black bars above to 2.2 m. `along` is the
+## axis it runs along ("x" or "z"); `at` its middle at the floor.
+static func _bar_wall(b: Surfaces.Builder, solid: StaticBody3D, at: Vector3, length: float, along: String) -> void:
+	var d := Vector3(1, 0, 0) if along == "x" else Vector3(0, 0, 1)
+	var thin := Vector3(0, 0, 1) if along == "x" else Vector3(1, 0, 0)
+	var size := func(l: float, h: float, t: float) -> Vector3: return d * l + Vector3(0, h, 0) + thin * t
+	_block(b, "floor", null, size.call(length, 1.3, 0.08), at + Vector3(0, 0.65, 0))
+	_block(b, "bars", null, size.call(length, 0.06, 0.1), at + Vector3(0, 2.2, 0))
+	var n := int(length / 0.16)
+	for k in n:
+		var off := -length / 2 + (k + 0.5) * length / n
+		_block(b, "bars", null, size.call(0.03, 0.9, 0.03), at + d * off + Vector3(0, 1.75, 0))
+	# One solid box for the whole wall: you can't jump over 2.2 m.
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size.call(length, 2.25, 0.12)
+	cs.shape = box
+	cs.position = at + Vector3(0, 1.125, 0)
+	solid.add_child(cs)
+
+
+## The tool corner under the loft (north-west): a workbench with a pegboard
+## of hanging tools, shelves, and long-handled tools on the north wall.
+static func _tool_corner(b: Surfaces.Builder, solid: StaticBody3D) -> void:
+	var wall := -7.85
+	var bench := Vector3(wall + 0.38, 0, 7.2)
+	_block(b, "floor", solid, Vector3(0.75, 0.08, 4.0), bench + Vector3(0, 0.92, 0))
+	_block(b, "floor", null, Vector3(0.7, 0.04, 3.9), bench + Vector3(0, 0.25, 0))
+	for z in [-1.9, 1.9]:
+		for x in [-0.3, 0.3]:
+			_block(b, "handle", null, Vector3(0.07, 0.88, 0.07), bench + Vector3(x, 0.44, z))
+	# On the bench: a toolbox, a vise, paint cans.
+	_block(b, "toolbox", solid, Vector3(0.32, 0.24, 0.55), bench + Vector3(0, 1.08, -1.2))
+	_block(b, "metal", null, Vector3(0.26, 0.03, 0.3), bench + Vector3(0, 1.21, -1.2))
+	_block(b, "metal", null, Vector3(0.2, 0.18, 0.12), bench + Vector3(0.2, 1.05, 0.9))
+	for i in 3:
+		b.cylinder("metal", 0.08, 0.16, bench + Vector3(-0.1 + i * 0.03, 0.96, 1.5 + i * 0.18), 12)
+	# Pegboard and hanging tools: hammers, wrenches, a saw, screwdrivers.
+	var pb := Vector3(wall + 0.02, 1.75, 7.2)
+	_block(b, "pegboard", null, Vector3(0.03, 1.1, 3.6), pb)
+	var tool_x := wall + 0.06
+	for i in 3:
+		var tz := 5.7 + i * 0.35
+		_block(b, "handle", null, Vector3(0.03, 0.34, 0.035), Vector3(tool_x, 1.6, tz))
+		_block(b, "metal", null, Vector3(0.04, 0.05, 0.14), Vector3(tool_x, 1.79, tz))
+	for i in 4:
+		var wz := 6.9 + i * 0.16
+		var l := 0.18 + i * 0.05
+		_block(b, "metal", null, Vector3(0.02, l, 0.035), Vector3(tool_x, 1.95 - l / 2, wz))
+	_block(b, "metal", null, Vector3(0.015, 0.16, 0.6), Vector3(tool_x, 1.55, 7.9))
+	_block(b, "handle", null, Vector3(0.04, 0.14, 0.12), Vector3(tool_x, 1.58, 8.25))
+	for i in 4:
+		var sz := 8.6 + i * 0.12
+		_block(b, "toolbox", null, Vector3(0.03, 0.1, 0.03), Vector3(tool_x, 1.95, sz))
+		_block(b, "metal", null, Vector3(0.015, 0.16, 0.015), Vector3(tool_x, 1.82, sz))
+	# Shelves on the north wall.
+	var sh := Vector3(-6.3, 0, 11.6)
+	for x in [-1.28, 1.28]:
+		for z in [-0.22, 0.22]:
+			_block(b, "metal", solid, Vector3(0.05, 2.2, 0.05), sh + Vector3(x, 1.1, z))
+	for y in [0.12, 0.77, 1.42, 2.07]:
+		_block(b, "floor", solid, Vector3(2.6, 0.04, 0.5), sh + Vector3(0, y, 0))
+	for i in 6:
+		b.cylinder("toolbox" if i % 2 == 0 else "metal", 0.09, 0.18, sh + Vector3(-1.1 + i * 0.35, 1.44, 0.0), 12)
+	_block(b, "toolbox", null, Vector3(0.5, 0.3, 0.35), sh + Vector3(0.6, 2.24, 0))
+	# Long tools hanging on the north wall: a shovel, a pitchfork, a hoe.
+	for i in 3:
+		var tx := -4.8 + i * 0.4
+		var wz := 11.8
+		_block(b, "handle", null, Vector3(0.035, 1.3, 0.035), Vector3(tx, 1.25, wz))
+		match i:
+			0:
+				_block(b, "metal", null, Vector3(0.24, 0.32, 0.02), Vector3(tx, 0.48, wz))
+			1:
+				for t in 4:
+					_block(b, "metal", null, Vector3(0.015, 0.3, 0.015), Vector3(tx - 0.09 + t * 0.06, 0.45, wz))
+				_block(b, "metal", null, Vector3(0.22, 0.03, 0.02), Vector3(tx, 0.6, wz))
+			2:
+				_block(b, "metal", null, Vector3(0.18, 0.12, 0.015), Vector3(tx, 0.56, wz - 0.03))
+	_block(b, "handle", null, Vector3(1.3, 0.05, 0.04), Vector3(-4.4, 1.92, 11.83))
+
+
+## The tractor bay: the tractor model, parked facing the north door, with a
+## few solid boxes for its body and wheels.
+static func _tractor(root: Node3D, solid: StaticBody3D) -> void:
+	var path := "res://assets/models/tractor.glb"
+	if not ResourceLoader.exists(path):
+		return
+	var inst := (load(path) as PackedScene).instantiate()
+	var mi := inst.find_children("*", "MeshInstance3D", true, false)
+	if mi.is_empty():
+		inst.free()
+		return
+	var t := MeshInstance3D.new()
+	t.name = "Tractor"
+	t.mesh = (mi[0] as MeshInstance3D).mesh
+	inst.free()
+	t.transform = Transform3D(Basis(Vector3.UP, PI), TRACTOR)
+	root.add_child(t)
+	for box in [[Vector3(1.95, 1.5, 1.6), Vector3(0, 0.75, -0.75)], [Vector3(1.35, 1.4, 2.2), Vector3(0, 0.7, 0.6)]]:
+		var cs := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		bs.size = box[0]
+		cs.shape = bs
+		cs.position = TRACTOR + box[1]
+		solid.add_child(cs)
 
 
 ## One leaf of a sliding barn door: red boards in a white frame with an X.

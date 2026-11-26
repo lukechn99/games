@@ -55,13 +55,15 @@ func _ready() -> void:
 	_clock.position.y += 14
 	_sparks = _label(root, 20, Control.PRESET_TOP_RIGHT)
 	_sparks.position += Vector2(-24, 18)
-	_status = _label(root, 22, Control.PRESET_BOTTOM_LEFT)
-	_status.position += Vector2(24, -24)
+	# Top left, clear of the phone's movement stick.
+	_status = _label(root, 22, Control.PRESET_TOP_LEFT)
+	_status.position += Vector2(18, 12)
 	_toast = _label(root, 30, Control.PRESET_CENTER)
 	_toast.position.y -= 110
 	_help = _label(root, 15, Control.PRESET_TOP_LEFT)
-	_help.position += Vector2(16, 14)
+	_help.position += Vector2(18, 48)
 	_help.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_help.modulate.a = 0.8
 	controls = Controls.new()
 	root.add_child(controls)
@@ -122,7 +124,7 @@ func show_state(rules: HideRules, me: Player, t: float, next_mine: float, delta:
 	if me.role == "seeker":
 		var ammo: int = mine["ammo"]
 		_status.text = "Seeker · Paintballs %d · Hiders left %d" % [ammo, hiders_left]
-		_status.add_theme_color_override("font_color", Color(1, 0.35, 0.3) if ammo <= 3 else Color.WHITE)
+		_status.add_theme_color_override("font_color", Color(1, 0.35, 0.3) if ammo <= 10 else Color.WHITE)
 	else:
 		_status.text = "%s · Rerolls %d · %s" % [Props.display_name(me.kind), mine["rerolls"], "Locked" if me.locked else "Unlocked"]
 		_status.add_theme_color_override("font_color", Color.WHITE)

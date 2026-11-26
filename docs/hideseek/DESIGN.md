@@ -48,7 +48,7 @@ What this means for us: the fun comes from (1) props that look exactly like the 
 | Players | **Proposed:** 3–10 people. Bots fill in (12). |
 | Teams | **Proposed:** about 1 seeker for every 2–3 hiders (2 seekers for 6 players, 3 for 9). The host can change it. |
 | Devices | Phones (iOS Safari, Android Chrome) and desktop browsers, same as the racer. |
-| Orientation | Landscape while playing. |
+| Orientation | Landscape while playing: in portrait the racer's prompt asks to turn the phone (owner, 2026-11-25). |
 | Session | One room plays several rounds; teams swap so everyone seeks once (5). |
 
 ## 4. Stages of a round
@@ -95,8 +95,8 @@ The catch, and what to do about it: **a whistle carries through walls; confetti 
 
 - **Tagging tool (Decided 2026-11-25): a paintball marker.** Short range (about 15 m). A hit on a hider shows a hit marker and a burst; that hider is found.
 - **Paint fades (Decided 2026-11-25):** a splat on an ordinary object shows everyone it's been checked, but only for a while. If paint stayed all game, seekers could rule out every checked object for good, and the farm would get "solved". **Proposed:** a splat stays bright for 20 s, then fades out over the next 20 s (40 s in all, a bit more than one spark cycle). Once it's gone, that spot is worth checking again. It's also a hider tactic: sneak in next to something freshly painted, because seekers think that corner is done.
-- **Limited ammo (Decided 2026-11-25):** every wrong guess spends a paintball, so seekers can't spray everything. **Proposed:** each seeker starts a round with **12 paintballs** and gets **+3 for each hider they find**. No other refills. The host can change the starting amount. If every seeker runs out while hiders are left, the hiders win the round straight away.
-- The ammo count shows by the crosshair; at 3 or fewer it turns red.
+- **Limited ammo (Decided 2026-11-25):** every wrong guess spends a paintball, so seekers can't spray everything. **Proposed:** each seeker starts a round with **100 paintballs** (owner, 2026-11-25: at least 100) and gets **+3 for each hider they find**. No other refills. The host can change the starting amount. If every seeker runs out while hiders are left, the hiders win the round straight away.
+- The ammo count shows top left; at 10 or fewer it turns red.
 - **View:** first person, like the reference, so seekers see the world at human height and small props are easy to overlook.
 - **Optional seeker gadget (Proposed, later):** one "sniff" per round that makes the nearest hider spark immediately.
 
@@ -157,6 +157,7 @@ Built by `hideseek/tools/blender/props.py` (`python3`, bpy), one model at a time
 | Prop | Status | Triangles | File |
 |---|---|---|---|
 | Hay bale | **Approved** 2026-11-25 | 676 | 151 KB |
+| Tractor (scenery, not a hider prop) | Waiting for approval | 3,960 | 378 KB (1024 px textures) |
 
 ### 9.3b Buildings, ground and light (Decided 2026-11-25: the owner asked for wood siding on the barn and house, shiny metal on the silo, grass outside, sun and shadows)
 
@@ -168,13 +169,21 @@ Built by `hideseek/tools/blender/props.py` (`python3`, bpy), one model at a time
 - **The brightening, measured:** in this renderer a shadow-casting sun is drawn in its own pass and added after conversion to screen colours, so sunlit surfaces came out about 1.4x brighter on screen (2x in light terms; the racer saw the same and turned shadows off). Measured with `?ambient=` and `?sunscale=` against the no-shadow picture: with shadows on, the sun runs at 0.45 of its strength and the fill light at 0.4 instead of 0.62. Sunlit grass then matches the no-shadow picture to within a few levels, and shade reads as shade (the barn floor inside went from 116 to 56 brightness).
 - **Not yet measured on a phone.** Shadows are the most expensive effect; a frame-rate check on a real phone (like the racer's benchmark) should decide whether Low quality turns them off.
 
+### 9.3c Inside the barn (Decided 2026-11-25: the owner asked for sections so it isn't monotonous)
+
+- **Horse stalls** down the west wall: four, each with board walls and black bars to 2.2 m (too high to jump), a front with its gate swung open, straw bedding with a heap, a hay rack full of hay, and a water bucket.
+- **Tool corner** under the loft (north-west): a workbench with a toolbox, vise and paint cans; a pegboard of hammers, wrenches, a saw and screwdrivers; metal shelves with crates, cans and a bucket; a shovel, pitchfork and hoe hanging on the wall, with rakes leaning beside them.
+- **Tractor bay** under the loft (north-east): the textured tractor model, parked facing the north door, with a stack of tires.
+- **Hay corner** (south-east): 40 bales stacked in steps, four high at the walls down to one at the front, so a bale hider can climb in, plus loose bales.
+- Hiding spots moved to suit (10 now), including a bucket on the workbench, a tire on the stack and a bale on the hay steps.
+
 ### 9.3 Where the models come from (Proposed)
 
 The same way as the racer: low-poly models built by script in Blender (`tools/blender`, `bpy`) to fixed triangle budgets, plus CC0 Kenney kits where they fit (the furniture and nature kits are likely candidates for the farmhouse interior and the trees; to check). Colours from one palette, toon-lit like Animal Karts so both games feel like one family.
 
 ## 10. Controls
 
-- **Phone:** a left thumb stick to move, drag on the right half to look, buttons on the right: **Tag** (seekers) or **Reroll / Lock / Decoy / Chaff** (hiders), and Jump.
+- **Phone:** a movement stick shown bottom left from the start (owner, 2026-11-25: there was no visible way to move), drag on the right half to look, buttons on the right: **Tag** (seekers) or **Reroll / Lock / Decoy / Chaff** (hiders), and Jump.
 - **Computer:** WASD and mouse (the pointer locks to the game), left click to tag, F to reroll, R to lock, Q decoy, E chaff, Space jump.
 - **Gamepad:** standard twin stick.
 
@@ -284,3 +293,4 @@ Play it at `/games/hideseek/` once merged (CI tests and exports it on push to `m
 - 2026-11-25: Owner review: the hider warning is a screen-edge flash, not a countdown; found hiders join the seekers; hiders get a random prop from the scenery pool with two rerolls (replacing "Become" and prop changes); everyone can jump, e.g. a bale onto a stack of bales. H0 started.
 - 2026-11-25: H0 merged to main. Textured Blender props started (9.3a), one at a time with the owner approving each: the hay bale first.
 - 2026-11-25: Hay bale approved. Buildings and ground textured (9.3b): barn siding, farmhouse and silo outsides, grass to the horizon, sun and real shadows with the renderer's brightening measured and corrected.
+- 2026-11-25: Owner review after trying it: an always-visible movement stick on phones; landscape required (the racer's prompt, now worded per game); 100 paintballs; the barn inside split into horse stalls, a tool corner, a tractor bay and a hay corner (9.3c), with a tractor model. Hide and Seek is on the game list as solo practice.

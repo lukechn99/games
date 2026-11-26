@@ -24,7 +24,7 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "
 TILE = {
     "barn_siding": 2.4, "trim": 1.2, "barn_roof": 2.0, "house_siding": 1.8,
     "shingles": 2.0, "silo_metal": 2.0, "floor": 2.4, "grass": 3.0,
-    "dirt": 3.0, "concrete": 2.0,
+    "dirt": 3.0, "concrete": 2.0, "straw": 2.0,
 }
 
 _y, _x = np.mgrid[0:N, 0:N] / N          # 0..1, row 0 at the top
@@ -38,6 +38,23 @@ def noise(seed, cells=8.0, stretch=(1.0, 1.0), beta=2.0):
     fy = np.fft.fftfreq(N)[:, None] * N
     fx = np.fft.fftfreq(N)[None, :] * N
     f = np.sqrt((fx * stretch[0]) ** 2 + (fy * stretch[1]) ** 2)
+    amp = 1.0 / np.maximum(f, cells * 0.5) ** beta
+    amp[0, 0] = 0
+    n = np.real(np.fft.ifft2(np.fft.fft2(w) * amp))
+    n -= n.min()
+    return n / n.max()
+
+
+def strands(seed, cells, angle, ratio=10.0, beta=1.4):
+    """Seamless noise streaked along `angle` (radians): straw lying that way."""
+    rng = np.random.default_rng(seed)
+    w = rng.standard_normal((N, N))
+    fy = np.fft.fftfreq(N)[:, None] * N
+    fx = np.fft.fftfreq(N)[None, :] * N
+    ca, sa = np.cos(angle), np.sin(angle)
+    along = fx * ca + fy * sa
+    across = -fx * sa + fy * ca
+    f = np.sqrt((along * ratio) ** 2 + across ** 2)
     amp = 1.0 / np.maximum(f, cells * 0.5) ** beta
     amp[0, 0] = 0
     n = np.real(np.fft.ifft2(np.fft.fft2(w) * amp))
@@ -224,7 +241,18 @@ def concrete():
     return col, normals(grit * 0.3 + base * 0.1, 2.0)
 
 
-SURFACES = {f.__name__: f for f in [barn_siding, trim, barn_roof, house_siding, shingles, silo_metal, floor, grass, dirt, concrete]}
+def straw():
+    """Loose straw bedding: stalks lying every which way over darker litter."""
+    layers = [strands(111 + i, cells=60, angle=a) for i, a in enumerate((0.3, 1.4, 2.4, 3.0))]
+    top = np.maximum.reduce(layers)
+    stalk = smooth(0.55, 0.85, top)
+    litter = noise(115, cells=8, beta=1.8)
+    col = lerp(rgb(0.42, 0.32, 0.16) * (0.8 + 0.3 * litter[..., None]), rgb(0.93, 0.8, 0.46), stalk)
+    col *= (0.85 + 0.2 * noise(116, cells=3, beta=2.2)[..., None])
+    return col, normals(top * 0.8 + litter * 0.2, 4.0)
+
+
+SURFACES = {f.__name__: f for f in [barn_siding, trim, barn_roof, house_siding, shingles, silo_metal, floor, grass, dirt, concrete, straw]}
 
 
 def save(name):

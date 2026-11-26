@@ -12,7 +12,7 @@ const DIR := "res://assets/textures/"
 const TILE := {
 	"barn_siding": 2.4, "trim": 1.2, "barn_roof": 2.0, "house_siding": 1.8,
 	"shingles": 2.0, "silo_metal": 2.0, "floor": 2.4, "grass": 3.0,
-	"dirt": 3.0, "concrete": 2.0,
+	"dirt": 3.0, "concrete": 2.0, "straw": 2.0,
 }
 
 ## How each surface takes the light. Metal shines (design: "metal shine for
@@ -25,6 +25,7 @@ const FINISH := {
 	"shingles": {"roughness": 0.95},
 	"grass": {"roughness": 1.0, "specular": 0.2},
 	"dirt": {"roughness": 1.0, "specular": 0.25},
+	"straw": {"roughness": 1.0, "specular": 0.2},
 }
 
 ## Untextured finishes.
@@ -32,6 +33,11 @@ const PLAIN := {
 	"glass": {"color": Color(0.16, 0.22, 0.28), "metallic": 0.4, "roughness": 0.08},
 	"door": {"color": Color(0.17, 0.32, 0.25), "roughness": 0.6},
 	"dark": {"color": Color(0.08, 0.07, 0.07), "roughness": 1.0},
+	"metal": {"color": Color(0.46, 0.48, 0.5), "metallic": 0.6, "roughness": 0.4},
+	"bars": {"color": Color(0.12, 0.12, 0.13), "metallic": 0.5, "roughness": 0.5},
+	"handle": {"color": Color(0.5, 0.36, 0.22), "roughness": 0.7},
+	"toolbox": {"color": Color(0.72, 0.1, 0.08), "roughness": 0.45},
+	"pegboard": {"color": Color(0.6, 0.48, 0.34), "roughness": 0.9},
 }
 
 static var _mats := {}

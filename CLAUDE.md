@@ -5,7 +5,8 @@ racer, Animal Karts (`racing/`), published at
 https://lukechn99.github.io/games/ (the racer at `/games/racing/index.html`).
 
 Hide and Seek, a prop-hunt game, is a second Godot project in `hideseek/`
-(design in `docs/hideseek/DESIGN.md`; checks: `racing/tools/check.sh hideseek`),
+(design in `docs/hideseek/DESIGN.md`; checks: `racing/tools/check.sh hideseek`;
+multiplayer end to end: `tests/e2e/hideseek.mjs`, set up as `tests/e2e/run.mjs`),
 published at `/games/hideseek/`.
 
 Read before working on the racer:

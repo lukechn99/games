@@ -208,6 +208,16 @@ The same way as the racer: low-poly models built by script in Blender (`tools/bl
 - **Sparks** need no messages (6).
 - **Secrets:** every phone knows who's which prop (it has to draw them). A player could dig that out of their browser. Among friends, that's acceptable, same as the racer's stance on cheating.
 
+### 13a. What's built (Decided and built 2026-11-25, owner: "make seeker bots and get multiplayer working", reusing the racer's code)
+
+- **Rules:** `lib/games/hideseek/rules.ts` on the host: each round deals roles at random, a random prop per hider, 2 rerolls, 100 paintballs, finds (+3; a found hider becomes a seeker), the clock (45 s hide, 3 min seek), winners, scores (design 5), then 8 s of results and the next round. `hideseek/scripts/rules.gd` is the same rules on the same data for solo practice; a test checks the numbers and props match.
+- **Reused from the racer:** the room engine, relay, lobby and call as they are; `racing/web/net.js` is now shared (it takes the game's name, `data-source`), as is `landscape.js`; `HideSeekView.tsx` follows `RacingView.tsx`; `scripts/session.gd` follows the racer's `net.gd` (Godot projects can't share scripts).
+- **What goes where:** rules actions (reroll, shoot, find) go to the host; positions (about 12 a second, one message per phone with everyone it runs) and each paintball shot go player to player through the relay. Whoever fired decides whether it found someone (13). Sparks need no messages: every phone builds the schedule from the round's seed.
+- **Bots:** room bots (Add a computer player) and practice bots are run by the host's game, acting through the rules for themselves (`as`). Hider bots take a free spot beside matching scenery (or a hand-placed spot) partway through the hide phase. Seeker bots walk a navigation mesh baked from the barn when the game loads (stalls, tractor and bales are obstacles; the ramp reaches the loft); a spark plume sends them roughly there (less exactly from farther away), where they paint things in sight near the spot, sometimes sensing the right one, and they chase a hider they see move. Levels: easy, medium, hard (aim, sense, shots per search, reaction).
+- **Others in view:** other seekers appear as a farmhand in overalls and a straw hat with a paintball marker, each a different shirt colour, with their name above; hiders have no name.
+- **Joining mid-round:** you watch (a seeker without paint) and play from the next round.
+- **Checks:** `check.sh hideseek` plays a whole practice round headless (a seeker bot walks 100+ m and finds a hider; hider bots take free spots; a path from the yard to the loft). `tests/e2e/hideseek.mjs` runs two people and two bots in a real room in two Chrome instances through a local broker: same deal on both, the guest's movement seen by the host, a reroll seen by the other, bots in the same places on both, paintballs seen on the other screen.
+
 ## 14. Building and shipping
 
 ### 14.1 Why Godot, and why it fits (Proposed)
@@ -295,3 +305,4 @@ Play it at `/games/hideseek/` once merged (CI tests and exports it on push to `m
 - 2026-11-25: Hay bale approved. Buildings and ground textured (9.3b): barn siding, farmhouse and silo outsides, grass to the horizon, sun and real shadows with the renderer's brightening measured and corrected.
 - 2026-11-25: Owner review after trying it: an always-visible movement stick on phones; landscape required (the racer's prompt, now worded per game); 100 paintballs; the barn inside split into horse stalls, a tool corner, a tractor bay and a hay corner (9.3c), with a tractor model. Hide and Seek is on the game list as solo practice.
 - 2026-11-25: Roles dealt at random, no Switch (owner). Seekers = (players + 1) ÷ 3, at least 1.
+- 2026-11-25: Seeker bots and multiplayer (13a), reusing the racer's room bridge. Practice now runs on game time.

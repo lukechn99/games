@@ -149,6 +149,49 @@ static func _build(kind: String) -> ArrayMesh:
 	return m
 
 
+## How other players see a seeker: a farmhand in overalls, a plaid shirt
+## and a straw hat, carrying a paintball marker. One merged mesh, feet at
+## the origin, facing -Z. `shirt` tells seekers apart.
+static func avatar(shirt: Color) -> ArrayMesh:
+	var key := "avatar_%s" % shirt.to_html()
+	if _meshes.has(key):
+		return _meshes[key]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var denim := Color(0.26, 0.36, 0.55)
+	var skin := Color(0.88, 0.68, 0.52)
+	var straw := Color(0.9, 0.77, 0.42)
+	var boot := Color(0.22, 0.15, 0.1)
+	for x in [-0.11, 0.11]:
+		_box(st, Vector3(0.14, 0.12, 0.24), Vector3(x, 0.06, -0.03), boot)
+		_box(st, Vector3(0.15, 0.72, 0.17), Vector3(x, 0.48, 0), denim)
+	_box(st, Vector3(0.4, 0.5, 0.24), Vector3(0, 1.08, 0), shirt)
+	_box(st, Vector3(0.36, 0.34, 0.25), Vector3(0, 0.98, 0), denim)
+	for x in [-0.12, 0.12]:
+		_box(st, Vector3(0.05, 0.3, 0.255), Vector3(x, 1.2, 0), denim)
+	for x in [-0.26, 0.26]:
+		_box(st, Vector3(0.11, 0.5, 0.12), Vector3(x, 1.05, -0.04), shirt)
+		_box(st, Vector3(0.1, 0.1, 0.1), Vector3(x, 0.78, -0.08), skin)
+	_box(st, Vector3(0.1, 0.08, 0.1), Vector3(0, 1.37, 0), skin)
+	var head := SphereMesh.new()
+	head.radius = 0.14
+	head.height = 0.3
+	head.radial_segments = 12
+	head.rings = 6
+	_add(st, head, Transform3D(Basis(), Vector3(0, 1.53, 0)), skin)
+	_cyl(st, 0.3, 0.3, 0.025, Vector3(0, 1.64, 0), straw)
+	_cyl(st, 0.14, 0.16, 0.14, Vector3(0, 1.72, 0), straw)
+	_cyl(st, 0.162, 0.162, 0.03, Vector3(0, 1.67, 0), Color(0.6, 0.15, 0.12))
+	# Paintball marker held in front.
+	_box(st, Vector3(0.08, 0.12, 0.42), Vector3(0.16, 0.92, -0.32), Color(0.15, 0.15, 0.17))
+	_cyl(st, 0.07, 0.07, 0.16, Vector3(0.16, 1.05, -0.26), Color(0.95, 0.35, 0.6))
+	st.generate_tangents()
+	var m := st.commit()
+	m.surface_set_material(0, material())
+	_meshes[key] = m
+	return m
+
+
 static func _box(st: SurfaceTool, s: Vector3, at: Vector3, c: Color) -> void:
 	var b := BoxMesh.new()
 	b.size = s

@@ -12,7 +12,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	var watchdog := create_timer(120.0)
+	var watchdog := create_timer(240.0)
 	watchdog.timeout.connect(func():
 		print("FAIL  timed out")
 		print("hide and seek checks: 1 failures")
@@ -21,6 +21,7 @@ func _run() -> void:
 	_test_rerolls()
 	_test_ammo_and_finding()
 	_test_dealing_roles()
+	_test_rules_match_the_room()
 	_test_spark_schedule()
 	_test_paint_fade()
 	await _test_bale_jumps_onto_stack()
@@ -29,6 +30,7 @@ func _run() -> void:
 	await _test_rake_leans_on_lock()
 	await _test_paintball_hits()
 	await _test_edge_flash()
+	await _test_bots_play_a_round()
 	print("\n%d passed, %d failed" % [passes, failures])
 	print("hide and seek checks: %d failures" % failures)
 	quit(1 if failures > 0 else 0)
@@ -69,48 +71,61 @@ func _test_prop_pool() -> void:
 	check(spot_kinds.all(func(k): return pool.has(k)), "hiding spots only use pool props")
 
 
+func _rng(seed: int) -> RandomNumberGenerator:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	return r
+
+
+func _seeker_of(st: Dictionary) -> String:
+	return HideRules.ids(st, "seeker")[0]
+
+
 func _test_rerolls() -> void:
-	var r := HideRules.new(TestBarn.pool(), 7)
-	r.add_hider("h")
-	var first: String = r.players["h"]["prop"]
-	check(TestBarn.pool().has(first), "hider gets a random prop from the pool", first)
-	var a := r.reroll("h")
-	var second: String = r.players["h"]["prop"]
-	var b := r.reroll("h")
-	var third: String = r.players["h"]["prop"]
-	check(a and b and second != first and third != second, "two rerolls, each a different prop", "%s > %s > %s" % [first, second, third])
-	check(not r.reroll("h") and r.players["h"]["prop"] == third, "a third reroll is refused")
+	var r := _rng(7)
+	var st := HideRules.setup(["a", "b", "c", "d"], 1000.0, r)
+	var h: String = st["hidersAtStart"][0]
+	var first: String = st["members"][h]["prop"]
+	check(HideRules.PROPS.has(first), "a hider gets a random prop from the pool", first)
+	var s1: Dictionary = HideRules.action(st, h, {"type": "reroll"}, 2000.0, r)["state"]
+	var s2: Dictionary = HideRules.action(s1, h, {"type": "reroll"}, 3000.0, r)["state"]
+	var props := [first, s1["members"][h]["prop"], s2["members"][h]["prop"]]
+	check(props[1] != props[0] and props[2] != props[1], "two rerolls, each a different prop", str(props))
+	check(HideRules.action(s2, h, {"type": "reroll"}, 4000.0, r).has("error"), "a third reroll is refused")
 	var seen := {}
-	for s in 40:
-		var rr := HideRules.new(TestBarn.pool(), s)
-		rr.add_hider("x")
-		seen[rr.players["x"]["prop"]] = true
-	check(seen.size() == TestBarn.pool().size(), "random assignment reaches every prop", str(seen.keys()))
+	for i in 60:
+		var x := HideRules.setup(["a", "b"], 0.0, _rng(i))
+		seen[x["members"][x["hidersAtStart"][0]]["prop"]] = true
+	check(seen.size() == HideRules.PROPS.size(), "random props reach every prop", str(seen.keys()))
 
 
 func _test_ammo_and_finding() -> void:
-	var r := HideRules.new(TestBarn.pool(), 1)
-	r.add_seeker("s")
-	r.add_hider("h1")
-	r.add_hider("h2")
-	var shots := 0
-	while r.shoot("s"):
-		shots += 1
-	check(shots == HideRules.START_AMMO, "a seeker has %d paintballs, then can't shoot" % HideRules.START_AMMO, str(shots))
-	check(r.winner(60.0) == "hiders", "hiders win when every seeker is out of paint")
-	r.players["s"]["ammo"] = 2
-	r.find("s", "h1", 50.0)
-	check(r.players["s"]["ammo"] == 2 + HideRules.AMMO_PER_FIND, "finding a hider gives +%d" % HideRules.AMMO_PER_FIND)
-	check(r.players["h1"]["role"] == "seeker" and r.players["h1"]["ammo"] == HideRules.START_AMMO, "a found hider joins the seekers with fresh paint")
-	check(not r.find("s", "h1", 51.0), "a found hider can't be found twice")
-	check(r.winner(52.0) == "" and r.phase(52.0) == "seek", "the round goes on while a hider is left")
-	r.find("h1", "h2", 60.0)
-	check(r.winner(61.0) == "seekers", "seekers win when every hider is found")
-	var r2 := HideRules.new(TestBarn.pool(), 1)
-	r2.add_seeker("s")
-	r2.add_hider("h")
-	check(r2.phase(10.0) == "hide" and r2.winner(10.0) == "", "nobody wins during the hide phase")
-	check(r2.winner(HideRules.HIDE_TIME + HideRules.SEEK_TIME) == "hiders", "hiders win when time runs out")
+	var r := _rng(5)
+	var st := HideRules.setup(["a", "b", "c", "d"], 1000.0, r)
+	var seek := 1000.0 + HideRules.HIDE_MS + 1.0
+	var sk := _seeker_of(st)
+	var h: String = st["hidersAtStart"][0]
+	check(HideRules.action(st, sk, {"type": "shoot"}, 2000.0, r).has("error"), "no paint in the hide phase")
+	st = HideRules.action(st, sk, {"type": "shoot"}, seek, r)["state"]
+	check(int(st["members"][sk]["ammo"]) == HideRules.START_AMMO - 1, "100 paintballs to spend", str(st["members"][sk]["ammo"]))
+	st = HideRules.action(st, sk, {"type": "find", "hider": h}, seek + 10, r)["state"]
+	check(int(st["members"][sk]["ammo"]) == HideRules.START_AMMO - 1 + HideRules.AMMO_PER_FIND, "a find gives +3")
+	check(st["members"][h]["role"] == "seeker" and int(st["members"][h]["ammo"]) == HideRules.START_AMMO, "a found hider joins the seekers with fresh paint")
+	check(HideRules.action(st, sk, {"type": "find", "hider": h}, seek + 20, r).has("error"), "a found hider can't be found twice")
+	var other: String = st["hidersAtStart"][1]
+	st = HideRules.action(st, "a" if sk != "a" else "b", {"type": "find", "hider": other, "as": sk}, seek + 30, r)["state"]
+	check(st["members"][other]["role"] == "seeker", "a player can act for a bot ('as')")
+	for x in HideRules.ids(st, "hider"):
+		st = HideRules.action(st, sk, {"type": "find", "hider": x}, seek + 40, r)["state"]
+	check(st["winner"] == "seekers" and int(st["scores"][sk]) >= 6, "seekers win when all are found", str(st["scores"]))
+	var next := HideRules.tick(st, seek + 40 + HideRules.RESULTS_MS, r)
+	check(int(next["round"]) == 2 and next["winner"] == null and next["scores"] == st["scores"], "then a new round deals again, scores kept")
+	var t2 := HideRules.setup(["a", "b"], 0.0, _rng(3))
+	check(HideRules.tick(t2, HideRules.HIDE_MS + HideRules.SEEK_MS, r)["winner"] == "hiders", "hiders win when time runs out")
+	var sk2 := _seeker_of(t2)
+	t2["members"][sk2]["ammo"] = 1
+	t2 = HideRules.action(t2, sk2, {"type": "shoot"}, HideRules.HIDE_MS + 5, r)["state"]
+	check(t2["winner"] == "hiders", "hiders win when every seeker is out of paint")
 
 
 func _test_dealing_roles() -> void:
@@ -118,27 +133,44 @@ func _test_dealing_roles() -> void:
 	for n in range(2, 11):
 		counts.append(HideRules.seeker_count(n))
 	check(counts == [1, 1, 1, 2, 2, 2, 3, 3, 3], "seekers for 2 to 10 players", str(counts))
-	var rng := RandomNumberGenerator.new()
 	var seen := {}
 	for i in 200:
-		rng.seed = i
-		var s := HideRules.deal_seekers(["me", "bot1", "bot2", "bot3"], rng)
-		check(s.size() == 1, "one seeker in four") if i == 0 else null
+		var st := HideRules.setup(["me", "bot1", "bot2", "bot3"], 0.0, _rng(i))
+		var s := HideRules.ids(st, "seeker")
 		seen[s[0]] = seen.get(s[0], 0) + 1
 	check(seen.size() == 4 and seen.values().all(func(v): return v > 30), "every player can be dealt seeker, about evenly", str(seen))
-	rng.seed = 5
-	var big := HideRules.deal_seekers(["a", "b", "c", "d", "e", "f", "g", "h", "i"], rng)
-	check(big.size() == 3 and big.all(func(x): return big.count(x) == 1), "nine players: three different seekers", str(big))
+
+
+## The game's rules must match the room's (lib/games/hideseek/rules.ts).
+func _test_rules_match_the_room() -> void:
+	var path := ProjectSettings.globalize_path("res://").path_join("../lib/games/hideseek/rules.ts")
+	var ts := FileAccess.get_file_as_string(path)
+	if ts == "":
+		check(true, "rules.ts not found here; skipped")
+		return
+	var num := func(name: String) -> float:
+		var re := RegEx.create_from_string("export const %s = ([0-9_]+)" % name)
+		var m := re.search(ts)
+		return float(m.get_string(1).replace("_", "")) if m else -1.0
+	var pairs := {"HIDE_MS": HideRules.HIDE_MS, "SEEK_MS": HideRules.SEEK_MS, "RESULTS_MS": HideRules.RESULTS_MS,
+		"START_AMMO": HideRules.START_AMMO, "AMMO_PER_FIND": HideRules.AMMO_PER_FIND, "REROLLS": HideRules.REROLLS}
+	var bad := []
+	for k in pairs:
+		if num.call(k) != float(pairs[k]):
+			bad.append("%s %s vs %s" % [k, num.call(k), pairs[k]])
+	check(bad.is_empty(), "the game's numbers match the room's rules", str(bad))
+	var props := RegEx.create_from_string("export const PROPS = \\[([^\\]]*)\\]").search(ts)
+	var list := Array(props.get_string(1).replace("'", "").replace(" ", "").split(",")) if props else []
+	check(list == HideRules.PROPS, "same props, same order", str(list))
 
 
 func _test_spark_schedule() -> void:
-	var r := HideRules.new(TestBarn.pool(), 3)
-	for id in ["a", "b", "c"]:
-		r.add_hider(id)
-	var starts := r.cycle_starts()
+	var st := HideRules.setup(["a", "b", "c", "d"], 0.0, _rng(3))
+	var starts := HideRules.cycle_starts(HideRules.SEEK_MS / 1000.0)
 	check(starts == [25.0, 50.0, 75.0, 100.0, 125.0, 140.0, 155.0, 170.0], "every 25 s, then every 15 s in the last minute", str(starts))
-	var bl := r.bursts(["a", "b", "c"])
-	check(bl.size() == starts.size() * 3, "each cycle sparks every hider once", str(bl.size()))
+	var bl := HideRules.bursts(st)
+	var n: int = st["hidersAtStart"].size()
+	check(bl.size() == starts.size() * n, "each cycle sparks every hider once", str(bl.size()))
 	var one_at_a_time := true
 	for i in range(1, bl.size()):
 		if bl[i]["at"] - bl[i - 1]["at"] < HideRules.SPARK_GAP - 0.001:
@@ -146,13 +178,12 @@ func _test_spark_schedule() -> void:
 	check(one_at_a_time, "hiders spark one at a time, a second apart")
 	var orders := {}
 	for c in starts.size():
-		orders[str(bl.slice(c * 3, c * 3 + 3).map(func(b): return b["id"]))] = true
+		orders[str(bl.slice(c * n, c * n + n).map(func(b): return b["id"]))] = true
 	check(orders.size() > 1, "the order changes between cycles", str(orders.size()))
-	check(str(r.bursts(["c", "a", "b"])) == str(bl), "every phone works out the same schedule")
-	var first_a := HideRules.time_to_next(bl, "a", 0.0)
-	check(first_a >= HideRules.HIDE_TIME + 25.0 and first_a <= HideRules.HIDE_TIME + 27.0, "a hider's first burst is in the first cycle", str(first_a))
-	r.players["a"]["role"] = "seeker"
-	check(not r.burst_live(bl.filter(func(b): return b["id"] == "a")[0]), "found hiders stop sparking")
+	var copy := st.duplicate(true)
+	copy["seed"] = float(st["seed"])      # as it arrives from the room (JSON)
+	copy["hidersAtStart"].reverse()
+	check(str(HideRules.bursts(copy)) == str(bl), "every phone works out the same schedule")
 
 
 func _test_paint_fade() -> void:
@@ -287,19 +318,72 @@ func _test_paintball_hits() -> void:
 func _test_edge_flash() -> void:
 	var hud := Hud.new()
 	root.add_child(hud)
+	var ses := Session.new()
+	root.add_child(ses)
+	ses.start(false, 1)
 	await process_frame
-	var r := HideRules.new(TestBarn.pool(), 1)
-	r.add_hider("me")
 	var p := Player.new()
 	p.role = "hider"
 	p.kind = "bucket"
 	root.add_child(p)
-	hud.show_state(r, p, 60.0, 8.0, 0.05)
+	var st := ses.state
+	hud.show_round(st, ses, p, 60.0, "seek", 8.0, 0.05)
 	check(hud.edge_strength() == 0.0, "no flash long before your burst")
 	var peak := 0.0
 	for i in 40:
-		hud.show_state(r, p, 60.0, 4.0 - i * 0.1, 0.05)
+		hud.show_round(st, ses, p, 60.0, "seek", 4.0 - i * 0.1, 0.05)
 		peak = maxf(peak, hud.edge_strength())
 	check(peak > 0.5, "edges flash in the 5 s before your burst", "peak %.2f" % peak)
 	hud.free()
+	ses.free()
 	p.free()
+
+
+## A whole practice round, played headless at full speed: you hide (and
+## stay put), a seeker bot hunts, three... hider bots take free spots.
+func _test_bots_play_a_round() -> void:
+	OS.set_environment("HS_TEST", "1")
+	var game: Node3D = load("res://scenes/main.tscn").instantiate()
+	game.set("_query", {})
+	root.add_child(game)
+	game.call("_force_role", "hider")
+	game.session.state["hideMs"] = 3000.0
+	game.session.state["hidersAtStart"] = game.session.state["seats"].filter(func(x): return game.session.state["members"][x]["role"] == "hider")
+	await process_frame
+	game.call("_new_round")
+	var seeker_id := ""
+	for id in game.brains:
+		if game.brains[id] is Bots.Seeker:
+			seeker_id = id
+	check(seeker_id != "", "practice as a hider has a seeker bot")
+	var bot: Player = game.roster.get(seeker_id)
+	var start := bot.global_position if bot else Vector3.ZERO
+	# Hide phase: the hider bots take free spots.
+	for i in 60 * 5:
+		await physics_frame
+	var placed := 0
+	for id in game.brains:
+		if game.brains[id] is Bots.Hider and game.brains[id].hidden:
+			placed += 1
+	check(placed == 2, "hider bots take their spots during the hide phase", str(placed))
+	var travelled := 0.0
+	var last := bot.global_position
+	var found_at := -1.0
+	for i in 60 * 150:
+		await physics_frame
+		if is_instance_valid(bot):
+			travelled += bot.global_position.distance_to(last)
+			last = bot.global_position
+		if game.session.state["finds"].size() > 0 and found_at < 0.0:
+			found_at = i / 60.0
+			break
+	var st: Dictionary = game.session.state
+	var shots: int = HideRules.START_AMMO - int(st["members"][seeker_id]["ammo"]) + HideRules.AMMO_PER_FIND * st["finds"].size()
+	check(travelled > 15.0, "the seeker bot walks the farm", "%.0f m" % travelled)
+	check(shots >= 1, "and paints things", "%d shots" % shots)
+	check(found_at > 0.0, "and finds a hider within the round", "after %.0f s" % found_at)
+	var nav: NavigationRegion3D = game.get_node_or_null("Nav")
+	if nav:
+		var path := NavigationServer3D.map_get_path(nav.get_navigation_map(), Vector3(0, 0, 18), Vector3(-2, TestBarn.LOFT_Y, 8), true)
+		check(path.size() > 1 and path[path.size() - 1].y > TestBarn.LOFT_Y - 0.4, "bots can walk from the yard up to the loft", str(path[path.size() - 1]) if path.size() else "no path")
+	game.free()

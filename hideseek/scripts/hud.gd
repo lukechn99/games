@@ -107,29 +107,33 @@ func hit_marker() -> void:
 	_marker_left = 0.35
 
 
-## Called every frame by the game.
-func show_state(rules: HideRules, me: Player, t: float, next_mine: float, delta: float) -> void:
-	var ph := rules.phase(t)
-	var mine: Dictionary = rules.players["me"]
+## Called every frame by the game, with the round state (rules.ts's shape).
+func show_round(s: Dictionary, session: Session, me: Player, t: float, ph: String, next_mine: float, delta: float) -> void:
+	var hide_s := float(s["hideMs"]) / 1000.0
+	var seek_s := float(s["seekMs"]) / 1000.0
+	var mine: Dictionary = s["members"].get(session.me, {})
 	if ph == "hide":
-		_clock.text = "Hide!  %s" % _mmss(rules.hide_time - t)
+		_clock.text = "Hide!  %s" % _mmss(hide_s - t)
 	elif ph == "seek":
-		_clock.text = "Seek  %s" % _mmss(rules.hide_time + rules.seek_time - t)
+		_clock.text = "Seek  %s" % _mmss(hide_s + seek_s - t)
 	else:
-		_clock.text = "Seekers win!" if rules.winner(t) == "seekers" else "Hiders win!"
-	var nc := rules.time_to_next_cycle(t)
+		_clock.text = "Seekers win!" if s["winner"] == "seekers" else "Hiders win!"
+	var nc := HideRules.time_to_next_cycle(s, t)
 	_sparks.text = "Sparks in %d" % ceili(nc) if ph == "seek" and nc < INF else ""
 	_sparks.visible = _sparks.text != ""
-	var hiders_left := rules.ids("hider").size()
-	if me.role == "seeker":
-		var ammo: int = mine["ammo"]
+	var hiders_left := HideRules.ids(s, "hider").size()
+	if mine.is_empty():
+		_status.text = "Watching · Hiders left %d" % hiders_left
+		_status.add_theme_color_override("font_color", Color.WHITE)
+	elif me.role == "seeker":
+		var ammo := int(mine["ammo"])
 		_status.text = "Seeker · Paintballs %d · Hiders left %d" % [ammo, hiders_left]
 		_status.add_theme_color_override("font_color", Color(1, 0.35, 0.3) if ammo <= 10 else Color.WHITE)
 	else:
-		_status.text = "%s · Rerolls %d · %s" % [Props.display_name(me.kind), mine["rerolls"], "Locked" if me.locked else "Unlocked"]
+		_status.text = "%s · Rerolls %d · %s" % [Props.display_name(me.kind), int(mine["rerolls"]), "Locked" if me.locked else "Unlocked"]
 		_status.add_theme_color_override("font_color", Color.WHITE)
 	_blind.visible = me.role == "seeker" and ph == "hide"
-	_blind_text.text = "Hiders are hiding…\n%s" % _mmss(rules.hide_time - t)
+	_blind_text.text = "Hiders are hiding…\n%s" % _mmss(hide_s - t)
 	_cross.visible = me.role == "seeker" and not _blind.visible
 	_cross.queue_redraw()
 	_edge_flash(next_mine, delta)

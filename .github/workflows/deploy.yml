@@ -89,7 +89,7 @@ jobs:
           mkdir -p public/hideseek
           ~/godot/godot --headless --path hideseek --export-release "Web" "$PWD/public/hideseek/index.html"
           test -f public/hideseek/index.wasm
-          cp racing/web/landscape.js public/hideseek/
+          cp racing/web/landscape.js racing/web/net.js public/hideseek/
       - run: npm run build
         env:
           # Project sites live at https://<user>.github.io/<repo>/

@@ -13,7 +13,10 @@ var id := ""
 var role := "seeker"
 var kind := ""
 var locked := false
-var controlled := false
+var controlled := false          # moved by physics here (you, or a bot on the host)
+var has_camera := false          # the person playing on this device
+var remote := false              # someone else: follows their relayed position
+var shirt := Color(0.75, 0.2, 0.18)
 var frozen := false               # seekers during the hide phase
 var input := PlayerInput.new()
 var yaw := 0.0
@@ -40,7 +43,8 @@ func _init() -> void:
 
 func _ready() -> void:
 	set_physics_process(controlled)
-	if controlled:
+	set_process(remote)
+	if has_camera:
 		_pivot = Node3D.new()
 		add_child(_pivot)
 		_arm = SpringArm3D.new()
@@ -72,7 +76,8 @@ func set_role(r: String, prop := "") -> void:
 		cap.radius = 0.3
 		cap.height = 1.75
 		_shape.shape = cap
-		_visual.mesh = null
+		# Others see a farmhand; your own first-person view shows nothing.
+		_visual.mesh = null if has_camera else Props.avatar(shirt)
 	_apply_basis()
 	if _pivot:
 		if role == "hider":
@@ -142,7 +147,51 @@ func _physics_process(delta: float) -> void:
 	if role == "hider" and not locked:
 		prop_basis = Basis(Vector3.UP, yaw)
 		_apply_basis()
+	elif role == "seeker":
+		_apply_basis()
 	_aim()
+
+
+## Eye height for aiming (bots) and where paint comes from.
+func eye() -> Vector3:
+	if camera:
+		return camera.global_position
+	return global_position + Vector3(0, EYE, 0)
+
+
+# ------------------------------------------------------------ remote --
+
+var _goal_pos := Vector3.ZERO
+var _goal_yaw := 0.0
+var _goal_basis := Basis()
+var _heard := false
+
+
+## Where another player says they are (relayed about 12 times a second).
+func hear(pos: Vector3, look_yaw: float, basis_q: Quaternion, is_locked: bool) -> void:
+	_goal_pos = pos
+	_goal_yaw = look_yaw
+	_goal_basis = Basis(basis_q)
+	locked = is_locked
+	if not _heard:
+		_heard = true
+		position = pos
+		yaw = look_yaw
+		prop_basis = _goal_basis
+		_apply_basis()
+
+
+func _process(delta: float) -> void:
+	if not _heard:
+		return
+	var k := 1.0 - exp(-14.0 * delta)
+	if position.distance_to(_goal_pos) > 4.0:
+		position = _goal_pos
+	else:
+		position = position.lerp(_goal_pos, k)
+	yaw = lerp_angle(yaw, _goal_yaw, k)
+	prop_basis = prop_basis.slerp(_goal_basis, k).orthonormalized()
+	_apply_basis()
 
 
 func _aim() -> void:
@@ -151,7 +200,7 @@ func _aim() -> void:
 
 
 func _apply_basis() -> void:
-	_visual.basis = prop_basis
+	_visual.basis = prop_basis if role == "hider" else Basis(Vector3.UP, yaw)
 	if role == "hider":
 		_shape.transform = Transform3D(prop_basis, prop_basis * Vector3(0, Props.size(kind).y / 2, 0))
 	else:

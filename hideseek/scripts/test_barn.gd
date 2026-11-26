@@ -120,6 +120,7 @@ static func build(root: Node3D) -> void:
 	var b := Surfaces.Builder.new()
 	var solid := StaticBody3D.new()
 	solid.name = "Solid"
+	solid.add_to_group("nav")
 	solid.collision_layer = LAYER_WORLD
 	solid.collision_mask = 0
 	root.add_child(solid)
@@ -146,6 +147,7 @@ static func build(root: Node3D) -> void:
 		by_kind.get_or_add(s[0], []).append(s[1])
 	var props := Node3D.new()
 	props.name = "Scenery"
+	props.add_to_group("nav")
 	root.add_child(props)
 	for kind in by_kind:
 		var xforms: Array = by_kind[kind]
@@ -562,4 +564,64 @@ static func pool() -> Array:
 	for s in scenery():
 		if not out.has(s[0]):
 			out.append(s[0])
+	return out
+
+
+## Where seeker bots wander when they have nothing to go on: one point in
+## each part of the farm.
+const PATROL := [
+	Vector3(0, 0, 0), Vector3(-2.8, 0, -6.0), Vector3(-3.5, 0, 8.0), Vector3(1.5, 0, 6.5),
+	Vector3(2.5, 0, -7.0), Vector3(-2.0, LOFT_Y, 8.0), Vector3(3.0, LOFT_Y, 9.5), Vector3(0, 0, 17.0),
+	Vector3(0, 0, -17.0), Vector3(-11.5, 0, 4.0), Vector3(9.5, 0, -12.0), Vector3(5.0, 0, 15.0),
+]
+
+
+## A walkable map for bots, baked from the barn's solid shapes and scenery
+## (stalls, tractor, bales are obstacles; the ramp leads to the loft).
+static func navigation(root: Node3D) -> NavigationRegion3D:
+	var nm := NavigationMesh.new()
+	nm.agent_radius = 0.35
+	nm.agent_height = 1.7
+	nm.agent_max_climb = 0.3
+	nm.agent_max_slope = 40.0
+	nm.cell_size = 0.25
+	nm.cell_height = 0.25
+	nm.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+	nm.geometry_collision_mask = LAYER_WORLD | LAYER_PROPS
+	nm.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
+	nm.geometry_source_group_name = "nav"
+	nm.filter_baking_aabb = AABB(Vector3(-35, -1, -35), Vector3(70, 8, 70))
+	var src := NavigationMeshSourceGeometryData3D.new()
+	NavigationServer3D.parse_source_geometry_data(nm, src, root)
+	NavigationServer3D.bake_from_source_geometry_data(nm, src)
+	var region := NavigationRegion3D.new()
+	region.name = "Nav"
+	region.navigation_mesh = nm
+	root.add_child(region)
+	return region
+
+
+## Places a hider bot with prop `kind` could sit: the hand-placed spots,
+## plus beside (and for stackable props, on top of) every scenery copy of
+## the same prop: hiding next to something just like you. The caller checks
+## each is free.
+static func hiding_places(kind: String) -> Array:
+	var out := []
+	for sp in SPOTS:
+		if sp[0] == kind:
+			out.append(spot_transform(sp))
+	var sz := Props.size(kind)
+	var stackable := kind in ["bale", "crate", "tire"]
+	for s in scenery():
+		if s[0] != kind:
+			continue
+		var xf: Transform3D = s[1]
+		if Props.leans(kind):
+			for d in [-0.55, 0.55]:
+				out.append(Transform3D(xf.basis, xf.origin + xf.basis.x * d))
+			continue
+		for off in [xf.basis.x * (sz.x + 0.06), -xf.basis.x * (sz.x + 0.06), xf.basis.z * (sz.z + 0.06), -xf.basis.z * (sz.z + 0.06)]:
+			out.append(Transform3D(xf.basis, xf.origin + Vector3(off.x, 0, off.z)))
+		if stackable:
+			out.append(Transform3D(xf.basis, xf.origin + Vector3(0, sz.y, 0)))
 	return out

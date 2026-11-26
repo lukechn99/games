@@ -59,6 +59,8 @@ func _ready() -> void:
 	add_child(_paint_root)
 	hud = Hud.new()
 	add_child(hud)
+	if _query.has("touch"):          # test switch: the phone layout on a computer
+		hud.controls.touching = true
 	session = Session.new()
 	add_child(session)
 	session.changed.connect(_sync)

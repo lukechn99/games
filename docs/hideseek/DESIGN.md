@@ -183,7 +183,7 @@ The same way as the racer: low-poly models built by script in Blender (`tools/bl
 
 ## 10. Controls
 
-- **Phone:** a movement stick shown bottom left from the start (owner, 2026-11-25: there was no visible way to move), drag on the right half to look, buttons bottom right: **Shoot** (seekers) or **Switch prop / Lock / Decoy** (hiders), and Jump. They're placed from the screen as it is every frame: they had been laid out for an upright phone and left below the screen after turning it sideways (owner's report, 2026-11-25).
+- **Phone:** a movement stick shown bottom left from the start (owner, 2026-11-25: there was no visible way to move), drag on the right half to look, buttons bottom right: **Shoot** (seekers) or **Switch prop / Lock / Decoy** (hiders), and Jump. They're placed from the screen as it is every frame: they had been laid out for an upright phone and left below the screen after turning it sideways (owner's report, 2026-11-25). Touch input follows the racer's proven setup (touches also arrive as mouse events; mobile.js releases held touches when Safari interrupts), and if a phone delivers a thumb only as mouse events, the stick and buttons take those too (owner's report: the stick didn't respond on an iPhone).
 - **Computer:** WASD and mouse (the pointer locks to the game), left click to shoot, F to switch prop, R to lock, Q decoy, Space jump.
 - **Gamepad:** standard twin stick.
 
@@ -307,3 +307,4 @@ Play it at `/games/hideseek/` once merged (CI tests and exports it on push to `m
 - 2026-11-25: Roles dealt at random, no Switch (owner). Seekers = (players + 1) ÷ 3, at least 1.
 - 2026-11-25: Seeker bots and multiplayer (13a), reusing the racer's room bridge. Practice now runs on game time.
 - 2026-11-25: Owner report: no phone controls showed. They had been placed for an upright screen and stayed below the screen after turning; now placed every frame. Buttons named Shoot and Switch prop; decoys built (3 per hider, shared, pop when painted).
+- 2026-11-25: Owner report: the stick showed but didn't respond on an iPhone in a room. Couldn't reproduce in Chrome; touch settings now match the racer (which works on that phone), mobile.js added, and mouse-only thumbs drive the stick too.

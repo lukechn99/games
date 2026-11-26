@@ -22,6 +22,10 @@ var _button_fingers := {}         # finger -> button name
 var _buttons := {}                # name -> {at, r, label}
 var _stick_home := Vector2(150, 570)   # where the stick rests, bottom left
 var _laid_out_for := Vector2.ZERO
+var _last_touch_ms := -100000
+var _interruptions := -1
+var _check_t := 0.0
+const MOUSE_FINGER := 99             # a thumb that arrived as mouse events
 
 
 func _ready() -> void:
@@ -62,6 +66,15 @@ func _layout() -> void:
 func _process(delta: float) -> void:
 	if get_viewport_rect().size != _laid_out_for:
 		_layout()
+	# Safari can swallow a touch's end (a call, a swipe from the edge, the
+	# tab losing focus); mobile.js counts those: let go of everything.
+	_check_t -= delta
+	if touching and OS.has_feature("web") and _check_t <= 0.0:
+		_check_t = 0.2
+		var n := int(JavaScriptBridge.eval("window.racingMobile ? window.racingMobile.interruptions : 0", true))
+		if _interruptions >= 0 and n != _interruptions:
+			release_all()
+		_interruptions = n
 	var kb := Vector2(
 		float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),
 		float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)) - float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)))
@@ -83,9 +96,16 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		touching = true
+		_last_touch_ms = Time.get_ticks_msec()
 		_touch(event)
 	elif event is InputEventScreenDrag:
+		_last_touch_ms = Time.get_ticks_msec()
 		_drag(event)
+	elif touching and (event is InputEventMouseButton or event is InputEventMouseMotion) and Time.get_ticks_msec() - _last_touch_ms > 400:
+		# On a touch screen with no touch events arriving (some phone
+		# browsers in a frame only send mouse ones): treat the mouse as a
+		# thumb, so the stick and buttons still work.
+		_mouse_as_thumb(event)
 	elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		input.look += event.relative * MOUSE_LOOK
 	elif event is InputEventMouseButton and event.pressed and not touching:
@@ -107,6 +127,28 @@ func _input(event: InputEvent) -> void:
 			JOY_BUTTON_Y: input.lock = true
 			JOY_BUTTON_B: input.decoy = true
 			JOY_BUTTON_RIGHT_SHOULDER: input.fire = true
+
+
+func _mouse_as_thumb(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		var t := InputEventScreenTouch.new()
+		t.index = MOUSE_FINGER
+		t.position = event.position
+		t.pressed = event.pressed
+		_touch(t)
+	elif event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
+		var d := InputEventScreenDrag.new()
+		d.index = MOUSE_FINGER
+		d.position = event.position
+		_drag(d)
+
+
+## Let go of the stick, the look finger and every button.
+func release_all() -> void:
+	_stick_finger = -1
+	_look_finger = -1
+	_button_fingers.clear()
+	input.move = Vector2.ZERO
 
 
 func _touch(e: InputEventScreenTouch) -> void:

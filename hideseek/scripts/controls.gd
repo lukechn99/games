@@ -22,6 +22,13 @@ var _button_fingers := {}         # finger -> button name
 var _buttons := {}                # name -> {at, r, label}
 var _stick_home := Vector2(150, 570)   # where the stick rests, bottom left
 var _laid_out_for := Vector2.ZERO
+## The page draws the stick and buttons (web/touch.js) when it can: Godot's
+## own stick never caught a thumb on iPhone. Then every touch that reaches
+## the game is for looking around.
+var page_controls := false
+var _page_move := Vector2.ZERO
+var _page_held := false
+var _role_sent := ""
 var _last_touch_ms := -100000
 var _interruptions := -1
 var _check_t := 0.0
@@ -30,6 +37,10 @@ var counts := {"touch": 0, "drag": 0, "mbtn": 0, "mmove": 0}
 
 
 func _ready() -> void:
+	if OS.has_feature("web"):
+		page_controls = bool(JavaScriptBridge.eval("!!window.hsTouch", true))
+		if page_controls:
+			touching = true
 	# Phones show the stick and buttons from the start, not after a first
 	# touch (players didn't know they could move).
 	touching = DisplayServer.is_touchscreen_available() or OS.has_feature("web_android") or OS.has_feature("web_ios")
@@ -41,6 +52,9 @@ func _ready() -> void:
 
 func set_role(r: String) -> void:
 	role = r
+	if page_controls:
+		JavaScriptBridge.eval("window.hsTouch.setRole('%s')" % r, true)
+		_role_sent = r
 	_layout()
 
 
@@ -87,7 +101,16 @@ func _process(delta: float) -> void:
 	if pad.length() < 0.2:
 		pad = Vector2.ZERO
 	var stick := Vector2.ZERO
-	if _stick_finger >= 0:
+	if page_controls:
+		var raw: Variant = JSON.parse_string(str(JavaScriptBridge.eval("window.hsTouch.take()", true)))
+		if raw is Dictionary:
+			_page_move = Vector2(float(raw.get("x", 0)), float(raw.get("y", 0)))
+			_page_held = bool(raw.get("held", false))
+			for name in raw.get("p", []):
+				if str(name) in ["fire", "jump", "reroll", "lock", "decoy"]:
+					input.set(str(name), true)
+		stick = _page_move.limit_length(1.0)
+	elif _stick_finger >= 0:
 		var v := (_stick_at - _stick_origin) / STICK
 		stick = Vector2(v.x, -v.y).limit_length(1.0)
 	input.move = (kb + pad + stick).limit_length(1.0)
@@ -147,6 +170,14 @@ func release_all() -> void:
 
 
 func _touch(e: InputEventScreenTouch) -> void:
+	if page_controls:
+		# The page has the stick and buttons; touches here look around.
+		if e.pressed:
+			_look_finger = e.index
+			_look_last = e.position
+		elif e.index == _look_finger:
+			_look_finger = -1
+		return
 	if e.pressed:
 		for name in _buttons:
 			var b: Dictionary = _buttons[name]
@@ -181,7 +212,7 @@ func _drag(e: InputEventScreenDrag) -> void:
 
 
 func _draw() -> void:
-	if not touching:
+	if not touching or page_controls:
 		return
 	var font := get_theme_default_font()
 	for name in _buttons:
@@ -207,5 +238,6 @@ func _draw() -> void:
 
 
 func diagnostics() -> String:
-	return "touch %d · drag %d · mouse %d/%d · stick %s · move %.1f,%.1f · screen %dx%d" % [counts["touch"], counts["drag"], counts["mbtn"], counts["mmove"],
-		"held" if _stick_finger >= 0 else "-", input.move.x, input.move.y, get_viewport_rect().size.x, get_viewport_rect().size.y]
+	var held := _page_held if page_controls else _stick_finger >= 0
+	return "%s · touch %d · drag %d · stick %s · move %.1f,%.1f · screen %dx%d" % ["page stick" if page_controls else "game stick",
+		counts["touch"], counts["drag"], "held" if held else "-", input.move.x, input.move.y, get_viewport_rect().size.x, get_viewport_rect().size.y]

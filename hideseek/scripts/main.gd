@@ -1,7 +1,7 @@
 extends Node3D
-## H0 sandbox (design doc 16): the test barn, you as a seeker or a hider,
-## and three sandbox hiders sitting in hand-placed spots. Runs one round
-## after another; Tab (or Switch) changes sides.
+## Solo practice (design doc 16): the barn, you and three bots. Each round
+## deals the roles at random (one seeker among the four); bot hiders sit in
+## hand-placed spots. Runs one round after another.
 ##
 ## Test links: ?role=hider, ?hide=SECONDS, ?t=SECONDS (start the clock
 ## there), ?at=X,Z[,Y]&look=YAW,PITCH (degrees), ?seed=N, ?sparknow,
@@ -9,7 +9,7 @@ extends Node3D
 ## (light levels with shadows on, for tuning).
 
 const SANDBOX_HIDE := 15.0       # the real game hides for 45 s
-const SANDBOX_HIDERS := 3
+const SANDBOX_BOTS := 3          # you + 3 bots: one seeker, three hiders
 
 var rules: HideRules
 var me: Player
@@ -31,7 +31,6 @@ var _warm_nodes: Array[Node] = []
 
 func _ready() -> void:
 	_query = _read_query()
-	role = "hider" if _query.get("role", "") == "hider" else "seeker"
 	Props.relief = _query.get("relief", "on") != "off"
 	TestBarn.environment(self, _query.get("shadows", "on") != "off", float(_query.get("sunscale", "-1")), float(_query.get("ambient", "-1")))
 	TestBarn.build(self)
@@ -75,8 +74,20 @@ func _start_round() -> void:
 		var tmp = spots[i]
 		spots[i] = spots[j]
 		spots[j] = tmp
-	for i in SANDBOX_HIDERS:
-		var id := "hider%d" % (i + 1)
+	# Roles are dealt at random among you and the practice bots (no switching).
+	var everyone := ["me"]
+	for i in SANDBOX_BOTS:
+		everyone.append("bot%d" % (i + 1))
+	var seekers := HideRules.deal_seekers(everyone, _rng)
+	if _query.has("role"):                 # test links can still pick a side
+		seekers = ["bot1"] if _query["role"] == "hider" else ["me"]
+	role = "seeker" if seekers.has("me") else "hider"
+	var bot_hiders := everyone.filter(func(id): return id != "me" and not seekers.has(id))
+	for bot in everyone:
+		if bot != "me" and seekers.has(bot):
+			rules.add_seeker(bot)          # no seeker bots yet: it waits out the round
+	for i in bot_hiders.size():
+		var id: String = bot_hiders[i]
 		rules.add_hider(id)
 		rules.players[id]["prop"] = spots[i][0]
 		var h := Player.new()
@@ -121,7 +132,7 @@ func _start_round() -> void:
 	while _next_burst < bursts.size() and bursts[_next_burst]["at"] <= t:
 		_next_burst += 1
 	_round_over_at = -1.0
-	hud.toast("You're a seeker: find %d hiders" % SANDBOX_HIDERS if role == "seeker" else "You're a %s. Hide!" % Props.display_name(me.kind))
+	hud.toast("You're a seeker: find %d hiders" % bot_hiders.size() if role == "seeker" else "You're a hider: a %s. Hide!" % Props.display_name(me.kind).to_lower(), 4.0)
 
 
 func _process(delta: float) -> void:
@@ -138,10 +149,6 @@ func _process(delta: float) -> void:
 	var ph := rules.phase(t)
 	me.frozen = me.role == "seeker" and ph == "hide"
 	var input := hud.controls.input
-	if input.take("switch_role"):
-		role = "hider" if role == "seeker" else "seeker"
-		_start_round()
-		return
 	if input.take("fire") and me.role == "seeker" and ph == "seek" and _fire_cool <= 0:
 		if rules.shoot("me"):
 			_fire_cool = 0.28

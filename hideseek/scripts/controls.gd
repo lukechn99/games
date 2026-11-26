@@ -49,7 +49,6 @@ func _layout() -> void:
 		_buttons["reroll"] = {"at": br, "r": 50 * u, "label": "Reroll"}
 		_buttons["lock"] = {"at": br + Vector2(-20, -140) * u, "r": 42 * u, "label": "Lock"}
 	_buttons["jump"] = {"at": br + Vector2(-150, 30) * u, "r": 46 * u, "label": "Jump"}
-	_buttons["switch_role"] = {"at": Vector2(s.x - 70 * u, 130 * u), "r": 34 * u, "label": "Switch"}
 	_stick_home = Vector2(150 * u, s.y - 150 * u)
 	queue_redraw()
 
@@ -91,7 +90,6 @@ func _input(event: InputEvent) -> void:
 			KEY_SPACE: input.jump = true
 			KEY_F: input.reroll = true
 			KEY_R: input.lock = true
-			KEY_TAB: input.switch_role = true
 			KEY_ESCAPE: Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventJoypadButton and event.pressed:
 		match event.button_index:
@@ -99,7 +97,6 @@ func _input(event: InputEvent) -> void:
 			JOY_BUTTON_X: input.reroll = true
 			JOY_BUTTON_Y: input.lock = true
 			JOY_BUTTON_RIGHT_SHOULDER: input.fire = true
-			JOY_BUTTON_BACK: input.switch_role = true
 
 
 func _touch(e: InputEventScreenTouch) -> void:

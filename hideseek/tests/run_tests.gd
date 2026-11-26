@@ -20,6 +20,7 @@ func _run() -> void:
 	_test_prop_pool()
 	_test_rerolls()
 	_test_ammo_and_finding()
+	_test_dealing_roles()
 	_test_spark_schedule()
 	_test_paint_fade()
 	await _test_bale_jumps_onto_stack()
@@ -110,6 +111,24 @@ func _test_ammo_and_finding() -> void:
 	r2.add_hider("h")
 	check(r2.phase(10.0) == "hide" and r2.winner(10.0) == "", "nobody wins during the hide phase")
 	check(r2.winner(HideRules.HIDE_TIME + HideRules.SEEK_TIME) == "hiders", "hiders win when time runs out")
+
+
+func _test_dealing_roles() -> void:
+	var counts := []
+	for n in range(2, 11):
+		counts.append(HideRules.seeker_count(n))
+	check(counts == [1, 1, 1, 2, 2, 2, 3, 3, 3], "seekers for 2 to 10 players", str(counts))
+	var rng := RandomNumberGenerator.new()
+	var seen := {}
+	for i in 200:
+		rng.seed = i
+		var s := HideRules.deal_seekers(["me", "bot1", "bot2", "bot3"], rng)
+		check(s.size() == 1, "one seeker in four") if i == 0 else null
+		seen[s[0]] = seen.get(s[0], 0) + 1
+	check(seen.size() == 4 and seen.values().all(func(v): return v > 30), "every player can be dealt seeker, about evenly", str(seen))
+	rng.seed = 5
+	var big := HideRules.deal_seekers(["a", "b", "c", "d", "e", "f", "g", "h", "i"], rng)
+	check(big.size() == 3 and big.all(func(x): return big.count(x) == 1), "nine players: three different seekers", str(big))
 
 
 func _test_spark_schedule() -> void:

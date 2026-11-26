@@ -46,7 +46,7 @@ What this means for us: the fun comes from (1) props that look exactly like the 
 | | |
 |---|---|
 | Players | **Proposed:** 3–10 people. Bots fill in (12). |
-| Teams | **Proposed:** about 1 seeker for every 2–3 hiders (2 seekers for 6 players, 3 for 9). The host can change it. |
+| Teams | **Decided 2026-11-25:** roles are dealt at random each round, no choosing or switching. Seekers = (players + 1) ÷ 3 rounded down, at least 1; bots count as players: 2–4 players → 1 seeker, 5–7 → 2, 8–10 → 3. |
 | Devices | Phones (iOS Safari, Android Chrome) and desktop browsers, same as the racer. |
 | Orientation | Landscape while playing: in portrait the racer's prompt asks to turn the phone (owner, 2026-11-25). |
 | Session | One room plays several rounds; teams swap so everyone seeks once (5). |
@@ -56,7 +56,7 @@ What this means for us: the fun comes from (1) props that look exactly like the 
 **Proposed flow**
 
 1. **Lobby.** The usual Game Night lobby; the host picks Hide and Seek.
-2. **Teams.** The room assigns seekers in turn, so over a match everyone seeks about equally.
+2. **Teams.** The room deals the seekers at random (Decided 2026-11-25). **Open:** whether to favour people who haven't sought yet, so a match evens out.
 3. **Hide phase (45 s).** Hiders are dropped in the yard, pick a prop and run to a spot. Seekers wait in the farmhouse kitchen with the screen dark and a countdown, and can't move.
 4. **Seek phase (3 min).** Seekers are released. Every 25 s the hiders spark one after another (6). Seekers tag suspicious objects (7).
 5. **Final minute.** Sparks come every 15 s instead of 25, so the end gets tense instead of stalling.
@@ -270,7 +270,7 @@ Play it at `/games/hideseek/` once merged (CI tests and exports it on push to `m
 
 - **Where the code lives:** `hideseek/` (Godot 4.4.1, same settings as the racer). `scripts/rules.gd` holds the round rules with no nodes (timers, spark schedule, rerolls, ammo, finding, paint fade), so `rules.ts` can mirror it in H2. `props.gd` builds each prop as one merged mesh. `test_barn.gd` builds the barn, the scenery and the hiding spots. `player.gd` is both seekers and hiders.
 - **The test barn:** walls, roof, doors at both ends, stalls, a hayloft reached by a ramp (ladders later), and the yard by the doors. 46 scenery props of 7 kinds: hay bales (including a double stack to hop onto), trash cans, tires, chairs, crates, buckets and rakes leaning on walls. Each kind is one MultiMesh, so one draw call.
-- **You:** Tab (or the Switch button) swaps between seeker and hider, which restarts the round. Seekers start in the yard, blindfolded during the hide phase. Hiders get a random prop with 2 rerolls, can lock rotation (a rake then leans on the nearest wall) and see the edge flash before their burst.
+- **You:** each round deals the roles at random among you and three bots (one seeker in four), with no switching (owner, 2026-11-25). There are no seeker bots yet, so in rounds where you hide, nobody hunts you. Test links can still pick a side with `?role=hider` or `?role=seeker`. Seekers start in the yard, blindfolded during the hide phase. Hiders get a random prop with 2 rerolls, can lock rotation (a rake then leans on the nearest wall) and see the edge flash before their burst.
 - **Sandbox hiders:** three, in random hand-placed spots (8 spots, including a bale on top of the double stack). They spark on the real schedule and join the seekers' count when painted.
 - **Paint:** 38 m/s with a slight drop, 15 m range, 12 shots plus 3 per find. Splats are about 0.55 m across, bright for 20 s, then fade over 20 s.
 - **Sparks:** CPU particles. The plume is drawn without depth test so it shows through the roof. One burst, one splat and one paintball are drawn behind the loading cover so the first ones don't stutter.
@@ -294,3 +294,4 @@ Play it at `/games/hideseek/` once merged (CI tests and exports it on push to `m
 - 2026-11-25: H0 merged to main. Textured Blender props started (9.3a), one at a time with the owner approving each: the hay bale first.
 - 2026-11-25: Hay bale approved. Buildings and ground textured (9.3b): barn siding, farmhouse and silo outsides, grass to the horizon, sun and real shadows with the renderer's brightening measured and corrected.
 - 2026-11-25: Owner review after trying it: an always-visible movement stick on phones; landscape required (the racer's prompt, now worded per game); 100 paintballs; the barn inside split into horse stalls, a tool corner, a tractor bay and a hay corner (9.3c), with a tractor model. Hide and Seek is on the game list as solo practice.
+- 2026-11-25: Roles dealt at random, no Switch (owner). Seekers = (players + 1) ÷ 3, at least 1.

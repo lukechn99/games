@@ -34,6 +34,23 @@ func _init(prop_pool: Array, round_seed := 1) -> void:
 	_rng.seed = hash(["props", round_seed])
 
 
+## How many seekers for a room of `players` (bots count): about one for
+## every two or three hiders, never none (DESIGN 3).
+static func seeker_count(players: int) -> int:
+	return maxi(1, (players + 1) / 3)
+
+
+## Pick the seekers at random; everyone else hides. Roles are dealt, not
+## chosen (owner, 2026-11-25).
+static func deal_seekers(ids: Array, rng: RandomNumberGenerator) -> Array:
+	var pool := ids.duplicate()
+	pool.sort()
+	var out := []
+	for i in seeker_count(ids.size()):
+		out.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+	return out
+
+
 func add_hider(id: String) -> void:
 	players[id] = {"role": "hider", "prop": Props.random_kind(_rng, pool), "rerolls": REROLLS, "ammo": 0, "found_at": -1.0}
 

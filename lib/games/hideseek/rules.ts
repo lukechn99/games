@@ -23,7 +23,7 @@ export interface HideSeekView {
 export const hideSeek: GameModule<HideSeekState, HideSeekAction, HideSeekView> = {
   id: 'hideseek',
   name: 'Hide and Seek',
-  description: 'Prop hunt on a farm. Solo practice for now: everyone gets their own barn to explore.',
+  description: 'Prop hunt on a farm. Solo practice for now: your own barn with three bots, roles dealt at random.',
   minPlayers: 1,
   maxPlayers: 10,
   setup: (playerIds) => ({ phase: 'practice', seats: [...playerIds] }),

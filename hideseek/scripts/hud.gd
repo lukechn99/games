@@ -139,9 +139,9 @@ func show_state(rules: HideRules, me: Player, t: float, next_mine: float, delta:
 	_marker_left -= delta
 	var touch := controls.touching
 	if me.role == "seeker":
-		_help.text = "" if touch else "Click to look around\nWASD move · Space jump\nClick to paint\nTab: play as a hider"
+		_help.text = "" if touch else "Click to look around\nWASD move · Space jump\nClick to paint"
 	else:
-		_help.text = "" if touch else "WASD move · Space jump\nF reroll · R lock rotation\nTab: play as a seeker"
+		_help.text = "" if touch else "Click to look around\nWASD move · Space jump\nF reroll · R lock rotation"
 
 
 ## The hider's warning (design 6): edges flash for WARNING seconds before

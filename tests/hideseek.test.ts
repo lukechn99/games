@@ -17,10 +17,10 @@ function ok(r: ReturnType<typeof hideSeek.action>): HideSeekState {
 const SEEK = 1000 + HIDE_MS + 1   // a moment into the seek phase
 
 describe('hide and seek rules', () => {
-  it('is on the game list with a view, bots can sit, one person can start it', () => {
+  it('is on the game list with a view; two players to start, bots count', () => {
     expect(getGameModule('hideseek')).toBe(hideSeek)
     expect(GAME_VIEWS.hideseek).toBeDefined()
-    expect(hideSeek.minPlayers).toBe(1)
+    expect(hideSeek.minPlayers).toBe(2)
     expect(hideSeek.bot).toBeDefined()
   })
 

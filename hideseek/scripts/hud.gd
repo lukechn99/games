@@ -147,7 +147,7 @@ func show_round(s: Dictionary, session: Session, me: Player, t: float, ph: Strin
 		_status.text = "%s · Prop switches %d · Decoys %d · %s" % [Props.display_name(me.kind), int(mine["rerolls"]), int(mine.get("decoys", 0)), "Locked" if me.locked else "Unlocked"]
 		_status.add_theme_color_override("font_color", Color.WHITE)
 	_blind.visible = me.role == "seeker" and ph == "hide"
-	_blind_text.text = "Hiders are hiding…\n%s" % _mmss(hide_s - t)
+	_blind_text.text = "Hiders are hiding. You can move in %s" % _mmss(hide_s - t)
 	_cross.visible = me.role == "seeker" and not _blind.visible
 	_cross.queue_redraw()
 	_edge_flash(next_mine, delta)

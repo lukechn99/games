@@ -171,7 +171,8 @@ export const hideSeek: GameModule<HideSeekState, HideSeekAction, HideSeekView> =
   id: 'hideseek',
   name: 'Hide and Seek',
   description: 'Prop hunt on a farm: hiders become barn objects, seekers hunt them with paintballs.',
-  minPlayers: 1,
+  // Someone has to hide: at least two, and computer players count.
+  minPlayers: 2,
   maxPlayers: 10,
   botDelayMs: 1000,
 

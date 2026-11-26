@@ -380,6 +380,9 @@ func _test_phone_controls_after_turning() -> void:
 	check(out.is_empty(), "after turning the phone, the stick and every button are on screen", str(out))
 	check(c._buttons.has("decoy") and c._buttons.has("reroll") and c._buttons.has("lock"), "hiders get Switch prop, Lock and Decoy")
 	check(c._buttons["reroll"]["at"].x > vp.size.x * 0.75, "buttons sit at the right edge", str(c._buttons["reroll"]["at"]))
+	var edge := 120.0
+	check(c._stick_home.x - Controls.STICK > edge * 0.8 and vp.size.y - (c._stick_home.y + Controls.STICK) > edge * 0.8,
+		"the stick rests clear of the left and bottom edges (iPhone system swipes)", str(c._stick_home))
 	c.set_role("seeker")
 	check(c._buttons.has("fire") and c._buttons["fire"]["label"] == "Shoot", "seekers get Shoot")
 	vp.free()

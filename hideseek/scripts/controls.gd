@@ -53,7 +53,11 @@ func _layout() -> void:
 	_laid_out_for = s
 	var u := clampf(minf(s.y / 720.0, s.x / 1280.0), 0.7, 1.6)
 	_buttons.clear()
-	var br := s - Vector2(110, 120) * u
+	# Keep thumbs off the screen edges: iPhone Safari holds back touches that
+	# start near the left edge (back swipe) or the bottom (home swipe) while it
+	# decides whether they're its own gestures, so a stick in the corner
+	# lagged and stuttered (owner's report) while looking around was fine.
+	var br := s - Vector2(130, 160) * u
 	if role == "seeker":
 		_buttons["fire"] = {"at": br, "r": 62 * u, "label": "Shoot"}
 	else:
@@ -61,7 +65,7 @@ func _layout() -> void:
 		_buttons["lock"] = {"at": br + Vector2(-20, -135) * u, "r": 40 * u, "label": "Lock"}
 		_buttons["decoy"] = {"at": br + Vector2(-130, -95) * u, "r": 40 * u, "label": "Decoy"}
 	_buttons["jump"] = {"at": br + Vector2(-150, 30) * u, "r": 46 * u, "label": "Jump"}
-	_stick_home = Vector2(150 * u, s.y - 150 * u)
+	_stick_home = Vector2(maxf(230 * u, s.x * 0.15), s.y - maxf(210 * u, s.y * 0.3))
 	queue_redraw()
 
 

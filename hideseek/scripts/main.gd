@@ -59,6 +59,7 @@ func _ready() -> void:
 	add_child(_paint_root)
 	hud = Hud.new()
 	add_child(hud)
+	hud.shadows_on = _query.get("shadows", "on") != "off"
 	if _query.has("touch"):          # test switch: the phone layout on a computer
 		hud.controls.touching = true
 	session = Session.new()

@@ -4,7 +4,7 @@ extends CanvasLayer
 ## seekers' blindfold in the hide phase, and the hider's edge flash.
 
 ## Shown on phones with the touch diagnostics, so a screenshot says which build it is.
-const VERSION := "build 2026-11-25c"
+const VERSION := "build 2026-11-25d"
 
 const EDGE_SHADER := """
 shader_type canvas_item;
@@ -97,6 +97,17 @@ func _label(parent: Control, fs: int, preset: int) -> Label:
 	return l
 
 
+## Frame rate and where the time goes (frame rate only means something on
+## the real phone: racing LEARNINGS).
+func perf_line() -> String:
+	return "%d fps · logic %.1f ms · physics %.1f ms · draws %d · shadows %s" % [Engine.get_frames_per_second(),
+		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), "on" if shadows_on else "off"]
+
+
+var shadows_on := true
+
+
 func cover(on: bool) -> void:
 	_cover.visible = on
 
@@ -146,7 +157,7 @@ func show_round(s: Dictionary, session: Session, me: Player, t: float, ph: Strin
 	_marker_left -= delta
 	var touch := controls.touching
 	if touch:
-		_help.text = "%s · %s" % [VERSION, controls.diagnostics()]
+		_help.text = "%s · %s\n%s" % [VERSION, controls.diagnostics(), perf_line()]
 	elif me.role == "seeker":
 		_help.text = "" if touch else "Click to look around\nWASD move · Space jump\nClick to shoot"
 	else:

@@ -21,6 +21,7 @@ var _look_last := Vector2.ZERO
 var _button_fingers := {}         # finger -> button name
 var _buttons := {}                # name -> {at, r, label}
 var _stick_home := Vector2(150, 570)   # where the stick rests, bottom left
+var _laid_out_for := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -39,21 +40,28 @@ func set_role(r: String) -> void:
 
 
 func _layout() -> void:
-	var s := size if size != Vector2.ZERO else Vector2(1280, 720)
-	var u := clampf(s.y / 720.0, 0.7, 1.6)
+	# The screen as it is now (not this node's size, which can lag behind a
+	# rotation: the controls were left below the screen after turning a
+	# phone from upright to sideways).
+	var s := get_viewport_rect().size
+	_laid_out_for = s
+	var u := clampf(minf(s.y / 720.0, s.x / 1280.0), 0.7, 1.6)
 	_buttons.clear()
 	var br := s - Vector2(110, 120) * u
 	if role == "seeker":
-		_buttons["fire"] = {"at": br, "r": 62 * u, "label": "Paint"}
+		_buttons["fire"] = {"at": br, "r": 62 * u, "label": "Shoot"}
 	else:
-		_buttons["reroll"] = {"at": br, "r": 50 * u, "label": "Reroll"}
-		_buttons["lock"] = {"at": br + Vector2(-20, -140) * u, "r": 42 * u, "label": "Lock"}
+		_buttons["reroll"] = {"at": br, "r": 50 * u, "label": "Switch prop"}
+		_buttons["lock"] = {"at": br + Vector2(-20, -135) * u, "r": 40 * u, "label": "Lock"}
+		_buttons["decoy"] = {"at": br + Vector2(-130, -95) * u, "r": 40 * u, "label": "Decoy"}
 	_buttons["jump"] = {"at": br + Vector2(-150, 30) * u, "r": 46 * u, "label": "Jump"}
 	_stick_home = Vector2(150 * u, s.y - 150 * u)
 	queue_redraw()
 
 
 func _process(delta: float) -> void:
+	if get_viewport_rect().size != _laid_out_for:
+		_layout()
 	var kb := Vector2(
 		float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),
 		float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)) - float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)))
@@ -90,12 +98,14 @@ func _input(event: InputEvent) -> void:
 			KEY_SPACE: input.jump = true
 			KEY_F: input.reroll = true
 			KEY_R: input.lock = true
+			KEY_Q: input.decoy = true
 			KEY_ESCAPE: Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventJoypadButton and event.pressed:
 		match event.button_index:
 			JOY_BUTTON_A: input.jump = true
 			JOY_BUTTON_X: input.reroll = true
 			JOY_BUTTON_Y: input.lock = true
+			JOY_BUTTON_B: input.decoy = true
 			JOY_BUTTON_RIGHT_SHOULDER: input.fire = true
 
 
@@ -107,7 +117,7 @@ func _touch(e: InputEventScreenTouch) -> void:
 				_button_fingers[e.index] = name
 				input.set(name, true)
 				return
-		if e.position.x < size.x * 0.42 and _stick_finger < 0:
+		if e.position.x < get_viewport_rect().size.x * 0.42 and _stick_finger < 0:
 			_stick_finger = e.index
 			_stick_origin = e.position
 			_stick_at = e.position
@@ -139,7 +149,7 @@ func _draw() -> void:
 		var held: bool = _button_fingers.values().has(name)
 		draw_circle(b["at"], b["r"], Color(1, 1, 1, 0.38 if held else 0.2))
 		draw_arc(b["at"], b["r"], 0, TAU, 40, Color(1, 1, 1, 0.7), 2.0)
-		var fs := int(b["r"] * 0.42)
+		var fs := int(b["r"] * (0.42 if b["label"].length() < 8 else 0.3))
 		var w := font.get_string_size(b["label"], HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
 		draw_string(font, b["at"] + Vector2(-w / 2, fs * 0.35), b["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 	# The movement stick: resting bottom left; a thumb anywhere on the left

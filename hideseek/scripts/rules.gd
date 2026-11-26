@@ -6,8 +6,8 @@ extends RefCounted
 ## both have tests. Times in the state are host-clock milliseconds.
 ##
 ## State: {round, seed, startAt, hideMs, seekMs, seats, members{id: {role,
-## prop, rerolls, ammo, foundAt}}, hidersAtStart, finds, scores, winner,
-## overAt, sought}
+## prop, rerolls, decoys, ammo, foundAt}}, hidersAtStart, finds, decoys[{id,
+## by, prop, at, q}], scores, winner, overAt, sought}
 
 const HIDE_MS := 45000.0
 const SEEK_MS := 180000.0
@@ -20,6 +20,7 @@ const WARNING := 5.0             # edge flash before your own burst
 const START_AMMO := 100
 const AMMO_PER_FIND := 3
 const REROLLS := 2
+const DECOYS := 3
 const PAINT_BRIGHT := 20.0
 const PAINT_FADE := 20.0
 const JUMP_HEIGHT := 1.3
@@ -61,12 +62,12 @@ static func deal(prev: Dictionary, now: float, rng: RandomNumberGenerator) -> Di
 	for id in seats:
 		var seeker := seekers.has(id)
 		members[id] = {"role": "seeker" if seeker else "hider", "prop": "" if seeker else random_prop(rng),
-			"rerolls": 0 if seeker else REROLLS, "ammo": START_AMMO if seeker else 0, "foundAt": null}
+			"rerolls": 0 if seeker else REROLLS, "decoys": 0 if seeker else DECOYS, "ammo": START_AMMO if seeker else 0, "foundAt": null}
 		if seeker:
 			sought[id] = int(sought.get(id, 0)) + 1
 	return {"round": int(prev["round"]) + 1, "seed": rng.randi_range(0, 999999999), "startAt": now,
 		"hideMs": HIDE_MS, "seekMs": SEEK_MS, "seats": seats, "members": members,
-		"hidersAtStart": seats.filter(func(id): return not seekers.has(id)), "finds": [],
+		"hidersAtStart": seats.filter(func(id): return not seekers.has(id)), "finds": [], "decoys": [],
 		"scores": prev.get("scores", {}).duplicate(), "winner": null, "overAt": null, "sought": sought}
 
 
@@ -117,6 +118,24 @@ static func action(s: Dictionary, pid: String, a: Dictionary, now: float, rng: R
 				return {"error": "No rerolls left."}
 			m["rerolls"] = int(m["rerolls"]) - 1
 			m["prop"] = random_prop(rng, m["prop"])
+		"decoy":
+			var at: Variant = a.get("at")
+			var q: Variant = a.get("q")
+			if m["role"] != "hider" or str(m["prop"]) == "" or int(m.get("decoys", 0)) <= 0:
+				return {"error": "No decoys left."}
+			if not (at is Array and at.size() == 3 and q is Array and q.size() == 4):
+				return {"error": "Bad decoy."}
+			var id := "%s-%d" % [who, DECOYS - int(m["decoys"]) + 1]
+			m["decoys"] = int(m["decoys"]) - 1
+			n["decoys"].append({"id": id, "by": who, "prop": m["prop"], "at": at, "q": q})
+		"pop":
+			var did := str(a.get("decoy", ""))
+			if m["role"] != "seeker" or ph != "seek":
+				return {"error": "Can't pop now."}
+			var left: Array = n["decoys"].filter(func(d): return d["id"] != did)
+			if left.size() == n["decoys"].size():
+				return {"error": "No such decoy."}
+			n["decoys"] = left
 		"shoot":
 			if m["role"] != "seeker" or ph != "seek" or int(m["ammo"]) <= 0:
 				return {"error": "Can't shoot now."}

@@ -130,7 +130,7 @@ func show_round(s: Dictionary, session: Session, me: Player, t: float, ph: Strin
 		_status.text = "Seeker · Paintballs %d · Hiders left %d" % [ammo, hiders_left]
 		_status.add_theme_color_override("font_color", Color(1, 0.35, 0.3) if ammo <= 10 else Color.WHITE)
 	else:
-		_status.text = "%s · Rerolls %d · %s" % [Props.display_name(me.kind), int(mine["rerolls"]), "Locked" if me.locked else "Unlocked"]
+		_status.text = "%s · Prop switches %d · Decoys %d · %s" % [Props.display_name(me.kind), int(mine["rerolls"]), int(mine.get("decoys", 0)), "Locked" if me.locked else "Unlocked"]
 		_status.add_theme_color_override("font_color", Color.WHITE)
 	_blind.visible = me.role == "seeker" and ph == "hide"
 	_blind_text.text = "Hiders are hiding…\n%s" % _mmss(hide_s - t)
@@ -143,9 +143,9 @@ func show_round(s: Dictionary, session: Session, me: Player, t: float, ph: Strin
 	_marker_left -= delta
 	var touch := controls.touching
 	if me.role == "seeker":
-		_help.text = "" if touch else "Click to look around\nWASD move · Space jump\nClick to paint"
+		_help.text = "" if touch else "Click to look around\nWASD move · Space jump\nClick to shoot"
 	else:
-		_help.text = "" if touch else "Click to look around\nWASD move · Space jump\nF reroll · R lock rotation"
+		_help.text = "" if touch else "Click to look around\nWASD move · Space jump\nF switch prop · R lock · Q decoy"
 
 
 ## The hider's warning (design 6): edges flash for WARNING seconds before

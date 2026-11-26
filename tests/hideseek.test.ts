@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hideSeek, seekerCount, decide, phase, START_AMMO, AMMO_PER_FIND, HIDE_MS, SEEK_MS, RESULTS_MS, PROPS, type HideSeekState } from '@/lib/games/hideseek/rules'
+import { hideSeek, seekerCount, decide, phase, START_AMMO, AMMO_PER_FIND, HIDE_MS, SEEK_MS, RESULTS_MS, PROPS, DECOYS, type HideSeekState } from '@/lib/games/hideseek/rules'
 import { getGameModule } from '@/lib/games/modules'
 import { GAME_VIEWS } from '@/lib/games/ui'
 
@@ -61,6 +61,21 @@ describe('hide and seek rules', () => {
     expect(s.members[seeker]!.ammo).toBe(START_AMMO - 1 + AMMO_PER_FIND)
     expect(s.members[hider]).toMatchObject({ role: 'seeker', ammo: START_AMMO })
     expect('error' in hideSeek.action(s, seeker, { type: 'find', hider }, ctx(SEEK + 20))).toBe(true)
+  })
+
+  it('hiders drop three decoys of their prop; a seeker painting one pops it', () => {
+    let s = hideSeek.setup(['a', 'b', 'c', 'd'], ctx(1000, 5))
+    const h = s.hidersAtStart[0]!
+    const seeker = Object.keys(s.members).find((id) => s.members[id]!.role === 'seeker')!
+    for (let i = 0; i < DECOYS; i++) s = ok(hideSeek.action(s, h, { type: 'decoy', at: [i, 0, 1], q: [0, 0, 0, 1] }, ctx(2000)))
+    expect(s.decoys.map((d) => d.prop)).toEqual([s.members[h]!.prop, s.members[h]!.prop, s.members[h]!.prop])
+    expect('error' in hideSeek.action(s, h, { type: 'decoy', at: [0, 0, 0], q: [0, 0, 0, 1] }, ctx(2000))).toBe(true)
+    expect('error' in hideSeek.action(s, seeker, { type: 'decoy', at: [0, 0, 0], q: [0, 0, 0, 1] }, ctx(2000))).toBe(true)
+    expect('error' in hideSeek.action(s, seeker, { type: 'pop', decoy: s.decoys[0]!.id }, ctx(2000))).toBe(true)
+    s = ok(hideSeek.action(s, seeker, { type: 'pop', decoy: s.decoys[0]!.id }, ctx(SEEK)))
+    expect(s.decoys.length).toBe(DECOYS - 1)
+    const next = hideSeek.tick!({ ...s, winner: 'hiders', overAt: SEEK }, ctx(SEEK + RESULTS_MS))
+    expect(next.decoys).toEqual([])
   })
 
   it('a player can act for a bot (the host game plays them)', () => {

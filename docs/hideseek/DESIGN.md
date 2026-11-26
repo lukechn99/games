@@ -107,7 +107,7 @@ The catch, and what to do about it: **a whistle carries through walls; confetti 
 - **Jumping (Decided 2026-11-25):** hiders and seekers both jump, about 1.3 m (Proposed), so a hay bale can hop up onto a stack of two bales and sit among the others. Seekers can climb the same stacks to look around.
 - **View:** third person, so you can see around you and check you blend in.
 - **Lock rotation:** a toggle so you can look around without the object turning. Locked props sit square on the ground like the real ones.
-- **Decoys: 3 per round** (as in the reference): drop a copy of your current prop where you stand. Decoys spark too, but on their own timing.
+- **Decoys: 3 per round** (built 2026-11-25): drop a copy of your current prop where you stand (Q, or the Decoy button). Everyone sees them (they're in the room's state). A seeker who paints one spends the paintball and it pops in a puff of confetti. Hider bots leave two somewhere else once hidden; seeker bots can be fooled by them. **Open:** whether decoys should spark too, on their own timing.
 - **Escape (Proposed instead of a flashbang):** a **chaff burst**: a cloud of hay and feathers that blocks seekers' view for 2 s, once per round.
 - **Moving:** big props move slower than small ones (Proposed), so a hay bale is safe to sit in but slow to run with, and a bucket is quick but easy to spot when it moves.
 
@@ -183,8 +183,8 @@ The same way as the racer: low-poly models built by script in Blender (`tools/bl
 
 ## 10. Controls
 
-- **Phone:** a movement stick shown bottom left from the start (owner, 2026-11-25: there was no visible way to move), drag on the right half to look, buttons on the right: **Tag** (seekers) or **Reroll / Lock / Decoy / Chaff** (hiders), and Jump.
-- **Computer:** WASD and mouse (the pointer locks to the game), left click to tag, F to reroll, R to lock, Q decoy, E chaff, Space jump.
+- **Phone:** a movement stick shown bottom left from the start (owner, 2026-11-25: there was no visible way to move), drag on the right half to look, buttons bottom right: **Shoot** (seekers) or **Switch prop / Lock / Decoy** (hiders), and Jump. They're placed from the screen as it is every frame: they had been laid out for an upright phone and left below the screen after turning it sideways (owner's report, 2026-11-25).
+- **Computer:** WASD and mouse (the pointer locks to the game), left click to shoot, F to switch prop, R to lock, Q decoy, Space jump.
 - **Gamepad:** standard twin stick.
 
 ## 11. Audio
@@ -306,3 +306,4 @@ Play it at `/games/hideseek/` once merged (CI tests and exports it on push to `m
 - 2026-11-25: Owner review after trying it: an always-visible movement stick on phones; landscape required (the racer's prompt, now worded per game); 100 paintballs; the barn inside split into horse stalls, a tool corner, a tractor bay and a hay corner (9.3c), with a tractor model. Hide and Seek is on the game list as solo practice.
 - 2026-11-25: Roles dealt at random, no Switch (owner). Seekers = (players + 1) ÷ 3, at least 1.
 - 2026-11-25: Seeker bots and multiplayer (13a), reusing the racer's room bridge. Practice now runs on game time.
+- 2026-11-25: Owner report: no phone controls showed. They had been placed for an upright screen and stayed below the screen after turning; now placed every frame. Buttons named Shoot and Switch prop; decoys built (3 per hider, shared, pop when painted).

@@ -38,6 +38,8 @@ var _nav: NavigationRegion3D
 var _scenery: Array = []         # [StaticBody3D, centre] for bots to suspect
 var _shown_over := false
 var _known: Dictionary = {}      # id -> {role, prop} last seen, to spot changes
+var _decoys := {}                # decoy id -> its solid body (with the mesh)
+var _decoyed := {}               # hider bots that have dropped their decoys
 var _debug_t := 0.0
 var _shots_seen := 0             # others' shots shown here
 var _sent := 0
@@ -105,6 +107,7 @@ func _sync() -> void:
 		_new_round()
 	else:
 		_update_members()
+	_sync_decoys()
 
 
 func _new_round() -> void:
@@ -118,6 +121,10 @@ func _new_round() -> void:
 	roster.clear()
 	brains.clear()
 	_known.clear()
+	for d in _decoys.values():
+		d.queue_free()
+	_decoys.clear()
+	_decoyed.clear()
 	me = null
 	if session.is_host and _nav == null and _has_bots():
 		_nav = TestBarn.navigation(self)
@@ -188,7 +195,8 @@ func _new_round() -> void:
 	if s["members"].has(session.me):
 		var m: Dictionary = s["members"][session.me]
 		var seekers := HideRules.ids(s, "seeker").size()
-		hud.toast("Round %d: you're a seeker. Find %d hiders" % [_round, HideRules.ids(s, "hider").size()] if m["role"] == "seeker"
+		var nh := HideRules.ids(s, "hider").size()
+		hud.toast("Round %d: you're a seeker. Find %d hider%s" % [_round, nh, "" if nh == 1 else "s"] if m["role"] == "seeker"
 			else "Round %d: you're a hider, a %s. Hide! (%d seeker%s)" % [_round, Props.display_name(m["prop"]).to_lower(), seekers, "" if seekers == 1 else "s"], 4.0)
 	else:
 		hud.toast("Watching this round; you'll play the next", 4.0)
@@ -295,9 +303,15 @@ func _process(delta: float) -> void:
 		if int(mine.get("rerolls", 0)) > 0:
 			session.act({"type": "reroll"})
 		else:
-			hud.toast("No rerolls left", 1.5)
+			hud.toast("No prop switches left", 1.5)
 	if input.take("lock"):
 		me.toggle_lock()
+	if input.take("decoy") and me.role == "hider" and ph != "over":
+		if int(mine.get("decoys", 0)) > 0:
+			_drop_decoy(session.me, me.global_transform.origin, me.prop_basis)
+			hud.toast("Decoy dropped", 1.2)
+		else:
+			hud.toast("No decoys left", 1.5)
 	# Sparks on schedule.
 	while _next_burst < bursts.size() and bursts[_next_burst]["at"] <= t:
 		var b: Dictionary = bursts[_next_burst]
@@ -310,10 +324,14 @@ func _process(delta: float) -> void:
 			for id in brains:
 				if brains[id] is Bots.Seeker:
 					brains[id].hear(at)
-	# Hider bots hide.
+	# Hider bots hide, then leave a couple of decoys somewhere else.
 	for id in brains:
 		if brains[id] is Bots.Hider:
-			brains[id].think(t, float(s["hideMs"]) / 1000.0, _is_free)
+			var hb: Bots.Hider = brains[id]
+			hb.think(t, float(s["hideMs"]) / 1000.0, _is_free)
+			if hb.hidden and not _decoyed.has(id):
+				_decoyed[id] = true
+				_bot_decoys(id, hb.body)
 	# Positions out.
 	_send_t -= delta
 	if _send_t <= 0.0:
@@ -339,11 +357,66 @@ func _physics_process(delta: float) -> void:
 		if roster[id].role == "hider":
 			hiders.append(roster[id])
 	var suspects := _scenery.duplicate()
+	for d in _decoys.values():
+		if is_instance_valid(d):
+			suspects.append([d, d.global_position + Vector3(0, 0.3, 0)])
 	for h in hiders:
 		suspects.append([h, h.global_position])
 	for id in brains:
 		if brains[id] is Bots.Seeker:
 			brains[id].think(delta, seek, suspects, hiders, _bot_fire.bind(id))
+
+
+## Drop a decoy for `id` (you or a bot this game runs).
+func _drop_decoy(id: String, at: Vector3, b: Basis) -> void:
+	var q := b.get_rotation_quaternion()
+	var a := {"type": "decoy", "at": [at.x, at.y, at.z], "q": [q.x, q.y, q.z, q.w]}
+	if id != session.me:
+		a["as"] = id
+	session.act(a)
+
+
+func _bot_decoys(id: String, body: Player) -> void:
+	var places := TestBarn.hiding_places(body.kind)
+	var dropped := 0
+	for i in range(places.size() - 1, 0, -1):
+		var j := _rng.randi_range(0, i)
+		var tmp = places[i]
+		places[i] = places[j]
+		places[j] = tmp
+	for xf in places:
+		if dropped >= 2:
+			break
+		if xf.origin.distance_to(body.global_position) > 4.0 and _is_free(xf, body):
+			_drop_decoy(id, xf.origin, xf.basis)
+			dropped += 1
+
+
+## Decoys come from the round state: show new ones, pop removed ones.
+func _sync_decoys() -> void:
+	var want := {}
+	for d in session.state.get("decoys", []):
+		want[str(d["id"])] = d
+	for id in _decoys.keys():
+		if not want.has(id):
+			var body: Node3D = _decoys[id]
+			Sparks.burst(self, body.global_position + Vector3(0, 0.4, 0), false)
+			body.queue_free()
+			_decoys.erase(id)
+	for id in want:
+		if _decoys.has(id):
+			continue
+		var d: Dictionary = want[id]
+		var at: Array = d["at"]
+		var q: Array = d["q"]
+		var xf := Transform3D(Basis(Quaternion(q[0], q[1], q[2], q[3]).normalized()), Vector3(at[0], at[1], at[2]))
+		var body := TestBarn.prop_body(str(d["prop"]), xf)
+		body.set_meta("decoy", id)
+		var mi := MeshInstance3D.new()
+		mi.mesh = Props.mesh(str(d["prop"]))
+		body.add_child(mi)
+		add_child(body)
+		_decoys[id] = body
 
 
 func _bot_fire(brain: Bots.Seeker, _target: Node3D, aim: Vector3, id: String) -> void:
@@ -370,6 +443,14 @@ func _shoot(id: String, shooter: Player, from: Transform3D) -> void:
 
 
 func _on_paint_hit(collider: Object, point: Vector3, normal: Vector3, color: Color, by: String) -> void:
+	if collider is StaticBody3D and collider.has_meta("decoy"):
+		var a := {"type": "pop", "decoy": collider.get_meta("decoy")}
+		if by != session.me:
+			a["as"] = by
+		session.act(a)
+		if by == session.me:
+			hud.toast("A decoy!", 1.2)
+		return
 	if collider is Player and collider.role == "hider" and collider.id != by:
 		var a := {"type": "find", "hider": collider.id}
 		if by != session.me:
@@ -395,7 +476,7 @@ func _remote_shot(d: Dictionary) -> void:
 	var p := Paint.fire(self, Transform3D(Basis.looking_at(fwd), origin), Paint.COLORS[ci], shooter.get_rid() if shooter else RID())
 	p.global_position = origin
 	p.hit.connect(func(c, pt, n):
-		if not c is Player:
+		if not c is Player and not (c is StaticBody3D and c.has_meta("decoy")):
 			Paint.Splat.create(_paint_root, pt, n, Paint.COLORS[ci], _rng))
 
 

@@ -8,6 +8,7 @@ var jump := false
 var fire := false            # seekers: paintball
 var reroll := false          # hiders
 var lock := false            # hiders
+var decoy := false           # hiders
 
 
 ## Read a button press once.

@@ -21,6 +21,7 @@ func _run() -> void:
 	_test_rerolls()
 	_test_ammo_and_finding()
 	_test_dealing_roles()
+	_test_decoys()
 	_test_rules_match_the_room()
 	_test_spark_schedule()
 	_test_paint_fade()
@@ -30,6 +31,7 @@ func _run() -> void:
 	await _test_rake_leans_on_lock()
 	await _test_paintball_hits()
 	await _test_edge_flash()
+	await _test_phone_controls_after_turning()
 	await _test_bots_play_a_round()
 	print("\n%d passed, %d failed" % [passes, failures])
 	print("hide and seek checks: %d failures" % failures)
@@ -128,6 +130,20 @@ func _test_ammo_and_finding() -> void:
 	check(t2["winner"] == "hiders", "hiders win when every seeker is out of paint")
 
 
+func _test_decoys() -> void:
+	var r := _rng(5)
+	var st := HideRules.setup(["a", "b", "c", "d"], 1000.0, r)
+	var h: String = st["hidersAtStart"][0]
+	var sk := _seeker_of(st)
+	for i in HideRules.DECOYS:
+		st = HideRules.action(st, h, {"type": "decoy", "at": [i, 0, 1], "q": [0, 0, 0, 1]}, 2000.0, r)["state"]
+	check(st["decoys"].size() == 3 and st["decoys"].all(func(d): return d["prop"] == st["members"][h]["prop"]), "a hider drops three decoys of their prop")
+	check(HideRules.action(st, h, {"type": "decoy", "at": [0, 0, 0], "q": [0, 0, 0, 1]}, 2000.0, r).has("error"), "and no more")
+	var seek := 1000.0 + HideRules.HIDE_MS + 1.0
+	st = HideRules.action(st, sk, {"type": "pop", "decoy": st["decoys"][0]["id"]}, seek, r)["state"]
+	check(st["decoys"].size() == 2, "a seeker painting a decoy pops it")
+
+
 func _test_dealing_roles() -> void:
 	var counts := []
 	for n in range(2, 11):
@@ -152,7 +168,7 @@ func _test_rules_match_the_room() -> void:
 		var re := RegEx.create_from_string("export const %s = ([0-9_]+)" % name)
 		var m := re.search(ts)
 		return float(m.get_string(1).replace("_", "")) if m else -1.0
-	var pairs := {"HIDE_MS": HideRules.HIDE_MS, "SEEK_MS": HideRules.SEEK_MS, "RESULTS_MS": HideRules.RESULTS_MS,
+	var pairs := {"DECOYS": HideRules.DECOYS, "HIDE_MS": HideRules.HIDE_MS, "SEEK_MS": HideRules.SEEK_MS, "RESULTS_MS": HideRules.RESULTS_MS,
 		"START_AMMO": HideRules.START_AMMO, "AMMO_PER_FIND": HideRules.AMMO_PER_FIND, "REROLLS": HideRules.REROLLS}
 	var bad := []
 	for k in pairs:
@@ -339,6 +355,36 @@ func _test_edge_flash() -> void:
 	p.free()
 
 
+## The phone controls were laid out for an upright screen and stayed below
+## the bottom after the phone was turned sideways. Turn it; all must show.
+func _test_phone_controls_after_turning() -> void:
+	var vp := SubViewport.new()
+	vp.size = Vector2i(720, 1560)          # upright
+	root.add_child(vp)
+	var c := Controls.new()
+	c.touching = true
+	vp.add_child(c)
+	c.set_role("hider")
+	await process_frame
+	vp.size = Vector2i(1560, 720)          # sideways
+	await process_frame
+	await process_frame
+	var rect := Rect2(Vector2.ZERO, Vector2(vp.size))
+	var out := []
+	for name in c._buttons:
+		var b: Dictionary = c._buttons[name]
+		if not rect.grow(-4).has_point(b["at"] + Vector2(b["r"], b["r"])) or not rect.has_point(b["at"] - Vector2(b["r"], b["r"])):
+			out.append(name)
+	if not rect.has_point(c._stick_home + Vector2(0, Controls.STICK)):
+		out.append("stick")
+	check(out.is_empty(), "after turning the phone, the stick and every button are on screen", str(out))
+	check(c._buttons.has("decoy") and c._buttons.has("reroll") and c._buttons.has("lock"), "hiders get Switch prop, Lock and Decoy")
+	check(c._buttons["reroll"]["at"].x > vp.size.x * 0.75, "buttons sit at the right edge", str(c._buttons["reroll"]["at"]))
+	c.set_role("seeker")
+	check(c._buttons.has("fire") and c._buttons["fire"]["label"] == "Shoot", "seekers get Shoot")
+	vp.free()
+
+
 ## A whole practice round, played headless at full speed: you hide (and
 ## stay put), a seeker bot hunts, three... hider bots take free spots.
 func _test_bots_play_a_round() -> void:
@@ -366,6 +412,7 @@ func _test_bots_play_a_round() -> void:
 		if game.brains[id] is Bots.Hider and game.brains[id].hidden:
 			placed += 1
 	check(placed == 2, "hider bots take their spots during the hide phase", str(placed))
+	check(game.session.state["decoys"].size() >= 2, "and leave decoys elsewhere", str(game.session.state["decoys"].size()))
 	var travelled := 0.0
 	var last := bot.global_position
 	var found_at := -1.0

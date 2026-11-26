@@ -23,12 +23,15 @@ export const RESULTS_MS = 8_000
 export const START_AMMO = 100
 export const AMMO_PER_FIND = 3
 export const REROLLS = 2
+export const DECOYS = 3
 
 export interface Member {
   role: 'hider' | 'seeker'
   /** The hider's prop ('' for seekers who started as seekers). */
   prop: PropKind | ''
   rerolls: number
+  /** Decoys left to drop this round (hiders). */
+  decoys: number
   ammo: number
   /** Ms into the round when found, or null. */
   foundAt: number | null
@@ -47,6 +50,8 @@ export interface HideSeekState {
   /** Hiders when the round began: the spark schedule is built from these. */
   hidersAtStart: PlayerId[]
   finds: { seeker: PlayerId; hider: PlayerId; at: number }[]
+  /** Copies of hiders' props dropped as decoys; painting one pops it. */
+  decoys: Decoy[]
   /** Match points (design 5). */
   scores: Record<PlayerId, number>
   winner: 'seekers' | 'hiders' | null
@@ -56,8 +61,19 @@ export interface HideSeekState {
   sought: Record<PlayerId, number>
 }
 
+export interface Decoy {
+  id: string
+  by: PlayerId
+  prop: PropKind
+  /** Where it stands (x, y, z) and how it's turned (quaternion x, y, z, w). */
+  at: [number, number, number]
+  q: [number, number, number, number]
+}
+
 export type HideSeekAction =
   | { type: 'reroll'; as?: PlayerId }
+  | { type: 'decoy'; at: [number, number, number]; q: [number, number, number, number]; as?: PlayerId }
+  | { type: 'pop'; decoy: string; as?: PlayerId }
   | { type: 'shoot'; as?: PlayerId }
   | { type: 'find'; hider: PlayerId; as?: PlayerId }
 
@@ -89,6 +105,7 @@ function deal(s: Pick<HideSeekState, 'seats' | 'scores' | 'sought'> & { round: n
       role: seeker ? 'seeker' : 'hider',
       prop: seeker ? '' : randomProp(random),
       rerolls: seeker ? 0 : REROLLS,
+      decoys: seeker ? 0 : DECOYS,
       ammo: seeker ? START_AMMO : 0,
       foundAt: null,
     }
@@ -105,6 +122,7 @@ function deal(s: Pick<HideSeekState, 'seats' | 'scores' | 'sought'> & { round: n
     members,
     hidersAtStart: s.seats.filter((id) => !seekers.has(id)),
     finds: [],
+    decoys: [],
     scores: s.scores,
     winner: null,
     overAt: null,
@@ -175,6 +193,20 @@ export const hideSeek: GameModule<HideSeekState, HideSeekAction, HideSeekView> =
         const members = { ...s.members, [who]: { ...m, rerolls: m.rerolls - 1, prop: randomProp(ctx.random, m.prop) } }
         return { state: { ...s, members } }
       }
+      case 'decoy': {
+        if (m.role !== 'hider' || !m.prop) return { error: 'Only hiders drop decoys.' }
+        if (m.decoys <= 0) return { error: 'No decoys left.' }
+        if (!isVec(a.at, 3) || !isVec(a.q, 4)) return { error: 'Bad decoy.' }
+        const id = `${who}-${DECOYS - m.decoys + 1}`
+        const decoy: Decoy = { id, by: who, prop: m.prop, at: a.at, q: a.q }
+        return { state: { ...s, members: { ...s.members, [who]: { ...m, decoys: m.decoys - 1 } }, decoys: [...s.decoys, decoy] } }
+      }
+      case 'pop': {
+        if (m.role !== 'seeker') return { error: 'Only seekers pop decoys.' }
+        if (ph !== 'seek') return { error: 'Wait for the seek phase.' }
+        if (!s.decoys.some((d) => d.id === a.decoy)) return { error: 'No such decoy.' }
+        return { state: { ...s, decoys: s.decoys.filter((d) => d.id !== a.decoy) } }
+      }
       case 'shoot': {
         if (m.role !== 'seeker') return { error: 'Only seekers shoot.' }
         if (ph !== 'seek') return { error: 'Wait for the seek phase.' }
@@ -220,6 +252,10 @@ export const hideSeek: GameModule<HideSeekState, HideSeekAction, HideSeekView> =
   // Bots are played by the host's game (it acts for them with `as`); the room
   // only needs to know they can be seated.
   bot: () => null,
+}
+
+function isVec(v: unknown, n: number): boolean {
+  return Array.isArray(v) && v.length === n && v.every((x) => typeof x === 'number' && Number.isFinite(x))
 }
 
 /** Decide the round if it's over. */

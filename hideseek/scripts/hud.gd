@@ -4,7 +4,7 @@ extends CanvasLayer
 ## seekers' blindfold in the hide phase, and the hider's edge flash.
 
 ## Shown on phones with the touch diagnostics, so a screenshot says which build it is.
-const VERSION := "build 2026-11-25e"
+const VERSION := "build 2026-11-25f"
 
 const EDGE_SHADER := """
 shader_type canvas_item;

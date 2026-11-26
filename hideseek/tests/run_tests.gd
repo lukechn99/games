@@ -383,6 +383,30 @@ func _test_phone_controls_after_turning() -> void:
 	var edge := 120.0
 	check(c._stick_home.x - Controls.STICK > edge * 0.8 and vp.size.y - (c._stick_home.y + Controls.STICK) > edge * 0.8,
 		"the stick rests clear of the left and bottom edges (iPhone system swipes)", str(c._stick_home))
+	# Safari's delayed fake mouse clicks after a tap must not grab the stick;
+	# a stick left "held" by a lost finger is taken over by the next thumb.
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.position = c._stick_home
+	click.pressed = true
+	c._input(click)
+	check(c._stick_finger < 0, "a stray mouse click on a phone doesn't grab the stick")
+	var t1 := InputEventScreenTouch.new()
+	t1.index = 0
+	t1.pressed = true
+	t1.position = c._stick_home
+	c._input(t1)                           # its release never arrives
+	var t2 := InputEventScreenTouch.new()
+	t2.index = 1
+	t2.pressed = true
+	t2.position = c._stick_home + Vector2(10, 0)
+	c._input(t2)
+	var d := InputEventScreenDrag.new()
+	d.index = 1
+	d.position = t2.position + Vector2(0, -60)
+	c._input(d)
+	c._process(0.016)
+	check(c._stick_finger == 1 and c.input.move.y > 0.5, "a new thumb takes over a stick left held", "finger %d move %v" % [c._stick_finger, c.input.move])
 	c.set_role("seeker")
 	check(c._buttons.has("fire") and c._buttons["fire"]["label"] == "Shoot", "seekers get Shoot")
 	vp.free()

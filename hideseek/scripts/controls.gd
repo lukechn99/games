@@ -25,7 +25,6 @@ var _laid_out_for := Vector2.ZERO
 var _last_touch_ms := -100000
 var _interruptions := -1
 var _check_t := 0.0
-const MOUSE_FINGER := 99             # a thumb that arrived as mouse events
 ## Touch diagnostics shown on phones while we chase the iPhone stick bug.
 var counts := {"touch": 0, "drag": 0, "mbtn": 0, "mmove": 0}
 
@@ -115,11 +114,7 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag:
 		_last_touch_ms = Time.get_ticks_msec()
 		_drag(event)
-	elif touching and (event is InputEventMouseButton or event is InputEventMouseMotion) and Time.get_ticks_msec() - _last_touch_ms > 400:
-		# On a touch screen with no touch events arriving (some phone
-		# browsers in a frame only send mouse ones): treat the mouse as a
-		# thumb, so the stick and buttons still work.
-		_mouse_as_thumb(event)
+
 	elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		input.look += event.relative * MOUSE_LOOK
 	elif event is InputEventMouseButton and event.pressed and not touching:
@@ -143,20 +138,6 @@ func _input(event: InputEvent) -> void:
 			JOY_BUTTON_RIGHT_SHOULDER: input.fire = true
 
 
-func _mouse_as_thumb(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		var t := InputEventScreenTouch.new()
-		t.index = MOUSE_FINGER
-		t.position = event.position
-		t.pressed = event.pressed
-		_touch(t)
-	elif event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
-		var d := InputEventScreenDrag.new()
-		d.index = MOUSE_FINGER
-		d.position = event.position
-		_drag(d)
-
-
 ## Let go of the stick, the look finger and every button.
 func release_all() -> void:
 	_stick_finger = -1
@@ -173,7 +154,10 @@ func _touch(e: InputEventScreenTouch) -> void:
 				_button_fingers[e.index] = name
 				input.set(name, true)
 				return
-		if e.position.x < get_viewport_rect().size.x * 0.42 and _stick_finger < 0:
+		# A new thumb on the left always takes the stick, even if an old
+		# finger never reported letting go (Safari can swallow that), so the
+		# stick can't get stuck "held".
+		if e.position.x < get_viewport_rect().size.x * 0.42:
 			_stick_finger = e.index
 			_stick_origin = e.position
 			_stick_at = e.position

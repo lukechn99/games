@@ -24,7 +24,7 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "
 TILE = {
     "barn_siding": 2.4, "trim": 1.2, "barn_roof": 2.0, "house_siding": 1.8,
     "shingles": 2.0, "silo_metal": 2.0, "floor": 2.4, "grass": 3.0,
-    "dirt": 3.0, "concrete": 2.0, "straw": 2.0,
+    "dirt": 3.0, "concrete": 2.0, "straw": 2.0, "wallpaper": 1.2, "plaster": 2.0,
 }
 
 _y, _x = np.mgrid[0:N, 0:N] / N          # 0..1, row 0 at the top
@@ -252,7 +252,29 @@ def straw():
     return col, normals(top * 0.8 + litter * 0.2, 4.0)
 
 
-SURFACES = {f.__name__: f for f in [barn_siding, trim, barn_roof, house_siding, shingles, silo_metal, floor, grass, dirt, concrete, straw]}
+def wallpaper():
+    """Farmhouse wallpaper: soft cream with sage stripes and a tiny sprig
+    pattern between them."""
+    stripes = 0.5 + 0.5 * np.cos(_x * 2 * np.pi * 8)
+    band = smooth(0.82, 0.9, stripes)
+    col = lerp(rgb(0.93, 0.89, 0.8), rgb(0.72, 0.8, 0.68), band * 0.55)
+    gx = (_x * 8 + 0.5) % 1
+    gy = (_y * 16) % 1
+    dot = smooth(0.06, 0.03, np.hypot(gx - 0.5, gy - 0.5) * np.array(1.0))
+    col = lerp(col, rgb(0.86, 0.55, 0.5), dot * 0.6)
+    col *= (0.96 + 0.05 * noise(121, cells=4, beta=2.2)[..., None])
+    return col, normals(noise(122, cells=60, beta=1.0) * 0.2, 1.5)
+
+
+def plaster():
+    """Painted plaster: warm white with a faint trowel texture."""
+    base = noise(131, cells=6, beta=2.0)
+    fine = noise(132, cells=90, beta=0.9)
+    col = rgb(0.92, 0.9, 0.85) * (0.95 + 0.05 * base[..., None] + 0.03 * fine[..., None])
+    return col, normals(base * 0.3 + fine * 0.1, 1.5)
+
+
+SURFACES = {f.__name__: f for f in [barn_siding, trim, barn_roof, house_siding, shingles, silo_metal, floor, grass, dirt, concrete, straw, wallpaper, plaster]}
 
 
 def save(name):

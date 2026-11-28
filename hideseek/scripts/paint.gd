@@ -70,7 +70,9 @@ class Splat extends Node3D:
 	var _mat: StandardMaterial3D
 	static var _tex: Texture2D
 
-	static func create(parent: Node, point: Vector3, normal: Vector3, c: Color, rng: RandomNumberGenerator) -> Splat:
+	## `size` is the splat's width: smaller on small props (Props.splat_size)
+	## so it doesn't hang off their edges.
+	static func create(parent: Node, point: Vector3, normal: Vector3, c: Color, rng: RandomNumberGenerator, size := 0.56) -> Splat:
 		var s := Splat.new()
 		s._mat = StandardMaterial3D.new()
 		s._mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -78,15 +80,17 @@ class Splat extends Node3D:
 		s._mat.albedo_color = c
 		s._mat.albedo_texture = blob()
 		s._mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		s._mat.render_priority = 1
 		var z := normal.normalized()
 		var x := z.cross(Vector3.UP if absf(z.y) < 0.9 else Vector3.RIGHT).normalized()
 		var b := Basis(x, z.cross(x), z) * Basis(Vector3.BACK, rng.randf() * TAU)
 		parent.add_child(s)
-		s.global_transform = Transform3D(b, point + z * 0.03)
-		s._quad(Vector2.ZERO, rng.randf_range(0.5, 0.62))
+		s.global_transform = Transform3D(b, point + z * 0.012)
+		var k := size / 0.56
+		s._quad(Vector2.ZERO, rng.randf_range(0.5, 0.56) * k)
 		for i in rng.randi_range(4, 6):
 			var a := rng.randf() * TAU
-			s._quad(Vector2(cos(a), sin(a)) * rng.randf_range(0.28, 0.45), rng.randf_range(0.07, 0.14))
+			s._quad(Vector2(cos(a), sin(a)) * rng.randf_range(0.2, 0.3) * k, rng.randf_range(0.06, 0.11) * k)
 		return s
 
 	static func blob() -> Texture2D:

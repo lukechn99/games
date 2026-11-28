@@ -12,12 +12,11 @@ extends Node3D
 ##
 ## Test links (practice): ?role=hider|seeker, ?hide=SECONDS, ?t=SECONDS
 ## (start the clock there), ?bots=N, ?at=X,Z[,Y]&look=YAW,PITCH (degrees),
-## ?seed=N, ?sparknow, ?relief=off, ?shadows=off, ?ambient=E&sunscale=K.
+## ?seed=N, ?sparknow, ?relief=off, ?shadows=off, ?grass=off, ?lamps=off (each =on to
+## force it where there is no graphics card), ?ambient=E&sunscale=K.
 
 const PRACTICE_HIDE := 15.0      # practice hides for 15 s; rooms use 45
 const SEND_EVERY := 1.0 / 12.0
-const SHIRTS := [Color(0.75, 0.2, 0.18), Color(0.2, 0.5, 0.3), Color(0.85, 0.6, 0.15), Color(0.45, 0.3, 0.65),
-	Color(0.15, 0.5, 0.7), Color(0.8, 0.35, 0.55), Color(0.4, 0.4, 0.4), Color(0.6, 0.45, 0.25), Color(0.1, 0.3, 0.6), Color(0.6, 0.7, 0.2)]
 
 var session: Session
 var hud: Hud
@@ -48,8 +47,16 @@ var _got := 0
 
 func _ready() -> void:
 	_query = _read_query()
+	# No graphics card (software drawing, as in headless test browsers):
+	# leave out the extras so the game still runs at a few frames a second.
+	# Real phones and computers never take this path.
+	var soft := _software_drawing()
+	var extra := "off" if soft else "on"
 	Props.relief = _query.get("relief", "on") != "off"
-	TestBarn.environment(self, _query.get("shadows", "on") != "off", float(_query.get("sunscale", "-1")), float(_query.get("ambient", "-1")))
+	Meadow.enabled = _query.get("grass", extra) != "off"
+	Props.house_lamps = _query.get("lamps", extra) != "off"
+	var shadows: bool = _query.get("shadows", extra) != "off"
+	TestBarn.environment(self, shadows, float(_query.get("sunscale", "-1")), float(_query.get("ambient", "-1")))
 	TestBarn.build(self)
 	for body in get_node("Scenery").get_children():
 		if body is StaticBody3D:
@@ -59,7 +66,7 @@ func _ready() -> void:
 	add_child(_paint_root)
 	hud = Hud.new()
 	add_child(hud)
-	hud.shadows_on = _query.get("shadows", "on") != "off"
+	hud.shadows_on = shadows
 	if _query.has("touch"):          # test switch: the phone layout on a computer
 		hud.controls.touching = true
 	session = Session.new()
@@ -72,6 +79,8 @@ func _ready() -> void:
 	if not in_room and _query.has("role"):
 		_force_role(_query["role"])
 	_rng.seed = hash(["game", int(_query.get("seed", "0"))])
+	if _query.has("lineup"):
+		_lineup()
 	hud.toast("Joining the round…" if in_room else "Practice: you and %d bots" % int(_query.get("bots", "3")), 3.0)
 	hud.cover(true)
 	_warm = 12
@@ -89,6 +98,47 @@ func _force_role(want: String) -> void:
 			s["members"]["me"] = a
 			s["hidersAtStart"] = s["seats"].filter(func(x): return s["members"][x]["role"] == "hider")
 			return
+
+
+## Test link ?lineup: four farmhands in front of the yard camera, one
+## idle, two walking on the spot, one jumping (for pictures of the seeker).
+var _line: Array = []
+var _line_t := 0.0
+
+
+func _software_drawing() -> bool:
+	var gpu := RenderingServer.get_video_adapter_name().to_lower()
+	if OS.has_feature("web"):
+		# Browsers report "WebKit WebGL"; the real adapter is behind an extension.
+		gpu = str(JavaScriptBridge.eval("(function(){try{var g=document.createElement('canvas').getContext('webgl2');var e=g&&g.getExtension('WEBGL_debug_renderer_info');return e?g.getParameter(e.UNMASKED_RENDERER_WEBGL):''}catch(x){return ''}})()", true)).to_lower()
+	return gpu.contains("swiftshader") or gpu.contains("llvmpipe") or gpu.contains("software")
+
+
+func _lineup() -> void:
+	for i in 4:
+		var f := Farmhand.new()
+		f.colour = Farmhand.colour_at(i)
+		f.position = Vector3(-2.4 + i * 1.6, 0, 15.5)
+		f.rotation.y = -0.45 + i * 0.3
+		add_child(f)
+		_line.append(f)
+
+
+func _animate_lineup(delta: float) -> void:
+	_line_t += delta
+	for i in _line.size():
+		var f: Farmhand = _line[i]
+		var base := Vector3(-2.4 + i * 1.6, 0, 15.5)
+		var pos := base
+		var floor := 1
+		if i == 1 or i == 2:
+			pos += f.basis * Vector3(0, 0, -1) * _line_t * (2.5 if i == 1 else 4.5)
+		if i == 3:
+			var j := fmod(_line_t, 1.2)
+			pos.y = maxf(0.0, 7.2 * j - 10.0 * j * j)
+			floor = 1 if pos.y <= 0.0 else 0
+		f.animate(delta, pos, floor)
+		f.position = Vector3(base.x, pos.y, base.z)
 
 
 func _now_s() -> float:
@@ -141,7 +191,7 @@ func _new_round() -> void:
 		p.id = id
 		p.role = m["role"]
 		p.kind = m["prop"]
-		p.shirt = SHIRTS[seats.find(id) % SHIRTS.size()]
+		p.shirt = Farmhand.colour_at(seats.find(id))
 		var mine: bool = id == session.me
 		var bot: bool = session.is_bot(id) or (not session.in_room and id != "me")
 		var run_bot: bool = bot and session.is_host
@@ -226,7 +276,7 @@ func _label(p: Player, text: String) -> void:
 	var l := Label3D.new()
 	l.name = "Name"
 	l.text = text
-	l.position = Vector3(0, 2.05, 0)
+	l.position = Vector3(0, 1.95, 0)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.font_size = 40
 	l.pixel_size = 0.005
@@ -277,6 +327,8 @@ func _update_members() -> void:
 # ----------------------------------------------------------------- play --
 
 func _process(delta: float) -> void:
+	if not _line.is_empty():
+		_animate_lineup(delta)
 	if _warm > 0:
 		_warm -= 1
 		if _warm == 0:
@@ -464,7 +516,13 @@ func _on_paint_hit(collider: Object, point: Vector3, normal: Vector3, color: Col
 		return
 	if collider is Player:
 		return
-	Paint.Splat.create(_paint_root, point, normal, color, _rng)
+	Paint.Splat.create(_paint_root, point, normal, color, _rng, _splat_size(collider))
+
+
+func _splat_size(collider: Object) -> float:
+	if collider is Node and collider.has_meta("prop"):
+		return Props.splat_size(collider.get_meta("prop"))
+	return 0.56
 
 
 ## Someone else's shot: show it fly and splat (they decide what it found).
@@ -480,7 +538,7 @@ func _remote_shot(d: Dictionary) -> void:
 	p.global_position = origin
 	p.hit.connect(func(c, pt, n):
 		if not c is Player and not (c is StaticBody3D and c.has_meta("decoy")):
-			Paint.Splat.create(_paint_root, pt, n, Paint.COLORS[ci], _rng))
+			Paint.Splat.create(_paint_root, pt, n, Paint.COLORS[ci], _rng, _splat_size(c)))
 
 
 ## A summary of what this game sees, for the end-to-end test
@@ -495,7 +553,7 @@ func _publish_debug(ph: String) -> void:
 		kinds[id] = p.kind
 		roles[id] = p.role
 	var d := {"me": session.me, "host": session.is_host, "round": _round, "phase": ph, "roles": roles, "kinds": kinds,
-		"seen": seen, "shotsSeen": _shots_seen, "sent": _sent, "got": _got, "finds": session.state.get("finds", []).size(), "bots": brains.size()}
+		"seen": seen, "shotsSeen": _shots_seen, "sent": _sent, "got": _got, "finds": session.state.get("finds", []).size(), "bots": brains.size(), "fps": Engine.get_frames_per_second()}
 	JavaScriptBridge.eval("window.hsDebug = %s" % JSON.stringify(d), true)
 
 

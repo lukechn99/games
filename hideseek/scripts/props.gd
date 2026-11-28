@@ -31,6 +31,7 @@ const MODELS := "res://assets/models/%s.glb"
 const SPEED := {"small": 1.1, "medium": 0.95, "large": 0.8}
 
 static var _meshes := {}
+static var house_lamps := true   # ?lamps=off (main.gd)
 static var relief := true        # normal maps; off on Low (and ?relief=off)
 static var _material: StandardMaterial3D
 
@@ -49,6 +50,32 @@ static func display_name(kind: String) -> String:
 
 static func speed_factor(kind: String) -> float:
 	return SPEED[KINDS[kind]["class"]]
+
+
+## The solid shape of a prop, and where it sits (origin is the bottom
+## centre). Round props get cylinders so paint lands on their surface, not
+## on the corners of a box around them.
+const ROUND := {"trash_can": 0.3, "bucket": 0.17, "tire": 0.38}
+
+
+static func shape(kind: String) -> Shape3D:
+	var sz := size(kind)
+	if ROUND.has(kind):
+		var c := CylinderShape3D.new()
+		c.radius = ROUND[kind]
+		c.height = sz.y
+		return c
+	var b := BoxShape3D.new()
+	b.size = sz
+	return b
+
+
+## How big a paint splat can be on this prop: it mustn't hang off the edges.
+static func splat_size(kind: String) -> float:
+	var sz := size(kind)
+	var dims := [sz.x, sz.y, sz.z]
+	dims.sort()
+	return clampf(dims[1] * 0.75, 0.16, 0.56)
 
 
 static func leans(kind: String) -> bool:
@@ -146,49 +173,6 @@ static func _build(kind: String) -> ArrayMesh:
 	st.generate_tangents()
 	var m := st.commit()
 	m.surface_set_material(0, material())
-	return m
-
-
-## How other players see a seeker: a farmhand in overalls, a plaid shirt
-## and a straw hat, carrying a paintball marker. One merged mesh, feet at
-## the origin, facing -Z. `shirt` tells seekers apart.
-static func avatar(shirt: Color) -> ArrayMesh:
-	var key := "avatar_%s" % shirt.to_html()
-	if _meshes.has(key):
-		return _meshes[key]
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var denim := Color(0.26, 0.36, 0.55)
-	var skin := Color(0.88, 0.68, 0.52)
-	var straw := Color(0.9, 0.77, 0.42)
-	var boot := Color(0.22, 0.15, 0.1)
-	for x in [-0.11, 0.11]:
-		_box(st, Vector3(0.14, 0.12, 0.24), Vector3(x, 0.06, -0.03), boot)
-		_box(st, Vector3(0.15, 0.72, 0.17), Vector3(x, 0.48, 0), denim)
-	_box(st, Vector3(0.4, 0.5, 0.24), Vector3(0, 1.08, 0), shirt)
-	_box(st, Vector3(0.36, 0.34, 0.25), Vector3(0, 0.98, 0), denim)
-	for x in [-0.12, 0.12]:
-		_box(st, Vector3(0.05, 0.3, 0.255), Vector3(x, 1.2, 0), denim)
-	for x in [-0.26, 0.26]:
-		_box(st, Vector3(0.11, 0.5, 0.12), Vector3(x, 1.05, -0.04), shirt)
-		_box(st, Vector3(0.1, 0.1, 0.1), Vector3(x, 0.78, -0.08), skin)
-	_box(st, Vector3(0.1, 0.08, 0.1), Vector3(0, 1.37, 0), skin)
-	var head := SphereMesh.new()
-	head.radius = 0.14
-	head.height = 0.3
-	head.radial_segments = 12
-	head.rings = 6
-	_add(st, head, Transform3D(Basis(), Vector3(0, 1.53, 0)), skin)
-	_cyl(st, 0.3, 0.3, 0.025, Vector3(0, 1.64, 0), straw)
-	_cyl(st, 0.14, 0.16, 0.14, Vector3(0, 1.72, 0), straw)
-	_cyl(st, 0.162, 0.162, 0.03, Vector3(0, 1.67, 0), Color(0.6, 0.15, 0.12))
-	# Paintball marker held in front.
-	_box(st, Vector3(0.08, 0.12, 0.42), Vector3(0.16, 0.92, -0.32), Color(0.15, 0.15, 0.17))
-	_cyl(st, 0.07, 0.07, 0.16, Vector3(0.16, 1.05, -0.26), Color(0.95, 0.35, 0.6))
-	st.generate_tangents()
-	var m := st.commit()
-	m.surface_set_material(0, material())
-	_meshes[key] = m
 	return m
 
 

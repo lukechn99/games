@@ -30,6 +30,7 @@ func _run() -> void:
 	await _test_jump_height()
 	await _test_rake_leans_on_lock()
 	await _test_paintball_hits()
+	await _test_paint_lands_on_round_props()
 	await _test_edge_flash()
 	await _test_phone_controls_after_turning()
 	await _test_bots_play_a_round()
@@ -331,6 +332,39 @@ func _test_paintball_hits() -> void:
 	w.free()
 
 
+## Paint used to stop at the corners of a box around round props and hang
+## in the air. Shoot each round prop on the diagonal: the hit must be on its
+## round surface, and its shape must match its model.
+func _test_paint_lands_on_round_props() -> void:
+	var bad := []
+	for kind in Props.ROUND:
+		var w := Node3D.new()
+		root.add_child(w)
+		w.add_child(TestBarn.prop_body(kind, Transform3D()))
+		var r: float = Props.ROUND[kind]
+		var mesh_r := Props.mesh(kind).get_aabb().size.x / 2
+		if absf(mesh_r - r) > 0.03:
+			bad.append("%s shape r %.2f vs model %.2f" % [kind, r, mesh_r])
+		var h := Props.size(kind).y
+		var got := []
+		var from := Vector3(2, h * 0.5, 2)
+		var shot := Paint.fire(w, Transform3D(Basis.looking_at(Vector3(0, h * 0.5, 0) - from), from), Color.RED, RID())
+		shot.velocity = (Vector3(0, h * 0.5, 0) - shot.global_position).normalized() * Paint.SPEED
+		shot.hit.connect(func(_c, p, _n): got.append(p))
+		for i in 20:
+			await physics_frame
+		if got.is_empty():
+			bad.append(kind + " not hit")
+		else:
+			var p: Vector3 = got[0]
+			var d := Vector2(p.x, p.z).length()
+			if absf(d - r) > 0.04:
+				bad.append("%s hit %.2f from the middle, surface at %.2f" % [kind, d, r])
+		w.free()
+	check(bad.is_empty(), "paint lands on round props' surfaces (trash can, bucket, tire)", str(bad))
+	check(Props.splat_size("bucket") < 0.3 and Props.splat_size("bale") <= 0.45, "splats are sized to the prop", "bucket %.2f bale %.2f" % [Props.splat_size("bucket"), Props.splat_size("bale")])
+
+
 func _test_edge_flash() -> void:
 	var hud := Hud.new()
 	root.add_child(hud)
@@ -456,8 +490,39 @@ func _test_bots_play_a_round() -> void:
 	check(travelled > 15.0, "the seeker bot walks the farm", "%.0f m" % travelled)
 	check(shots >= 1, "and paints things", "%d shots" % shots)
 	check(found_at > 0.0, "and finds a hider within the round", "after %.0f s" % found_at)
+	# Grass: tufts across the lawn, none indoors or on the driveway, the
+	# long ones against the walls.
+	var grass: Array = Meadow.plan()["xforms"]
+	var indoors := 0
+	var long_by_barn := 0
+	for t: Transform3D in grass:
+		var p := t.origin
+		if (absf(p.x) < 8.0 and absf(p.z) < 12.0) or (absf(p.x) < 1.4 and p.z > 17.0 and p.z < 33.0) or (p.x > -24.0 and p.x < -16.0 and p.z > -1.5 and p.z < 9.5):
+			indoors += 1
+		if t.basis.get_scale().y > 1.4 and absf(p.x) > 8.1 and absf(p.x) < 9.2 and absf(p.z) < 11.0:
+			long_by_barn += 1
+	check(game.find_child("GrassTufts", true, false) != null and grass.size() > 4000 and grass.size() < 16000, "grass tufts grow over the lawn", str(grass.size()))
+	check(indoors == 0, "but not in the barn, the house or on the driveway", str(indoors))
+	check(long_by_barn > 50, "and grow long against the barn walls", str(long_by_barn))
+	# The edges: walls above fence height on every side, and room to walk
+	# right up to them.
+	var space := game.get_world_3d().direct_space_state
+	var closed := []
+	for ray in [[Vector3(0, 3.5, 20), Vector3(0, 3.5, 60)], [Vector3(5, 3.5, -20), Vector3(5, 3.5, -60)], [Vector3(20, 3.5, 0), Vector3(60, 3.5, 0)], [Vector3(-27, 3.5, -20), Vector3(-60, 3.5, -20)], [Vector3(0, 0.5, 20), Vector3(0, 0.5, 60)]]:
+		var q := PhysicsRayQueryParameters3D.create(ray[0], ray[1], TestBarn.LAYER_WORLD)
+		var hit := space.intersect_ray(q)
+		closed.append(hit.has("position") and hit["position"].distance_to(ray[0]) < 13.0)
+	check(not closed.has(false), "the farm is walled in on all four sides, gate included", str(closed))
 	var nav: NavigationRegion3D = game.get_node_or_null("Nav")
 	if nav:
+		var map := nav.get_navigation_map()
+		var house := TestBarn.HOUSE
+		var gate := NavigationServer3D.map_get_path(map, Vector3(0, 0, 18), Vector3(0, 0, 29.5), true)
+		check(gate.size() > 1 and gate[gate.size() - 1].distance_to(Vector3(0, 0, 29.5)) < 0.8, "bots can walk the driveway down to the gate", str(gate[gate.size() - 1]) if gate.size() else "no path")
+		var into := NavigationServer3D.map_get_path(map, Vector3(0, 0, 18), house + Vector3(-2, 0.3, 1.2), true)
+		var upstairs := NavigationServer3D.map_get_path(map, house + Vector3(2, 0.3, -2), house + Vector3(-2, TestBarn.HOUSE_UP, 1), true)
+		check(into.size() > 1 and into[into.size() - 1].distance_to(house + Vector3(-2, 0.3, 1.2)) < 0.6, "bots can walk into the farmhouse kitchen", str(into[into.size() - 1]) if into.size() else "no path")
+		check(upstairs.size() > 1 and upstairs[upstairs.size() - 1].y > TestBarn.HOUSE_UP - 0.4, "and up its stairs to the bedrooms", str(upstairs[upstairs.size() - 1]) if upstairs.size() else "no path")
 		var path := NavigationServer3D.map_get_path(nav.get_navigation_map(), Vector3(0, 0, 18), Vector3(-2, TestBarn.LOFT_Y, 8), true)
 		check(path.size() > 1 and path[path.size() - 1].y > TestBarn.LOFT_Y - 0.4, "bots can walk from the yard up to the loft", str(path[path.size() - 1]) if path.size() else "no path")
 	game.free()

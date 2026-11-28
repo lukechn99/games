@@ -182,13 +182,23 @@ func edge_strength() -> float:
 	return (_edge.material as ShaderMaterial).get_shader_parameter("strength")
 
 
+## A cross with a gap and a small circle in the middle, outlined in dark so
+## it shows on red siding and on grass alike (owner: bigger, easier to aim).
 func _draw_cross() -> void:
-	var c := Color(1, 1, 1, 0.9)
-	_cross.draw_circle(Vector2.ZERO, 3.0, c)
+	var ink := Color(1, 1, 1, 0.95)
+	var edge := Color(0.05, 0.07, 0.1, 0.75)
+	var gap := 7.0
+	var arm := 16.0
+	for pass_ in 2:
+		var col := edge if pass_ == 0 else ink
+		var w := 4.5 if pass_ == 0 else 2.0
+		for d in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
+			_cross.draw_line(d * gap, d * (gap + arm), col, w, true)
+		_cross.draw_arc(Vector2.ZERO, 4.5, 0, TAU, 20, col, w * 0.7, true)
 	if _marker_left > 0:
 		var r := Color(1, 0.3, 0.4)
 		for d in [Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1)]:
-			_cross.draw_line(d * 8, d * 18, r, 3.0)
+			_cross.draw_line(d.normalized() * 12, d.normalized() * 24, r, 3.0, true)
 
 
 static func _mmss(s: float) -> String:

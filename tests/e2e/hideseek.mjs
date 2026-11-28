@@ -2,9 +2,14 @@
  * End-to-end test of Hide and Seek in a real room: two people in separate
  * Chrome instances plus a computer player, peer to peer through a local
  * PeerJS broker (set up as for run.mjs, with the game exported to
- * public/hideseek and net.js and landscape.js copied beside it).
+ * public/hideseek, with mobile.js, landscape.js, net.js and touch.js copied
+ * beside it). Serve with clean URLs off, or the game loses its ?room=1:
  *
- *   APP_URL=http://127.0.0.1:3100/ node tests/e2e/hideseek.mjs
+ *   echo '{"cleanUrls": false}' > /tmp/serve.json
+ *   npx serve out -l 3100 -c /tmp/serve.json &
+ *   APP_URL=http://127.0.0.1:3100/index.html node tests/e2e/hideseek.mjs
+ *
+ * CONSOLE=1 also shows the pages' console warnings and errors.
  *
  * Each game publishes what it sees as window.hsDebug (main.gd), which this
  * reads from inside each player's game frame.
@@ -31,6 +36,8 @@ async function open(name) {
   const context = await browser.newContext({ viewport: { width: 1000, height: 600 } })
   const page = await context.newPage()
   page.on('pageerror', (e) => console.log(`  [${name} pageerror]`, e.message))
+  // CONSOLE=1: show the pages' console warnings and errors too.
+  if (process.env.CONSOLE) page.on('console', (m) => { if (m.type() !== 'log' && m.type() !== 'info' && m.type() !== 'debug') console.log(`  [${name} ${m.type()}]`, m.text().slice(0, 200)) })
   page.on('dialog', (d) => d.accept())
   return { name, context, page }
 }
@@ -85,11 +92,22 @@ try {
   assert.deepEqual(h.kinds, g.kinds, 'and what everyone is')
   assert.equal(Object.keys(h.roles).length, 4)
   assert.equal(Object.values(h.roles).filter((r) => r === 'seeker').length, 1, 'four players: one seeker')
-  assert.ok(h.host && !g.host && h.bots === 2 && g.bots === 0, 'the host runs both bots')
+  assert.ok(h.host && !g.host && h.bots === 2 && g.bots === 0, `the host runs both bots (host ${h.host}/${g.host}, bots ${h.bots}/${g.bots})`)
   log(`round ${h.round} dealt the same on both: ${JSON.stringify(h.roles)}`)
   await shot(host, 'host-round')
   await shot(guest, 'guest-round')
 
+  // Count position messages at each hop, to say where any go missing:
+  // the guest's game -> its page, and the host's page -> its game.
+  await guest.page.evaluate(() => {
+    window.__fromGame = 0
+    window.addEventListener('message', (e) => { if (e.data?.source === 'hideseek' && e.data.kind === 'relay') window.__fromGame++ })
+  })
+  await host.page.evaluate(() => {
+    const w = document.querySelector('iframe[title="Hide and Seek"]').contentWindow
+    window.__toGame = 0
+    w.addEventListener('message', (e) => { if (e.data?.source === 'game-night' && e.data.kind === 'relay') window.__toGame++ })
+  })
   // The guest walks forward; the host should see them move there.
   const before = (await debug(guest)).seen[g.me]
   await guest.page.locator('iframe[title="Hide and Seek"]').click({ position: { x: 500, y: 300 } })
@@ -106,8 +124,14 @@ try {
   const gNow = (await debug(guest)).seen[g.me]
   const hd = await debug(host, (d) => dist(d.seen[g.me], gNow) < 0.6, 20_000).catch(() => null)
   const hView = hd ? hd.seen[g.me] : (await debug(host)).seen[g.me]
-  assert.ok(dist(before, gNow) > 1.0, `the guest moved (${JSON.stringify(before)} -> ${JSON.stringify(gNow)})`)
-  assert.ok(dist(gNow, hView) < 0.6, `the host sees the guest where they are (${JSON.stringify(gNow)} vs ${JSON.stringify(hView)})`)
+  const traffic = async () => {
+    const [x, y] = await Promise.all([debug(host), debug(guest)])
+    const fromGame = await guest.page.evaluate(() => window.__fromGame)
+    const toGame = await host.page.evaluate(() => window.__toGame)
+    return `guest game sent ${y.sent}, its page got ${fromGame}, host page passed on ${toGame}, host game got ${x.got}, fps ${x.fps ?? '?'}/${y.fps ?? '?'}`
+  }
+  assert.ok(dist(before, gNow) > 1.0, `the guest moved (${JSON.stringify(before)} -> ${JSON.stringify(gNow)}; ${await traffic()})`)
+  assert.ok(dist(gNow, hView) < 0.6, `the host sees the guest where they are (${JSON.stringify(gNow)} vs ${JSON.stringify(hView)}; ${await traffic()})`)
   log(`the guest walked ${dist(before, gNow).toFixed(1)} m; the host sees them within ${dist(gNow, hView).toFixed(2)} m`)
 
   // A human hider rerolls; the other game sees the new prop.

@@ -12,7 +12,7 @@ const DIR := "res://assets/textures/"
 const TILE := {
 	"barn_siding": 2.4, "trim": 1.2, "barn_roof": 2.0, "house_siding": 1.8,
 	"shingles": 2.0, "silo_metal": 2.0, "floor": 2.4, "grass": 3.0,
-	"dirt": 3.0, "concrete": 2.0, "straw": 2.0,
+	"dirt": 3.0, "concrete": 2.0, "straw": 2.0, "wallpaper": 1.2, "plaster": 2.0,
 }
 
 ## How each surface takes the light. Metal shines (design: "metal shine for
@@ -31,6 +31,10 @@ const FINISH := {
 ## Untextured finishes.
 const PLAIN := {
 	"glass": {"color": Color(0.16, 0.22, 0.28), "metallic": 0.4, "roughness": 0.08},
+	"asphalt": {"color": Color(0.2, 0.2, 0.21), "roughness": 0.95},
+	"road_white": {"color": Color(0.85, 0.85, 0.82), "roughness": 0.8},
+	"road_yellow": {"color": Color(0.86, 0.68, 0.16), "roughness": 0.8},
+	"clear_glass": {"color": Color(0.78, 0.88, 0.95), "alpha": 0.16, "roughness": 0.05},
 	"door": {"color": Color(0.17, 0.32, 0.25), "roughness": 0.6},
 	"dark": {"color": Color(0.08, 0.07, 0.07), "roughness": 1.0},
 	"metal": {"color": Color(0.46, 0.48, 0.5), "metallic": 0.6, "roughness": 0.4},
@@ -38,6 +42,14 @@ const PLAIN := {
 	"handle": {"color": Color(0.5, 0.36, 0.22), "roughness": 0.7},
 	"toolbox": {"color": Color(0.72, 0.1, 0.08), "roughness": 0.45},
 	"pegboard": {"color": Color(0.6, 0.48, 0.34), "roughness": 0.9},
+	"fabric": {"color": Color(0.33, 0.52, 0.55), "roughness": 1.0},
+	"fabric2": {"color": Color(0.85, 0.66, 0.3), "roughness": 1.0},
+	"blanket": {"color": Color(0.75, 0.32, 0.3), "roughness": 1.0},
+	"linen": {"color": Color(0.94, 0.93, 0.9), "roughness": 1.0},
+	"cabinet": {"color": Color(0.88, 0.86, 0.78), "roughness": 0.6},
+	"counter": {"color": Color(0.25, 0.27, 0.3), "roughness": 0.4},
+	"appliance": {"color": Color(0.92, 0.93, 0.94), "metallic": 0.2, "roughness": 0.3},
+	"rug": {"color": Color(0.62, 0.3, 0.28), "roughness": 1.0},
 }
 
 static var _mats := {}
@@ -52,6 +64,9 @@ static func material(name: String) -> StandardMaterial3D:
 		m.albedo_color = p["color"]
 		m.metallic = p.get("metallic", 0.0)
 		m.roughness = p.get("roughness", 0.8)
+		if p.has("alpha"):
+			m.albedo_color.a = p["alpha"]
+			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	else:
 		var f: Dictionary = FINISH.get(name, {})
 		m.albedo_texture = _texture(name + "_albedo.jpg.bin")

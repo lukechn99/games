@@ -535,7 +535,111 @@ def tractor():
     return o, dict(target=(0, 0, 0.9), dist=5.6), dict(size=1024, roughness=0.6)
 
 
-BUILDERS = {"bale": bale, "tractor": tractor}
+def combine():
+    """A parked combine harvester (an original design) for the back edge of
+    the farm: a wide header with a reel at the front, a feeder house up to
+    the cab, a grain tank with its unloading auger folded along the side,
+    big lugged drive tyres at the front and small steering tyres at the
+    back. About 5.0 x 7.2 x 4.4 m; forward is +Y. Scenery only."""
+    paint = proc("paint", (0.86, 0.66, 0.16), var=0.08, scale=4, dust=0.4, wear=0.5, wear_col=(0.45, 0.38, 0.3), bump=0.05)
+    rubber = proc("rubber", (0.08, 0.08, 0.085), var=0.15, scale=14, dust=0.2, bump=0.3)
+    rim = proc("rim", (0.86, 0.8, 0.62), var=0.1, scale=8, dust=0.3, wear=0.4, wear_col=(0.45, 0.36, 0.28), bump=0.05)
+    metal = proc("metal", (0.33, 0.34, 0.35), var=0.15, scale=10, dust=0.3, wear=0.4, wear_col=(0.6, 0.6, 0.6), bump=0.1)
+    dark = proc("dark", (0.1, 0.1, 0.11), var=0.1, scale=10, dust=0.15, bump=0.1)
+    glass = proc("glass", (0.18, 0.26, 0.3), var=0.05, scale=3, dust=0.1, bump=0.0)
+    grille = proc("grille", (0.22, 0.22, 0.23), var=0.1, scale=10, dust=0.1, bands=30, bump=0.0)
+    parts = []
+
+    def box(mat, loc, size, bev=0.0, rot=(0, 0, 0)):
+        o = part(mat, "primitive_cube_add", size=1, location=loc, rotation=rot)
+        o.scale = size
+        if bev:
+            c.bevel(o, bev, 2)
+        parts.append(o)
+        return o
+
+    def rod(mat, loc, r, length, rot, verts=10):
+        o = part(mat, "primitive_cylinder_add", vertices=verts, radius=r, depth=length, location=loc, rotation=rot)
+        parts.append(o)
+        return o
+
+    along_x = (0, math.pi / 2, 0)
+    along_y = (math.pi / 2, 0, 0)
+    # Tyres: big drive tyres at the front, small steering ones at the back.
+    for x in (-1.42, 1.42):
+        parts.extend(wheel((rubber, rim, metal), x, 0.55, 0.86, 0.62, 0.5, 20))
+    for x in (-1.08, 1.08):
+        parts.extend(wheel((rubber, rim, metal), x, -2.55, 0.5, 0.3, 0.3, 0))
+    box(metal, (0, 0.55, 0.86), (2.3, 0.22, 0.22))
+    box(metal, (0, -2.55, 0.5), (1.9, 0.18, 0.18))
+    # Body: the threshing housing, with an engine grille and a chopper hood.
+    box(paint, (0, -1.05, 2.0), (2.05, 3.9, 2.0), 0.08)
+    box(dark, (0, -1.05, 0.95), (1.7, 3.6, 0.3))
+    for x in (-1.04, 1.04):
+        box(grille, (x, -2.2, 2.45), (0.03, 1.2, 0.7))
+    box(paint, (0, -3.15, 1.45), (1.7, 0.55, 1.0), 0.06, (0.35, 0, 0))
+    box(dark, (0, -3.3, 0.9), (1.5, 0.35, 0.25))
+    # Grain tank on top, with a lip, and the auger folded along the left.
+    box(paint, (0, -1.2, 3.45), (2.2, 2.3, 0.9), 0.06)
+    box(metal, (0, -1.2, 3.93), (2.25, 2.35, 0.06))
+    rod(paint, (-1.28, -0.9, 3.65), 0.15, 4.4, along_y, 14)
+    rod(paint, (-1.28, -3.1, 3.65), 0.17, 0.12, along_y, 14)
+    box(dark, (-1.28, 1.25, 3.5), (0.22, 0.22, 0.3))
+    box(metal, (-1.28, -2.95, 3.0), (0.1, 0.1, 1.2))
+    # Exhaust and air intake behind the tank.
+    rod(dark, (0.6, -2.55, 3.55), 0.07, 1.1, (0, 0, 0))
+    rod(metal, (-0.4, -2.5, 3.3), 0.24, 0.5, (0, 0, 0), 16)
+    # Cab: glass box on a pedestal, a roof with an overhang, black posts,
+    # and a ladder down the left side.
+    box(paint, (0, 0.95, 2.6), (1.5, 1.35, 0.4), 0.04)
+    box(glass, (0, 1.05, 3.4), (1.4, 1.3, 1.2))
+    for x in (-0.72, 0.72):
+        for y in (0.42, 1.68):
+            box(dark, (x, y, 3.4), (0.07, 0.07, 1.22))
+    box(paint, (0, 1.05, 4.1), (1.7, 1.6, 0.18), 0.05)
+    box(dark, (0, 1.05, 4.22), (0.5, 0.3, 0.08))
+    for x in (-1.12, -1.42):
+        box(dark, (x, 1.25, 1.6), (0.05, 0.05, 2.4), rot=(0.12, 0, 0))
+    for i in range(7):
+        box(dark, (-1.27, 1.25 - i * 0.04, 0.55 + i * 0.36), (0.32, 0.05, 0.04))
+    box(metal, (-1.05, 1.0, 2.82), (0.35, 0.9, 0.05))
+    # Feeder house, sloping down from under the cab to the header.
+    box(paint, (0, 2.05, 1.2), (1.25, 1.6, 0.75), 0.05, (-0.62, 0, 0))
+    # Header: a wide trough with a cutter bar, crop dividers at the ends,
+    # and the reel turning over it on two arms.
+    hy = 3.05
+    box(paint, (0, hy, 0.28), (4.9, 1.15, 0.08))
+    box(paint, (0, hy - 0.55, 0.75), (4.9, 0.12, 1.0), 0.03)
+    for x in (-2.45, 2.45):
+        box(paint, (x, hy, 0.6), (0.08, 1.2, 0.72), 0.02)
+        cone = part(paint, "primitive_cone_add", vertices=8, radius1=0.16, radius2=0.0, depth=0.6, location=(x, hy + 0.85, 0.35), rotation=(-math.pi / 2, 0, 0))
+        parts.append(cone)
+    box(metal, (0, hy + 0.6, 0.27), (4.9, 0.12, 0.05))
+    for i in range(24):
+        box(metal, (-2.3 + i * 0.2, hy + 0.7, 0.27), (0.05, 0.18, 0.03))
+    rod(metal, (0, hy + 0.15, 0.45), 0.13, 4.7, along_x, 12)
+    ry, rz = hy + 0.25, 1.25
+    rod(metal, (0, ry, rz), 0.06, 4.8, along_x)
+    for x in (-2.2, 2.2):
+        box(paint, (x, (ry + hy - 0.6) / 2, (rz + 1.35) / 2), (0.08, 0.95, 0.1), rot=(-0.2, 0, 0))
+        for k in range(6):
+            a = math.tau * k / 6
+            box(dark, (x, ry + math.sin(a) * 0.28, rz + math.cos(a) * 0.28), (0.04, 0.04, 0.56), rot=(a, 0, 0))
+    for k in range(6):
+        a = math.tau * k / 6
+        rod(rim, (0, ry + math.sin(a) * 0.55, rz + math.cos(a) * 0.55), 0.035, 4.6, along_x, 6)
+    o = join(parts, "combine")
+    # join() keeps the last part's origin (up in the reel); put it back on
+    # the ground at the centre, as the game expects.
+    bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
+    o.data.shade_smooth()
+    bpy.ops.object.shade_auto_smooth(angle=math.radians(35))
+    c.apply_all(o)
+    unwrap(o, margin=0.008)
+    return o, dict(target=(0, 0.2, 1.9), dist=11.5), dict(size=1024, roughness=0.6)
+
+
+BUILDERS = {"bale": bale, "tractor": tractor, "combine": combine}
 
 
 def build(name, show=True):

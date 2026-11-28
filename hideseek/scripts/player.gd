@@ -24,6 +24,7 @@ var pitch := -0.15
 var prop_basis := Basis()
 var camera: Camera3D
 
+var _farmhand: Farmhand
 var _shape: CollisionShape3D
 var _visual: MeshInstance3D
 var _pivot: Node3D
@@ -66,9 +67,7 @@ func set_role(r: String, prop := "") -> void:
 	locked = false
 	prop_basis = Basis(Vector3.UP, yaw)
 	if role == "hider":
-		var box := BoxShape3D.new()
-		box.size = Props.size(kind)
-		_shape.shape = box
+		_shape.shape = Props.shape(kind)
 		_visual.mesh = Props.mesh(kind)
 		_visual.visible = true
 	else:
@@ -77,7 +76,13 @@ func set_role(r: String, prop := "") -> void:
 		cap.height = 1.75
 		_shape.shape = cap
 		# Others see a farmhand; your own first-person view shows nothing.
-		_visual.mesh = null if has_camera else Props.avatar(shirt)
+		_visual.mesh = null
+		if not has_camera and _farmhand == null:
+			_farmhand = Farmhand.new()
+			_farmhand.colour = shirt
+			add_child(_farmhand)
+	if _farmhand:
+		_farmhand.visible = role == "seeker"
 	_apply_basis()
 	if _pivot:
 		if role == "hider":
@@ -149,6 +154,8 @@ func _physics_process(delta: float) -> void:
 		_apply_basis()
 	elif role == "seeker":
 		_apply_basis()
+	if _farmhand and _farmhand.visible:
+		_farmhand.animate(delta, global_position, 1 if is_on_floor() else 0)
 	_aim()
 
 
@@ -192,6 +199,8 @@ func _process(delta: float) -> void:
 	yaw = lerp_angle(yaw, _goal_yaw, k)
 	prop_basis = prop_basis.slerp(_goal_basis, k).orthonormalized()
 	_apply_basis()
+	if _farmhand and _farmhand.visible:
+		_farmhand.animate(delta, global_position)
 
 
 func _aim() -> void:
@@ -201,6 +210,8 @@ func _aim() -> void:
 
 func _apply_basis() -> void:
 	_visual.basis = prop_basis if role == "hider" else Basis(Vector3.UP, yaw)
+	if _farmhand:
+		_farmhand.basis = Basis(Vector3.UP, yaw)
 	if role == "hider":
 		_shape.transform = Transform3D(prop_basis, prop_basis * Vector3(0, Props.size(kind).y / 2, 0))
 	else:

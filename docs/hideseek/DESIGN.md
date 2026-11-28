@@ -177,6 +177,20 @@ Built by `hideseek/tools/blender/props.py` (`python3`, bpy), one model at a time
 - **Hay corner** (south-east): 40 bales stacked in steps, four high at the walls down to one at the front, so a bale hider can climb in, plus loose bales.
 - Hiding spots moved to suit (10 now), including a bucket on the workbench, a tire on the stack and a bale on the hay steps.
 
+### 9.3d The farmhouse inside (Decided 2026-11-27: the owner asked for it to be explorable, simple enough to search)
+
+- Ground floor: the front door opens into the living room (sofa, armchair, coffee table on a rug, bookshelf); wide doorways lead to the kitchen (counters, stove, sink, fridge, a table and chairs) and a small bedroom. Straight stairs climb to a landing with a railing and two bedrooms. Doorways 1.2 m, no dead ends. Wallpaper downstairs, plaster upstairs, a warm lamp in each room.
+- The windows are cut through the walls with clear glass, so you can see in and out; the walls stay solid behind the glass (no jumping out, paint lands on the glass).
+- Hider props inside (chairs, crates, buckets, trash cans), hiding spots in four rooms, and patrol points for seeker bots. The walkable map uses 0.15 m cells so bots fit through 1.2 m doorways.
+
+### 9.3e The farm's edges (Decided 2026-11-27, owner)
+
+- Front (+z): white picket fence with the gate open, a dirt driveway from the barn door through the gate, a road and a mailbox outside. East: cypress rows. Back: the combine (Blender model, approved) in front of standing corn. West: leafy trees. Invisible walls 4 m tall; a hazy tree ring on the horizon. Trees and corn are instanced (one draw call per kind); only the near trees cast shadows.
+
+### 9.3f Grass (Decided 2026-11-28, owner: "more natural")
+
+- About 10,600 instanced tufts (12 one-triangle blades each, one draw call, no shadows, a little sway): a noise field makes thick, thin and bare patches; uncut long grass against walls, the fence, tree lines and the corn; 18 bald dirt spots fading into the lawn with dry grass round them; a few stray long or dry tufts. Each tuft takes its colour from the ground texture under it, lit as if facing up, so it blends in. To measure on phones; thin it on lower settings if needed. With no graphics card (software drawing, as in the headless test browsers) the game leaves out the grass, shadows and house lamps; `?grass=`, `?shadows=`, `?lamps=` override.
+
 ### 9.3 Where the models come from (Proposed)
 
 The same way as the racer: low-poly models built by script in Blender (`tools/blender`, `bpy`) to fixed triangle budgets, plus CC0 Kenney kits where they fit (the furniture and nature kits are likely candidates for the farmhouse interior and the trees; to check). Colours from one palette, toon-lit like Animal Karts so both games feel like one family.
@@ -311,3 +325,6 @@ Play it at `/games/hideseek/` once merged (CI tests and exports it on push to `m
 - 2026-11-25: Owner report: the stick lagged and stuttered while looking around was smooth. Cause: it rested in the bottom-left corner, where iPhone Safari delays touches while it checks for its back and home swipes. The stick now rests clear of the edges (it still floats to wherever a thumb lands on the left side), and the buttons sit higher. Phones show a diagnostic line (build, touch counts, fps) for now.
 - 2026-11-25: Owner screenshot: stick "held" with no thumb down. Safari's delayed fake mouse clicks were taken as a thumb by the mouse fallback; fallback removed, touch set like Bulwark, and a new thumb always takes the stick.
 - 2026-11-26: Owner: "just do the joystick from scratch". The phone stick and buttons are now drawn and handled by the page (`hideseek/web/touch.js`, the browser's own touch events), and the game reads the stick and presses each frame; touches that reach the game only look around. Godot's own stick is kept for when the page controls are missing.
+- 2026-11-27: Owner review after playing on a computer: the seeker is a chibi farmhand (straw hat, painted blush, a colour per player, jointed walking legs, jump squash); splats land on round props; a bigger crosshair (a cross with a small circle); the explorable farmhouse (9.3d) with see-through windows; the farm's edges (9.3e) with the combine. Found on the way: the tractor had been drawn 0.5 m into the floor and off its solid boxes (the model's offset was dropped); fixed.
+- 2026-11-28: Natural grass (9.3f), tufts matched to the ground's colour.
+- 2026-11-28: The room test stopped passing: with the new scenery the headless browsers drew at 1 frame a second, and the guest's position messages never reached the host. Fixed by leaving the extras out when there's no graphics card (9.3f); the room test passes again, including the bot step. The test now counts messages at each hop and can show the pages' console (`CONSOLE=1`). Locally, serve the site with clean URLs off and use `APP_URL=…/index.html`: clean URLs drop the game's `?room=1`.
